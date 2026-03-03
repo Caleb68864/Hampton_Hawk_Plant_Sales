@@ -65,10 +65,6 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-gray-100 text-center text-sm text-gray-500 py-3 border-t">
-        Powered by Logic NE
-      </footer>
-
       <QuickFindOverlay />
       <AdminPinModal />
     </div>
