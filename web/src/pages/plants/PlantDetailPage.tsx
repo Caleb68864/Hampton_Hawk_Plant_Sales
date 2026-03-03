@@ -104,7 +104,7 @@ export function PlantDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">{isNew ? 'New Plant' : `Edit: ${plant?.name ?? ''}`}</h1>
         <div className="flex items-center gap-3">
           {!isNew && plant && (

@@ -38,3 +38,75 @@
   border: 2px solid #000;
   vertical-align: middle;
 }
+
+/* Thermal 1" x 2" plant label styles */
+.print-label-page {
+  padding: 1rem;
+}
+
+.print-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.label-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 2in);
+  grid-auto-rows: 1in;
+  justify-content: start;
+  gap: 0.08in;
+}
+
+.plant-label {
+  width: 2in;
+  height: 1in;
+  border: 1px dashed transparent;
+  padding: 0.04in 0.06in;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #fff;
+  overflow: hidden;
+}
+
+.label-name {
+  font-size: 0.13in;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-sku {
+  font-size: 0.1in;
+  line-height: 1.1;
+}
+
+.label-barcode-wrap {
+  height: 0.44in;
+  display: flex;
+  align-items: flex-end;
+}
+
+.label-barcode {
+  width: 100%;
+  height: 100%;
+}
+
+@media print {
+  @page {
+    size: auto;
+    margin: 0.12in;
+  }
+
+  .print-label-page {
+    padding: 0;
+  }
+
+  .plant-label {
+    border-color: transparent;
+  }
+}
