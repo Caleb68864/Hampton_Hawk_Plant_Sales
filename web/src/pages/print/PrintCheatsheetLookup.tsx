@@ -4,68 +4,64 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 export function PrintCheatsheetLookup() {
   return (
     <PrintLayout backTo="/station">
-      <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
-      <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
-        Lookup Station Quick Reference
-      </h2>
+      <header className="mb-4 rounded-xl border-2 border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-hawk-700">Hampton Hawks Plant Sales</p>
+        <h1 className="text-2xl font-bold text-hawk-900">Lookup + Print One-Page Guide</h1>
+        <p className="text-sm text-hawk-800">For volunteers helping families find orders and print paperwork.</p>
+      </header>
 
-      <div className="space-y-5 text-sm">
-        <Section title="A-Z Tabs">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Start at <strong>Station Home</strong> and choose <strong>Lookup &amp; Print</strong>.</li>
-            <li>The Pickup Lookup page shows <strong>A-Z letter tabs</strong> across the top.</li>
-            <li>Click a letter to filter customers whose last name starts with that letter.</li>
-            <li>Click <strong>All</strong> to show all customers.</li>
-            <li>Each tab shows the number of matching orders in a badge.</li>
-          </ul>
-        </Section>
+      <section className="grid grid-cols-12 gap-3 text-[13px] leading-tight">
+        <Card className="col-span-8" title="Find the Right Order Quickly">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Start at <strong>Station Home</strong> → <strong>Lookup &amp; Print</strong>.</li>
+            <li>Search by <strong>order #</strong>, <strong>customer</strong>, <strong>seller</strong>, or <strong>pickup code</strong>.</li>
+            <li>Use status filter for Open / InProgress / Complete / Cancelled.</li>
+            <li>Use A-Z tabs to jump by customer last-name initial.</li>
+            <li>Open the order and verify customer before printing.</li>
+          </ol>
+        </Card>
 
-        <Section title="Keyboard Hotkeys">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Press any <strong>letter key (A-Z)</strong> to jump to that tab instantly.</li>
-            <li>Press <strong>Escape</strong> to clear the current filter and return to All.</li>
-            <li>Use <strong>Arrow Down / Arrow Up</strong> to navigate the list.</li>
-            <li>Press <strong>Enter</strong> to open the selected order.</li>
+        <Card className="col-span-4" title="Hotkeys">
+          <ul className="space-y-1">
+            <li><strong>Ctrl+K</strong> → global Quick Find</li>
+            <li><strong>/</strong> → focus page search</li>
+            <li><strong>A-Z</strong> → jump letter tabs</li>
+            <li><strong>Esc</strong> → clear overlay/filter</li>
           </ul>
-        </Section>
+        </Card>
 
-        <Section title="Quick Find (Ctrl+K)">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Press <strong>Ctrl+K</strong> from anywhere to open the Quick Find overlay.</li>
-            <li>Type a customer name, order number, or pickup code.</li>
-            <li>Results appear instantly as you type.</li>
-            <li>Click a result or press Enter to navigate directly to it.</li>
-          </ul>
-        </Section>
+        <Card className="col-span-6" title="Print Order Sheet">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Open order detail page.</li>
+            <li>Click <strong>Print Order Sheet</strong>.</li>
+            <li>In browser print: 100% scale, header/footer OFF.</li>
+            <li>Hand sheet to pickup team with order number visible.</li>
+          </ol>
+        </Card>
 
-        <Section title="Printing an Order">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Open the order detail page by clicking on an order.</li>
-            <li>Click the <strong>Print Order</strong> button in the Actions section.</li>
-            <li>A print-friendly page opens in a new tab.</li>
-            <li>Click <strong>Print</strong> or use <strong>Ctrl+P</strong> to send to the printer.</li>
-          </ul>
-        </Section>
+        <Card className="col-span-6" title="Print Seller Packet">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Go to <strong>Sellers</strong> → open seller.</li>
+            <li>Click <strong>Print Seller Packet</strong>.</li>
+            <li>Select include/exclude toggles as needed.</li>
+            <li>Print and paper-clip by seller.</li>
+          </ol>
+        </Card>
 
-        <Section title="Printing a Seller Packet">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to the <strong>Sellers</strong> page and select a seller.</li>
-            <li>Click <strong>Print Seller Packet</strong> to open the packet view.</li>
-            <li>Use the toggle controls to include or exclude pre-orders, walk-ups, and completed orders.</li>
-            <li>Each customer gets their own page for easy separation.</li>
-          </ul>
-        </Section>
-      </div>
+        <Card className="col-span-12" title="Label Printing Reminder (Plant Labels)">
+          <p>Go to <strong>/print/labels</strong> and always run <strong>1-up test</strong> first. Use 100% scale and disable “Fit to page”.</p>
+        </Card>
+      </section>
 
       <PrintFooter showNotesLines={false} />
     </PrintLayout>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
-      <h3 className="font-bold text-base border-b border-gray-300 pb-1 mb-2">{title}</h3>
+    <div className={`rounded-lg border border-hawk-200 bg-white p-3 ${className}`}>
+      <h2 className="mb-1 border-b border-hawk-100 pb-1 text-sm font-bold uppercase tracking-wide text-hawk-800">{title}</h2>
       {children}
     </div>
   );

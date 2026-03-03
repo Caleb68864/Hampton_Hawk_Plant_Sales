@@ -4,69 +4,66 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 export function PrintCheatsheetAdmin() {
   return (
     <PrintLayout backTo="/station">
-      <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
-      <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
-        Admin Quick Reference
-      </h2>
+      <header className="mb-4 rounded-xl border-2 border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-hawk-700">Hampton Hawks Plant Sales</p>
+        <h1 className="text-2xl font-bold text-hawk-900">Admin Actions One-Page Guide</h1>
+        <p className="text-sm text-hawk-800">Use when intervention is needed. Always enter a clear reason for audit logs.</p>
+      </header>
 
-      <div className="space-y-5 text-sm">
-        <Section title="SaleClosed Toggle">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Start at <strong>Station Home</strong>, then open <strong>Admin Tools</strong>.</li>
-            <li>Find the <strong>Sale Closed</strong> toggle switch.</li>
-            <li>When enabled, a red &quot;SALE CLOSED&quot; banner appears site-wide and scanning is disabled.</li>
-            <li>Toggle it off to re-open the sale and allow scanning.</li>
-            <li>Requires admin PIN to change.</li>
-          </ul>
-        </Section>
+      <section className="grid grid-cols-12 gap-3 text-[13px] leading-tight">
+        <Card className="col-span-12 border-gold-300 bg-gold-50" title="Admin PIN Required For">
+          <p>Close/Reopen sale • Force Complete • Reset Order • Walk-up inventory override.</p>
+        </Card>
 
-        <Section title="Force Complete an Order">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Open the order detail page.</li>
-            <li>In the <strong>Admin Actions</strong> section, click <strong>Force Complete</strong>.</li>
-            <li>Enter your admin PIN and a reason (e.g., &quot;Customer took partial order&quot;).</li>
-            <li>The order status changes to Complete regardless of fulfillment progress.</li>
-          </ul>
-        </Section>
+        <Card className="col-span-6" title="Close / Reopen Sale">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Settings (Admin Tools).</li>
+            <li>Toggle <strong>Close Sale</strong> or <strong>Reopen Sale</strong>.</li>
+            <li>Enter admin PIN + reason.</li>
+            <li>Confirm banner/state changed.</li>
+          </ol>
+        </Card>
 
-        <Section title="Edit Barcode / SKU">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to <strong>Plants</strong> and find the plant.</li>
-            <li>Click the plant to open its detail page.</li>
-            <li>Edit the <strong>SKU / Barcode</strong> field and save.</li>
-            <li>Future scans will use the updated barcode value.</li>
-          </ul>
-        </Section>
+        <Card className="col-span-6" title="Force Complete Order">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Open order at pickup scan page.</li>
+            <li>Click <strong>Force Complete</strong>.</li>
+            <li>Enter PIN + specific reason.</li>
+            <li>Verify status = Complete.</li>
+          </ol>
+        </Card>
 
-        <Section title="Adjust Inventory">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to the <strong>Inventory</strong> page.</li>
-            <li>Find the plant and click to edit.</li>
-            <li>Adjust the <strong>quantity on hand</strong> value.</li>
-            <li>Save changes. The new count takes effect immediately.</li>
-          </ul>
-        </Section>
+        <Card className="col-span-6" title="Reset Order">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Open order at pickup scan page.</li>
+            <li>Click <strong>Reset</strong>.</li>
+            <li>Enter PIN + reason.</li>
+            <li>Verify fulfillment returned to 0.</li>
+          </ol>
+        </Card>
 
-        <Section title="Reset an Order">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Open the order detail page.</li>
-            <li>In the <strong>Admin Actions</strong> section, click <strong>Reset Order</strong>.</li>
-            <li>Enter your admin PIN and a reason.</li>
-            <li>All fulfillment progress is cleared and the order returns to Open status.</li>
-            <li>Use this if an order was fulfilled incorrectly and needs to start over.</li>
+        <Card className="col-span-6" title="Inventory + Import Controls">
+          <ul className="list-disc pl-4 space-y-1">
+            <li>Inventory page: use Set (absolute) or Adjust (+/-).</li>
+            <li>Imports blocked while sale is closed.</li>
+            <li>After import, review row-level issues before retrying.</li>
           </ul>
-        </Section>
-      </div>
+        </Card>
+
+        <Card className="col-span-12 border-red-200 bg-red-50" title="Good Admin Notes (Examples)">
+          <p>“Customer received substitutions approved by lead.” • “Reset after wrong order scanned at station 2.” • “Sale reopened for late pickup window.”</p>
+        </Card>
+      </section>
 
       <PrintFooter showNotesLines={false} />
     </PrintLayout>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
-      <h3 className="font-bold text-base border-b border-gray-300 pb-1 mb-2">{title}</h3>
+    <div className={`rounded-lg border border-hawk-200 bg-white p-3 ${className}`}>
+      <h2 className="mb-1 border-b border-hawk-100 pb-1 text-sm font-bold uppercase tracking-wide text-hawk-800">{title}</h2>
       {children}
     </div>
   );
