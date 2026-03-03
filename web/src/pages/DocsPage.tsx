@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-type Section = 'scan' | 'saleclosed' | 'admin' | 'walkup' | 'shortcuts' | 'cheatsheets' | 'troubleshooting';
+type Section = 'scan' | 'saleclosed' | 'admin' | 'walkup' | 'shortcuts' | 'cheatsheets' | 'labels' | 'troubleshooting';
 
 const sections: { key: Section; label: string }[] = [
   { key: 'scan', label: 'Scan Workflow' },
@@ -9,6 +9,7 @@ const sections: { key: Section; label: string }[] = [
   { key: 'walkup', label: 'Walk-Up Protection' },
   { key: 'shortcuts', label: 'Keyboard Shortcuts' },
   { key: 'cheatsheets', label: 'Cheat Sheets' },
+  { key: 'labels', label: 'Label Printing' },
   { key: 'troubleshooting', label: 'Common Issues' },
 ];
 
@@ -43,6 +44,7 @@ export function DocsPage() {
         {active === 'walkup' && <WalkUpProtectionSection />}
         {active === 'shortcuts' && <KeyboardShortcutsSection />}
         {active === 'cheatsheets' && <CheatSheetsSection />}
+        {active === 'labels' && <LabelPrintingSection />}
         {active === 'troubleshooting' && <TroubleshootingSection />}
       </div>
     </div>
@@ -261,6 +263,36 @@ function CheatSheetsSection() {
           <p className="text-sm text-gray-500">Closing the sale and final reports</p>
         </a>
       </div>
+    </div>
+  );
+}
+
+
+function LabelPrintingSection() {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold text-gray-800">Thermal Label Printing</h2>
+      <p className="text-gray-600">
+        Plant labels are optimized for 1&quot; x 2&quot; thermal stock using Code128 barcodes.
+      </p>
+      <h3 className="text-lg font-medium text-gray-700">Recommended Printer Settings</h3>
+      <ul className="list-disc list-inside text-gray-600 space-y-1">
+        <li>Size: 2.00in × 1.00in</li>
+        <li>Scale: 100% (disable fit-to-page)</li>
+        <li>Margins: None or Minimum</li>
+        <li>Background graphics: On</li>
+        <li>Media type: Gap / die-cut labels</li>
+      </ul>
+      <h3 className="text-lg font-medium text-gray-700">Calibration Tips</h3>
+      <ul className="list-disc list-inside text-gray-600 space-y-1">
+        <li>Run media / gap calibration whenever label stock changes.</li>
+        <li>Lower print speed if bars appear blurred.</li>
+        <li>Increase darkness only until barcode bars are fully black.</li>
+        <li>Print a single test sheet and scan before batch jobs.</li>
+      </ul>
+      <p className="text-sm text-gray-500">
+        Full reference: <code className="bg-gray-100 px-1 rounded">docs/cheatsheets/thermal-label-printer-settings.md</code>
+      </p>
     </div>
   );
 }
