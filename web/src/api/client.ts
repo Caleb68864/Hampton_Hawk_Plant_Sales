@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { ApiResponse } from '@/types/api.js';
+import { mapToActionableError, toBannerMessage } from '@/utils/errorMessaging.js';
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -11,8 +12,9 @@ apiClient.interceptors.response.use(
   (error: unknown) => {
     if (axios.isAxiosError(error) && error.response?.data) {
       const body = error.response.data as ApiResponse<unknown>;
-      const message = body.message ?? body.errors?.join(', ') ?? 'An error occurred';
-      return Promise.reject(new Error(message));
+      const rawMessage = body.message ?? body.errors?.join(', ') ?? 'An error occurred';
+      const actionable = mapToActionableError(rawMessage);
+      return Promise.reject(new Error(toBannerMessage(actionable)));
     }
     return Promise.reject(error);
   },
