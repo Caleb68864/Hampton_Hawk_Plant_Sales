@@ -106,16 +106,16 @@ export function OrdersListPage() {
   async function fetchOpenOrderIds(limit: number): Promise<string[]> {
     const statuses: OrderStatus[] = ['Open', 'InProgress'];
     const ids: string[] = [];
+    const fetchPageSize = 100;
 
     for (const status of statuses) {
       let currentPage = 1;
       let total = 1;
 
       while (currentPage <= total && ids.length < limit) {
-        const remaining = limit - ids.length;
         const result = await ordersApi.list({
           page: currentPage,
-          pageSize: Math.min(remaining, 100),
+          pageSize: fetchPageSize,
           status,
         });
 
@@ -129,7 +129,7 @@ export function OrdersListPage() {
       }
     }
 
-    return ids;
+    return ids.slice(0, limit);
   }
 
   async function handlePrintOpenOrders() {
