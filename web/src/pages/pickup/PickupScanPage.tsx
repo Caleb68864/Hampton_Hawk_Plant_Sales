@@ -20,6 +20,7 @@ import { fulfillmentApi } from '@/api/fulfillment.js';
 import type { FulfillmentResultType } from '@/types/fulfillment.js';
 
 const FEEDBACK_MODE_KEY = 'pickup-feedback-mode';
+const OPERATOR_NAME = 'Station Operator';
 
 function getNextAction(result: FulfillmentResultType | null): string | undefined {
   if (!result || result === 'Accepted') return undefined;
@@ -39,6 +40,7 @@ export function PickupScanPage() {
 
   const scanInputRef = useRef<ScanInputHandle>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>(() => {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
@@ -210,6 +212,10 @@ export function PickupScanPage() {
   function handleManualClose() {
     setShowManualModal(false);
     refocusScanInput();
+  }
+
+  function handleUndo() {
+    setShowUndoConfirm(true);
   }
 
   if (isLoading && !currentOrder) {

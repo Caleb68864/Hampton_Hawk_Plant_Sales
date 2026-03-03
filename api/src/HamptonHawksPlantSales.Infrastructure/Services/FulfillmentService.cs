@@ -210,8 +210,6 @@ public class FulfillmentService : IFulfillmentService
             // Calculate remaining items across all lines
             var remaining = await GetOrderRemainingItems(orderId);
 
-            await _adminService.LogActionAsync("UndoLastScan", "Order", orderId, reason,
-                $"Operator: {operatorName}. Undo applied to barcode {lastAccepted.Barcode}.");
 
             return new ScanResponse
             {
