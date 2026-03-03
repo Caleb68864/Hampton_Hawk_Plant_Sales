@@ -1,0 +1,13 @@
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\bin\Debug\net9.0\HamptonHawksPlantSales.Core.deps.json
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\bin\Debug\net9.0\HamptonHawksPlantSales.Core.dll
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\bin\Debug\net9.0\HamptonHawksPlantSales.Core.pdb
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.AssemblyInfoInputs.cache
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.AssemblyInfo.cs
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.csproj.CoreCompileInputs.cache
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.sourcelink.json
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.dll
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\refint\HamptonHawksPlantSales.Core.dll
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.pdb
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\ref\HamptonHawksPlantSales.Core.dll
+C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\api\src\HamptonHawksPlantSales.Core\obj\Debug\net9.0\HamptonHawksPlantSales.Core.csproj.AssemblyReference.cache

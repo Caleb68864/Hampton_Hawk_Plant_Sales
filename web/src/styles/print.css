@@ -1,0 +1,40 @@
+@media print {
+  /* Hide non-printable elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Force page breaks */
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  /* Preserve colors in print */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Reset page margins */
+  @page {
+    margin: 0.5in;
+  }
+
+  body {
+    font-size: 12pt;
+    color: #000;
+    background: #fff;
+  }
+}
+
+/* Thick checkbox squares for pen marking */
+.print-checkbox {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border: 2px solid #000;
+  vertical-align: middle;
+}

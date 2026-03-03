@@ -1,0 +1,400 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\tests\\HamptonHawksPlantSales.Tests\\HamptonHawksPlantSales.Tests.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\HamptonHawksPlantSales.Api.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\HamptonHawksPlantSales.Api.csproj",
+        "projectName": "HamptonHawksPlantSales.Api",
+        "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\HamptonHawksPlantSales.Api.csproj",
+        "packagesPath": "C:\\Users\\CalebBennett\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files\\DevExpress 23.2\\Components\\Offline Packages",
+          "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\CalebBennett\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 23.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 24.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\DevExpress 23.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\DevExpress 24.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj"
+              },
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "AspNetCore.HealthChecks.NpgSql": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "FluentValidation.AspNetCore": {
+              "target": "Package",
+              "version": "[11.3.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Serilog.AspNetCore": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[7.2.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj",
+        "projectName": "HamptonHawksPlantSales.Core",
+        "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj",
+        "packagesPath": "C:\\Users\\CalebBennett\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files\\DevExpress 23.2\\Components\\Offline Packages",
+          "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\CalebBennett\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 23.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 24.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\DevExpress 23.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\DevExpress 24.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[11.11.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj",
+        "projectName": "HamptonHawksPlantSales.Infrastructure",
+        "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\CalebBennett\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files\\DevExpress 23.2\\Components\\Offline Packages",
+          "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\CalebBennett\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 23.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 24.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\DevExpress 23.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\DevExpress 24.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "ClosedXML": {
+              "target": "Package",
+              "version": "[0.104.2, )"
+            },
+            "CsvHelper": {
+              "target": "Package",
+              "version": "[33.0.1, )"
+            },
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[11.11.0, )"
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\tests\\HamptonHawksPlantSales.Tests\\HamptonHawksPlantSales.Tests.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\tests\\HamptonHawksPlantSales.Tests\\HamptonHawksPlantSales.Tests.csproj",
+        "projectName": "HamptonHawksPlantSales.Tests",
+        "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\tests\\HamptonHawksPlantSales.Tests\\HamptonHawksPlantSales.Tests.csproj",
+        "packagesPath": "C:\\Users\\CalebBennett\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\tests\\HamptonHawksPlantSales.Tests\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files\\DevExpress 23.2\\Components\\Offline Packages",
+          "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\CalebBennett\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 23.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 24.2.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\DevExpress 23.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\DevExpress 24.2\\Components\\System\\Components\\Packages": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\HamptonHawksPlantSales.Api.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Api\\HamptonHawksPlantSales.Api.csproj"
+              },
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Core\\HamptonHawksPlantSales.Core.csproj"
+              },
+              "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\CalebBennett\\Documents\\GitHub\\Hampton_Hawk_Plant_Sales\\api\\src\\HamptonHawksPlantSales.Infrastructure\\HamptonHawksPlantSales.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "FluentAssertions": {
+              "target": "Package",
+              "version": "[6.*, )"
+            },
+            "Microsoft.EntityFrameworkCore.InMemory": {
+              "target": "Package",
+              "version": "[9.*, )"
+            },
+            "Microsoft.NET.Test.Sdk": {
+              "target": "Package",
+              "version": "[17.*, )"
+            },
+            "Moq": {
+              "target": "Package",
+              "version": "[4.*, )"
+            },
+            "xunit": {
+              "target": "Package",
+              "version": "[2.*, )"
+            },
+            "xunit.runner.visualstudio": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[2.*, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

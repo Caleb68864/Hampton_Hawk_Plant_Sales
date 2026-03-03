@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "./styles/print.css";
+
+@theme {
+  /* Hampton Hawks brand purple palette */
+  --color-hawk-50: #f8f4fa;
+  --color-hawk-100: #f0e5f5;
+  --color-hawk-200: #e0c9ea;
+  --color-hawk-300: #c9a3d8;
+  --color-hawk-400: #a871be;
+  --color-hawk-500: #8b4da3;
+  --color-hawk-600: #7a3d93;
+  --color-hawk-700: #662e80;
+  --color-hawk-800: #542569;
+  --color-hawk-900: #441d55;
+  --color-hawk-950: #2d1139;
+
+  /* Hampton Hawks gold accent */
+  --color-gold-50: #fdf9ef;
+  --color-gold-100: #faf0d3;
+  --color-gold-200: #f4dea5;
+  --color-gold-300: #edc96d;
+  --color-gold-400: #e6b43e;
+  --color-gold-500: #d4a021;
+  --color-gold-600: #b8811a;
+  --color-gold-700: #996218;
+  --color-gold-800: #7d4e1b;
+  --color-gold-900: #68411c;
+  --color-gold-950: #3c220c;
+}

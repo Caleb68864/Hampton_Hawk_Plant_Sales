@@ -1,0 +1,473 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HamptonHawksPlantSales.Api</name>
+    </assembly>
+    <members>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.AdminActionsController">
+            <summary>
+            Provides access to admin action audit records.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.AdminActionsController.GetAll(System.Nullable{System.Guid},System.String,System.String)">
+            <summary>
+            Returns a list of admin action audit records, optionally filtered. Requires admin PIN.
+            </summary>
+            <param name="orderId">Filter by entity ID (e.g. order ID).</param>
+            <param name="entityType">Filter by entity type.</param>
+            <param name="actionType">Filter by action type.</param>
+            <response code="200">List of admin actions ordered by CreatedAt descending.</response>
+            <response code="403">Missing or invalid admin PIN.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.CustomersController">
+            <summary>
+            Manages customers (buyers who place orders).
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.CustomersController.GetAll(System.String,System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Lists customers with optional search and pagination.
+            </summary>
+            <param name="search">Free-text search on name, email, or pickup code.</param>
+            <param name="includeDeleted">When true, includes soft-deleted customers.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of customers.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.CustomersController.GetById(System.Guid)">
+            <summary>
+            Gets a single customer by ID.
+            </summary>
+            <param name="id">Customer ID.</param>
+            <response code="200">The customer.</response>
+            <response code="404">Customer not found.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.CustomersController.Create(HamptonHawksPlantSales.Core.DTOs.CreateCustomerRequest)">
+            <summary>
+            Creates a new customer.
+            </summary>
+            <param name="request">Customer creation payload.</param>
+            <response code="200">The created customer.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.CustomersController.Update(System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateCustomerRequest)">
+            <summary>
+            Updates an existing customer.
+            </summary>
+            <param name="id">Customer ID.</param>
+            <param name="request">Updated customer data.</param>
+            <response code="200">The updated customer.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.CustomersController.Delete(System.Guid)">
+            <summary>
+            Soft-deletes a customer.
+            </summary>
+            <param name="id">Customer ID.</param>
+            <response code="200">Deletion succeeded.</response>
+            <response code="404">Customer not found.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.FulfillmentController">
+            <summary>
+            Handles order fulfillment: scanning, completing, and resetting orders at the pickup station.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.Scan(System.Guid,HamptonHawksPlantSales.Core.DTOs.ScanRequest)">
+            <summary>
+            Processes a barcode scan against an order, fulfilling matching line items.
+            </summary>
+            <param name="id">Order ID.</param>
+            <param name="request">Barcode value to scan.</param>
+            <response code="200">Scan result with match details and updated order state.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.UndoLastScan(System.Guid)">
+            <summary>
+            Undoes the most recent scan on an order, decrementing the fulfilled quantity.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">Updated scan state after undo.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.Complete(System.Guid)">
+            <summary>
+            Marks an order as complete when all lines are fully fulfilled.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">Order completed successfully.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.ForceComplete(System.Guid)">
+            <summary>
+            Force-completes an order even with unfulfilled lines. Requires admin PIN.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">Order force-completed.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.Reset(System.Guid)">
+            <summary>
+            Resets an order back to Open status, clearing all fulfillment progress. Requires admin PIN.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">Order reset to Open.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.FulfillmentController.GetEvents(System.Guid)">
+            <summary>
+            Gets the fulfillment event history for an order (scans, undos, completions).
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">List of fulfillment events.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.ImportController">
+            <summary>
+            Imports data from CSV/Excel files (plants, inventory, orders).
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ImportController.ImportPlants(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Imports plants from a CSV or Excel file.
+            </summary>
+            <param name="file">CSV or Excel file containing plant data.</param>
+            <response code="200">Import result with row counts and any issues.</response>
+            <response code="400">File is missing or empty.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ImportController.ImportInventory(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Imports inventory quantities from a CSV or Excel file.
+            </summary>
+            <param name="file">CSV or Excel file containing inventory data.</param>
+            <response code="200">Import result with row counts and any issues.</response>
+            <response code="400">File is missing or empty.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ImportController.ImportOrders(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Imports orders from a CSV or Excel file.
+            </summary>
+            <param name="file">CSV or Excel file containing order data.</param>
+            <response code="200">Import result with row counts and any issues.</response>
+            <response code="400">File is missing or empty.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ImportController.GetBatches(System.Int32,System.Int32)">
+            <summary>
+            Lists import batches with pagination.
+            </summary>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of import batches.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ImportController.GetBatchIssues(System.Guid,System.String,System.Int32,System.Int32)">
+            <summary>
+            Gets issues (warnings/errors) for a specific import batch.
+            </summary>
+            <param name="id">Import batch ID.</param>
+            <param name="search">Filter issues by text.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of import issues.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.InventoryController">
+            <summary>
+            Manages plant inventory quantities.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.InventoryController.GetAll(System.String,System.Int32,System.Int32)">
+            <summary>
+            Lists inventory with optional search and pagination.
+            </summary>
+            <param name="search">Free-text search on plant name or SKU.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged inventory list.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.InventoryController.SetInventory(System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateInventoryRequest)">
+            <summary>
+            Sets the absolute inventory quantity for a plant.
+            </summary>
+            <param name="plantId">Plant catalog ID.</param>
+            <param name="request">New inventory quantity.</param>
+            <response code="200">Updated inventory record.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.InventoryController.AdjustInventory(HamptonHawksPlantSales.Core.DTOs.AdjustInventoryRequest)">
+            <summary>
+            Adjusts inventory by a relative delta (positive or negative).
+            </summary>
+            <param name="request">Adjustment details including plant ID and delta.</param>
+            <response code="200">Updated inventory record.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.OrdersController">
+            <summary>
+            Manages customer orders and their line items.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.GetAll(System.String,System.Nullable{HamptonHawksPlantSales.Core.Enums.OrderStatus},System.Nullable{System.Boolean},System.Nullable{System.Guid},System.Nullable{System.Guid},System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Lists orders with optional filters and pagination.
+            </summary>
+            <param name="search">Free-text search on order number or customer name.</param>
+            <param name="status">Filter by order status.</param>
+            <param name="isWalkUp">Filter walk-up vs pre-orders.</param>
+            <param name="sellerId">Filter by seller ID.</param>
+            <param name="customerId">Filter by customer ID.</param>
+            <param name="includeDeleted">When true, includes soft-deleted orders.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of orders.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.GetById(System.Guid)">
+            <summary>
+            Gets a single order by ID, including its line items.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">The order with lines.</response>
+            <response code="404">Order not found.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.Create(HamptonHawksPlantSales.Core.DTOs.CreateOrderRequest)">
+            <summary>
+            Creates a new order with line items.
+            </summary>
+            <param name="request">Order creation payload including lines.</param>
+            <response code="200">The created order.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.Update(System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateOrderRequest)">
+            <summary>
+            Updates an existing order's metadata (status, seller, etc.).
+            </summary>
+            <param name="id">Order ID.</param>
+            <param name="request">Updated order data.</param>
+            <response code="200">The updated order.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.Delete(System.Guid)">
+            <summary>
+            Soft-deletes an order.
+            </summary>
+            <param name="id">Order ID.</param>
+            <response code="200">Deletion succeeded.</response>
+            <response code="404">Order not found.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.AddLine(System.Guid,HamptonHawksPlantSales.Core.DTOs.CreateOrderLineRequest)">
+            <summary>
+            Adds a line item to an existing order. For walk-up orders, inventory protection is enforced.
+            Provide X-Admin-Pin and X-Admin-Reason headers to override inventory limits (sets hasIssue=true).
+            </summary>
+            <param name="id">Order ID.</param>
+            <param name="request">Line item details (plant, quantity).</param>
+            <response code="200">The created line item.</response>
+            <response code="400">Insufficient inventory for walk-up order.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.UpdateLine(System.Guid,System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateOrderLineRequest)">
+            <summary>
+            Updates an existing order line item.
+            </summary>
+            <param name="id">Order ID.</param>
+            <param name="lineId">Line item ID.</param>
+            <param name="request">Updated line item data.</param>
+            <response code="200">The updated line item.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.OrdersController.DeleteLine(System.Guid,System.Guid)">
+            <summary>
+            Removes a line item from an order.
+            </summary>
+            <param name="id">Order ID.</param>
+            <param name="lineId">Line item ID.</param>
+            <response code="200">Deletion succeeded.</response>
+            <response code="404">Line item not found.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.PlantsController">
+            <summary>
+            Manages the plant catalog (varieties available for sale).
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.PlantsController.GetAll(System.String,System.Nullable{System.Boolean},System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Lists plants with optional search, active-only filter, and pagination.
+            </summary>
+            <param name="search">Free-text search on name or SKU.</param>
+            <param name="activeOnly">When true, returns only active plants.</param>
+            <param name="includeDeleted">When true, includes soft-deleted plants.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of plants.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.PlantsController.GetById(System.Guid)">
+            <summary>
+            Gets a single plant by its unique identifier.
+            </summary>
+            <param name="id">Plant ID.</param>
+            <response code="200">The plant.</response>
+            <response code="404">Plant not found.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.PlantsController.Create(HamptonHawksPlantSales.Core.DTOs.CreatePlantRequest)">
+            <summary>
+            Creates a new plant in the catalog.
+            </summary>
+            <param name="request">Plant creation payload.</param>
+            <response code="200">The created plant.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.PlantsController.Update(System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdatePlantRequest)">
+            <summary>
+            Updates an existing plant.
+            </summary>
+            <param name="id">Plant ID.</param>
+            <param name="request">Updated plant data.</param>
+            <response code="200">The updated plant.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.PlantsController.Delete(System.Guid)">
+            <summary>
+            Soft-deletes a plant from the catalog.
+            </summary>
+            <param name="id">Plant ID.</param>
+            <response code="200">Deletion succeeded.</response>
+            <response code="404">Plant not found.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.ReportsController">
+            <summary>
+            Read-only reporting endpoints for dashboards and diagnostics.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ReportsController.GetDashboardMetrics">
+            <summary>
+            Gets dashboard summary metrics (total orders, fulfillment progress, etc.).
+            </summary>
+            <response code="200">Dashboard metrics.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ReportsController.GetLowInventory(System.Int32)">
+            <summary>
+            Gets plants with inventory below the specified threshold.
+            </summary>
+            <param name="threshold">Low inventory threshold (default 5).</param>
+            <response code="200">List of low-inventory plants.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ReportsController.GetProblemOrders">
+            <summary>
+            Gets orders that have issues (e.g., over-fulfilled, stalled).
+            </summary>
+            <response code="200">List of problem orders.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.ReportsController.GetSellerOrders(System.Guid)">
+            <summary>
+            Gets order summaries for a specific seller.
+            </summary>
+            <param name="sellerId">Seller ID.</param>
+            <response code="200">List of seller's order summaries.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.SellersController">
+            <summary>
+            Manages sellers (students who sell plants).
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SellersController.GetAll(System.String,System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Lists sellers with optional search and pagination.
+            </summary>
+            <param name="search">Free-text search on name.</param>
+            <param name="includeDeleted">When true, includes soft-deleted sellers.</param>
+            <param name="page">Page number (1-based).</param>
+            <param name="pageSize">Items per page.</param>
+            <response code="200">Paged list of sellers.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SellersController.GetById(System.Guid)">
+            <summary>
+            Gets a single seller by ID.
+            </summary>
+            <param name="id">Seller ID.</param>
+            <response code="200">The seller.</response>
+            <response code="404">Seller not found.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SellersController.Create(HamptonHawksPlantSales.Core.DTOs.CreateSellerRequest)">
+            <summary>
+            Creates a new seller.
+            </summary>
+            <param name="request">Seller creation payload.</param>
+            <response code="200">The created seller.</response>
+            <response code="400">Validation errors.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SellersController.Update(System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateSellerRequest)">
+            <summary>
+            Updates an existing seller.
+            </summary>
+            <param name="id">Seller ID.</param>
+            <param name="request">Updated seller data.</param>
+            <response code="200">The updated seller.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SellersController.Delete(System.Guid)">
+            <summary>
+            Soft-deletes a seller.
+            </summary>
+            <param name="id">Seller ID.</param>
+            <response code="200">Deletion succeeded.</response>
+            <response code="404">Seller not found.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.SettingsController">
+            <summary>
+            Manages global application settings including the SaleClosed flag.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SettingsController.GetSettings">
+            <summary>
+            Gets the current application settings.
+            </summary>
+            <response code="200">Current settings including SaleClosed state.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.SettingsController.UpdateSaleClosed(HamptonHawksPlantSales.Core.DTOs.UpdateSaleClosedRequest)">
+            <summary>
+            Toggles the SaleClosed flag. When closed, new orders and modifications are blocked. Requires admin PIN.
+            </summary>
+            <param name="request">SaleClosed state and reason.</param>
+            <response code="200">Updated settings.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.VersionController">
+            <summary>
+            Returns the current API version.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.VersionController.GetVersion">
+            <summary>
+            Gets the running API version string.
+            </summary>
+            <response code="200">Version object.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Controllers.WalkUpController">
+            <summary>
+            Handles walk-up (day-of) orders with inventory protection.
+            </summary>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.WalkUpController.CreateOrder(HamptonHawksPlantSales.Core.DTOs.CreateWalkUpOrderRequest)">
+            <summary>
+            Creates a new walk-up order for a day-of customer.
+            </summary>
+            <param name="request">Walk-up order details.</param>
+            <response code="200">The created walk-up order.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.WalkUpController.AddLine(System.Guid,HamptonHawksPlantSales.Core.DTOs.AddWalkUpLineRequest)">
+            <summary>
+            Adds a line item to an existing walk-up order. Admin PIN may be required to exceed available stock.
+            </summary>
+            <param name="id">Walk-up order ID.</param>
+            <param name="request">Line item details.</param>
+            <response code="200">The created line item.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.WalkUpController.UpdateLine(System.Guid,System.Guid,HamptonHawksPlantSales.Core.DTOs.UpdateWalkUpLineRequest)">
+            <summary>
+            Updates a line item on a walk-up order. Admin PIN may be required to exceed available stock.
+            </summary>
+            <param name="id">Walk-up order ID.</param>
+            <param name="lineId">Line item ID.</param>
+            <param name="request">Updated line item data.</param>
+            <response code="200">The updated line item.</response>
+        </member>
+        <member name="M:HamptonHawksPlantSales.Api.Controllers.WalkUpController.GetAvailability(System.Nullable{System.Guid})">
+            <summary>
+            Gets the available walk-up quantity for plants. Returns all active plants when no plantCatalogId is specified.
+            </summary>
+            <param name="plantCatalogId">Optional plant catalog ID. If omitted, returns all active plants.</param>
+            <response code="200">Available walk-up quantity or list of all plant availabilities.</response>
+        </member>
+        <member name="T:HamptonHawksPlantSales.Api.Filters.RequiresAdminPinAttribute">
+            <summary>
+            Placeholder attribute for admin PIN verification.
+            The actual AdminPinActionFilter is provided by sub-spec 4.
+            </summary>
+        </member>
+    </members>
+</doc>

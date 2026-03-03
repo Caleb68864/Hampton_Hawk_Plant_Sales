@@ -1,0 +1,9 @@
+{
+  "build_command": "cd api && dotnet build HamptonHawksPlantSales.sln --no-restore -v quiet",
+  "test_command": "cd api && dotnet test HamptonHawksPlantSales.sln --no-build -v quiet",
+  "verification_strategy": "build+test",
+  "claude_md_path": "CLAUDE.md",
+  "review_enabled": true,
+  "review_max_compliance_loops": 3,
+  "review_max_quality_loops": 2
+}

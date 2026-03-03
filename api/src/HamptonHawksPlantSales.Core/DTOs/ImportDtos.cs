@@ -1,0 +1,31 @@
+namespace HamptonHawksPlantSales.Core.DTOs;
+
+public class ImportResultResponse
+{
+    public Guid BatchId { get; set; }
+    public int TotalRows { get; set; }
+    public int ImportedCount { get; set; }
+    public int SkippedCount { get; set; }
+}
+
+public class ImportBatchResponse
+{
+    public Guid Id { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Filename { get; set; } = string.Empty;
+    public int TotalRows { get; set; }
+    public int ImportedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class ImportIssueResponse
+{
+    public Guid Id { get; set; }
+    public int RowNumber { get; set; }
+    public string IssueType { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
+    public string? Sku { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? RawData { get; set; }
+}
