@@ -70,7 +70,7 @@ export function useScanWorkflow(orderId: string | undefined) {
         setState((s) => ({
           ...s,
           lastScanResult: result,
-          scanHistory: [entry, ...s.scanHistory].slice(0, 10),
+          scanHistory: [entry, ...s.scanHistory].slice(0, 3),
           isScanning: false,
         }));
         await refreshOrder();
@@ -104,7 +104,7 @@ export function useScanWorkflow(orderId: string | undefined) {
       setState((s) => ({
         ...s,
         lastScanResult: result,
-        scanHistory: [entry, ...s.scanHistory].slice(0, 10),
+        scanHistory: [entry, ...s.scanHistory].slice(0, 3),
         isScanning: false,
       }));
       await refreshOrder();

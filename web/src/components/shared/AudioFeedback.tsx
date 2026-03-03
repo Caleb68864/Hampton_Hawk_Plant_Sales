@@ -1,11 +1,11 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { useAudioFeedback } from '@/hooks/useAudioFeedback.js';
+import { useAudioFeedback, type FeedbackMode } from '@/hooks/useAudioFeedback.js';
 
 interface AudioFeedbackContextValue {
   playSuccess: () => void;
   playError: () => void;
   playWarning: () => void;
-  setEnabled: (val: boolean) => void;
+  setMode: (val: FeedbackMode) => void;
 }
 
 const AudioFeedbackContext = createContext<AudioFeedbackContextValue | null>(null);

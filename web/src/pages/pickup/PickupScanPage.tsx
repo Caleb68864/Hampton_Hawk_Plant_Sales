@@ -1,6 +1,7 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAudio } from '@/components/shared/AudioFeedback.js';
+import type { FeedbackMode } from '@/hooks/useAudioFeedback.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
@@ -17,7 +18,16 @@ import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
 import type { FulfillmentResultType } from '@/types/fulfillment.js';
 
-const OPERATOR_NAME = 'Pickup Operator';
+const FEEDBACK_MODE_KEY = 'pickup-feedback-mode';
+
+function getNextAction(result: FulfillmentResultType | null): string | undefined {
+  if (!result || result === 'Accepted') return undefined;
+  if (result === 'WrongOrder') return 'Wrong order: scan correct plant or switch order';
+  if (result === 'AlreadyFulfilled') return 'Plant already done. Scan a remaining item or complete order';
+  if (result === 'NotFound') return 'Rescan tag or manually look up the plant';
+  if (result === 'OutOfStock') return 'Use Recover to undo/lookup or ask lead for inventory check';
+  return 'Ask admin to reopen the sale from Settings';
+}
 
 export function PickupScanPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -28,7 +38,10 @@ export function PickupScanPage() {
 
   const scanInputRef = useRef<ScanInputHandle>(null);
   const [showManualModal, setShowManualModal] = useState(false);
-  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>(() => {
+    const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
+    return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
+  });
 
   const {
     currentOrder,
@@ -44,9 +57,35 @@ export function PickupScanPage() {
     addHistoryEntry,
   } = useScanWorkflow(orderId);
 
+  useEffect(() => {
+    audio.setMode(feedbackMode);
+  }, [audio, feedbackMode]);
+
+  const handleFeedbackModeChange = useCallback((mode: FeedbackMode) => {
+    setFeedbackMode(mode);
+    audio.setMode(mode);
+    localStorage.setItem(FEEDBACK_MODE_KEY, mode);
+  }, [audio]);
+
   const refocusScanInput = useCallback(() => {
     setTimeout(() => scanInputRef.current?.focus(), 50);
   }, []);
+
+  function triggerHaptic(result: FulfillmentResultType) {
+    if (feedbackMode === 'off' || typeof navigator === 'undefined' || !navigator.vibrate) return;
+    if (feedbackMode === 'quiet') {
+      navigator.vibrate(20);
+      return;
+    }
+
+    if (result === 'Accepted') {
+      navigator.vibrate([25, 20, 25]);
+    } else if (result === 'AlreadyFulfilled') {
+      navigator.vibrate([35, 30, 35]);
+    } else {
+      navigator.vibrate([70, 40, 70]);
+    }
+  }
 
   function playAudioForResult(result: FulfillmentResultType) {
     if (result === 'Accepted') {
@@ -56,6 +95,7 @@ export function PickupScanPage() {
     } else {
       audio.playError();
     }
+    triggerHaptic(result);
   }
 
   async function handleScan(barcode: string) {
@@ -149,7 +189,15 @@ export function PickupScanPage() {
         // error shown via networkError
       }
     } else {
-      await handleMarkPartial();
+      const auth = await openPinModal();
+      if (auth) {
+        try {
+          await ordersApi.complete(orderId, auth.pin, auth.reason);
+          await refreshOrder();
+        } catch {
+          // error shown via networkError
+        }
+      }
     }
     refocusScanInput();
   }
@@ -215,7 +263,27 @@ export function PickupScanPage() {
         result={lastScanResult?.result ?? null}
         message={lastScanResult?.message ?? ''}
         plantName={lastScanResult?.plantName}
+        nextAction={getNextAction(lastScanResult?.result ?? null)}
       />
+
+      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="feedback-mode" className="text-sm font-medium text-gray-700">
+            Feedback
+          </label>
+          <select
+            id="feedback-mode"
+            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            value={feedbackMode}
+            onChange={(e) => handleFeedbackModeChange(e.target.value as FeedbackMode)}
+          >
+            <option value="loud">Loud</option>
+            <option value="quiet">Quiet</option>
+            <option value="off">Off</option>
+          </select>
+          <span className="text-xs text-gray-500">Audio + haptics preference for this device.</span>
+        </div>
+      </div>
 
       {!isComplete && (
         <div className="space-y-2">
@@ -321,13 +389,28 @@ export function PickupScanPage() {
       </div>
 
       {!isComplete && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             onClick={handleManualOpen}
           >
             Manual Fulfill
+          </button>
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
+            onClick={handleUndo}
+            disabled={isScanning}
+          >
+            Recover
+          </button>
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-amber-900 bg-amber-100 rounded-md hover:bg-amber-200"
+            onClick={() => navigate('/pickup')}
+          >
+            Reopen Lookup
           </button>
           <button
             type="button"
