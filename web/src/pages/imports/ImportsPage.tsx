@@ -65,8 +65,16 @@ async function extractCsvColumnValues(file: File, columnName: string) {
     .filter(Boolean)));
 }
 
-function ImportSection({ title, hint, type, accept, allowedExtensions, promptText, onUpload }: ImportSectionProps) {
-function ImportSection({ title, hint, type, onUpload, templateLinks }: ImportSectionProps) {
+function ImportSection({
+  title,
+  hint,
+  type,
+  accept,
+  allowedExtensions,
+  promptText,
+  onUpload,
+  templateLinks,
+}: ImportSectionProps) {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skuPreview, setSkuPreview] = useState<string[]>([]);
