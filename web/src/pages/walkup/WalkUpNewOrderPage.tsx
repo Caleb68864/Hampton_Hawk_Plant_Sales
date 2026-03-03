@@ -5,6 +5,7 @@ import type { WalkUpAvailability } from '@/api/walkup.js';
 import { customersApi } from '@/api/customers.js';
 import { plantsApi } from '@/api/plants.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import type { Customer } from '@/types/customer.js';
 import type { Plant } from '@/types/plant.js';
@@ -184,6 +185,7 @@ export function WalkUpNewOrderPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
+      <BackToStationHomeButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">
           New Walk-Up Order
@@ -191,8 +193,8 @@ export function WalkUpNewOrderPage() {
             Walk-Up
           </span>
         </h1>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/orders')}>
-          Back to Orders
+        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/station')}>
+          Back to Station Home
         </button>
       </div>
 

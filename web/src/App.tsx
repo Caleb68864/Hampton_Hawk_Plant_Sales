@@ -26,6 +26,7 @@ import { OrderDetailPage } from '@/pages/orders/OrderDetailPage.js';
 import { NewOrderPage } from '@/pages/orders/NewOrderPage.js';
 import { ImportsPage } from '@/pages/imports/ImportsPage.js';
 import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
+import { StationHomePage } from '@/pages/station/StationHomePage.js';
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/new" element={<NewOrderPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="station" element={<StationHomePage />} />
             <Route path="pickup" element={<PickupLookupPage />} />
             <Route path="pickup/:orderId" element={<PickupScanPage />} />
             <Route path="walkup/new" element={<WalkUpNewOrderPage />} />

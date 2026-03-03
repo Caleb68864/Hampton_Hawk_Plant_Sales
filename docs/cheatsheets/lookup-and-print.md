@@ -1,10 +1,12 @@
 # Lookup and Print Cheat Sheet
 
 ## Finding an Order
-1. Go to **Orders** in the sidebar
-2. Use the search bar to find by order number, customer name, or seller name
-3. Use the **status filter** dropdown to show only Open, InProgress, Complete, or Cancelled orders
-4. Use **A-Z tabs** to jump to customers by last name initial
+1. Go to **Station Home** in the top navigation
+2. Select **Lookup & Print**
+3. Open **Orders** from the top navigation for full filtering and reporting tools
+4. Use the search bar to find by order number, customer name, or seller name
+5. Use the **status filter** dropdown to show only Open, InProgress, Complete, or Cancelled orders
+6. Use **A-Z tabs** to jump to customers by last name initial
 
 ## Viewing Order Details
 - Click any order row to see full details

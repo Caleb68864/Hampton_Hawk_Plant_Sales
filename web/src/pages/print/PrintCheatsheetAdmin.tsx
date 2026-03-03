@@ -3,7 +3,7 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetAdmin() {
   return (
-    <PrintLayout backTo="/settings">
+    <PrintLayout backTo="/station">
       <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
       <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
         Admin Quick Reference
@@ -12,7 +12,7 @@ export function PrintCheatsheetAdmin() {
       <div className="space-y-5 text-sm">
         <Section title="SaleClosed Toggle">
           <ul className="list-disc ml-5 space-y-1">
-            <li>Go to <strong>Settings</strong> in the navigation bar.</li>
+            <li>Start at <strong>Station Home</strong>, then open <strong>Admin Tools</strong>.</li>
             <li>Find the <strong>Sale Closed</strong> toggle switch.</li>
             <li>When enabled, a red &quot;SALE CLOSED&quot; banner appears site-wide and scanning is disabled.</li>
             <li>Toggle it off to re-open the sale and allow scanning.</li>

@@ -11,6 +11,7 @@ import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
 import { ItemsRemainingCounter } from '@/components/pickup/ItemsRemainingCounter.js';
 import { ScanHistoryList } from '@/components/pickup/ScanHistoryList.js';
 import { ManualFulfillModal } from '@/components/pickup/ManualFulfillModal.js';
+import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { useScanWorkflow } from '@/hooks/useScanWorkflow.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
@@ -218,13 +219,14 @@ export function PickupScanPage() {
   if (!currentOrder) {
     return (
       <div className="space-y-4">
+        <BackToStationHomeButton />
         <ErrorBanner message="Order not found" />
         <button
           type="button"
           className="text-sm text-hawk-600 hover:text-hawk-800"
-          onClick={() => navigate('/pickup')}
+          onClick={() => navigate('/station')}
         >
-          Back to Pickup
+          Back to Station Home
         </button>
       </div>
     );
@@ -242,9 +244,9 @@ export function PickupScanPage() {
           <button
             type="button"
             className="text-sm text-gray-500 hover:text-gray-700 mb-1"
-            onClick={() => navigate('/pickup')}
+            onClick={() => navigate('/station')}
           >
-            &larr; Back to Pickup
+            &larr; Back to Lookup
           </button>
           <h1 className="text-2xl font-bold text-gray-800">
             Order {currentOrder.orderNumber}
