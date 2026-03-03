@@ -164,7 +164,8 @@ export function ReportsPage() {
           ) : (
             <div className="space-y-3">
               {topLowInventory.map((item) => {
-                const dangerPct = Math.max(0, Math.min(100, (item.onHandQty / 25) * 100));
+                const riskCeilingQty = 25;
+                const dangerPct = Math.max(0, Math.min(100, ((riskCeilingQty - item.onHandQty) / riskCeilingQty) * 100));
                 return (
                   <div key={item.plantCatalogId}>
                     <div className="mb-1 flex items-center justify-between text-sm">
