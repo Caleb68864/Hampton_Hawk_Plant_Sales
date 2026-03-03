@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "test": "node --test --experimental-strip-types src/api/client.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

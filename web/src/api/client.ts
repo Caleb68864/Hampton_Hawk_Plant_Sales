@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { ApiResponse } from '@/types/api.js';
+import { getApiErrorMessage } from './errorMessage.js';
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -9,9 +10,8 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.data) {
-      const body = error.response.data as ApiResponse<unknown>;
-      const message = body.message ?? body.errors?.join(', ') ?? 'An error occurred';
+    if (axios.isAxiosError(error)) {
+      const message = getApiErrorMessage(error);
       return Promise.reject(new Error(message));
     }
     return Promise.reject(error);
