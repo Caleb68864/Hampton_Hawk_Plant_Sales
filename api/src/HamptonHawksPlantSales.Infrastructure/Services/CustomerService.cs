@@ -29,10 +29,9 @@ public class CustomerService : ICustomerService
             var trimmed = search.Trim();
             if (trimmed.EndsWith("*") && trimmed.Length == 2)
             {
-                // A-Z letter filter: e.g. "A*" -> filter by last name initial
+                // A-Z letter filter: e.g. "A*" -> filter by display name initial
                 var initial = trimmed[..1].ToLower();
-                query = query.Where(c =>
-                    c.LastName != null && c.LastName.ToLower().StartsWith(initial));
+                query = query.Where(c => c.DisplayName.ToLower().StartsWith(initial));
             }
             else
             {
