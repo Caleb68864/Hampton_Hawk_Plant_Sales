@@ -40,7 +40,7 @@ function isWalkUpPrefillLine(value: unknown): value is WalkUpPrefillLine {
 
 function readPreselectedItems(state: unknown, search: string): WalkUpPrefillLine[] {
   const stateItems =
-    state !== null && typeof state === 'object'
+    state && typeof state === 'object' && 'preselectedItems' in state
       ? (state as { preselectedItems?: unknown }).preselectedItems
       : undefined;
   if (Array.isArray(stateItems)) {
