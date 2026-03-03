@@ -26,20 +26,23 @@ export function ScanHistoryList({ entries }: ScanHistoryListProps) {
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent Scans</h3>
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">Recent scans & recovery actions</h3>
       <div className="space-y-1">
         {entries.map((entry, idx) => (
           <div
             key={`${entry.timestamp}-${idx}`}
-            className={`flex items-center justify-between rounded px-3 py-2 text-sm ${resultColors[entry.result]}`}
+            className={`rounded px-3 py-2 text-sm ${resultColors[entry.result]}`}
           >
-            <div className="flex items-center gap-3">
-              <span className="font-mono font-medium">{entry.barcode}</span>
-              {entry.plantName && (
-                <span className="text-xs opacity-75">{entry.plantName}</span>
-              )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-mono font-medium">{entry.barcode}</span>
+                {entry.plantName && (
+                  <span className="text-xs opacity-75">{entry.plantName}</span>
+                )}
+              </div>
+              <span className="text-xs">{entry.result}</span>
             </div>
-            <span className="text-xs">{entry.result}</span>
+            <p className="text-xs mt-1 opacity-80">{entry.message}</p>
           </div>
         ))}
       </div>

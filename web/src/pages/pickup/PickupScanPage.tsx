@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAudio } from '@/components/shared/AudioFeedback.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
@@ -16,6 +17,8 @@ import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
 import type { FulfillmentResultType } from '@/types/fulfillment.js';
 
+const OPERATOR_NAME = 'Pickup Operator';
+
 export function PickupScanPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -25,6 +28,7 @@ export function PickupScanPage() {
 
   const scanInputRef = useRef<ScanInputHandle>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
 
   const {
     currentOrder,
@@ -37,6 +41,7 @@ export function PickupScanPage() {
     undoLastScan,
     refreshOrder,
     clearNetworkError,
+    addHistoryEntry,
   } = useScanWorkflow(orderId);
 
   const refocusScanInput = useCallback(() => {
@@ -57,13 +62,63 @@ export function PickupScanPage() {
     const result = await scan(barcode);
     if (result) {
       playAudioForResult(result.result);
-      // result tracked via lastScanResult in workflow state
     }
     refocusScanInput();
   }
 
-  async function handleUndo() {
-    await undoLastScan();
+  async function confirmUndoLastScan() {
+    setShowUndoConfirm(false);
+    const reason = window.prompt('Why are you undoing this scan?', 'Correcting accidental scan')?.trim();
+    if (!reason) {
+      refocusScanInput();
+      return;
+    }
+
+    await undoLastScan(reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:UNDO',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} undid last scan. Reason: ${reason}`,
+      timestamp: Date.now(),
+    });
+    refocusScanInput();
+  }
+
+  async function handleResetOrder() {
+    if (!orderId) return;
+    const auth = await openPinModal();
+    if (!auth) {
+      refocusScanInput();
+      return;
+    }
+
+    await fulfillmentApi.reset(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:RESET',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} reset order. Reason: ${auth.reason}`,
+      timestamp: Date.now(),
+    });
+    await refreshOrder();
+    refocusScanInput();
+  }
+
+  async function handleMarkPartial() {
+    if (!orderId) return;
+    const auth = await openPinModal();
+    if (!auth) {
+      refocusScanInput();
+      return;
+    }
+
+    await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:PARTIAL',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} marked order partial. Reason: ${auth.reason}`,
+      timestamp: Date.now(),
+    });
+    await refreshOrder();
     refocusScanInput();
   }
 
@@ -94,16 +149,7 @@ export function PickupScanPage() {
         // error shown via networkError
       }
     } else {
-      // Force complete requires admin PIN
-      const auth = await openPinModal();
-      if (auth) {
-        try {
-          await ordersApi.complete(orderId, auth.pin, auth.reason);
-          await refreshOrder();
-        } catch {
-          // error shown via networkError
-        }
-      }
+      await handleMarkPartial();
     }
     refocusScanInput();
   }
@@ -143,7 +189,6 @@ export function PickupScanPage() {
 
   return (
     <div className="space-y-4">
-      {/* Order header */}
       <div className="flex items-center justify-between">
         <div>
           <button
@@ -166,26 +211,50 @@ export function PickupScanPage() {
         <StatusChip status={currentOrder.status} hasIssue={currentOrder.hasIssue} />
       </div>
 
-      {/* Scan feedback banner */}
       <ScanFeedbackBanner
         result={lastScanResult?.result ?? null}
         message={lastScanResult?.message ?? ''}
         plantName={lastScanResult?.plantName}
       />
 
-      {/* Scan input */}
       {!isComplete && (
-        <ScanInput
-          ref={scanInputRef}
-          onScan={handleScan}
-          disabled={isScanning}
-        />
+        <div className="space-y-2">
+          <ScanInput
+            ref={scanInputRef}
+            onScan={handleScan}
+            disabled={isScanning}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              onClick={() => setShowUndoConfirm(true)}
+              disabled={isScanning}
+            >
+              Undo last scan
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              onClick={handleResetOrder}
+              disabled={isScanning}
+            >
+              Reset current order
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
+              onClick={handleMarkPartial}
+              disabled={isScanning}
+            >
+              Mark partial + reason
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Items remaining counter */}
       <ItemsRemainingCounter lines={currentOrder.lines} />
 
-      {/* Order lines table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -251,17 +320,8 @@ export function PickupScanPage() {
         </table>
       </div>
 
-      {/* Action bar */}
       {!isComplete && (
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handleUndo}
-            disabled={isScanning}
-          >
-            Undo Last Scan
-          </button>
           <button
             type="button"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
@@ -290,23 +350,33 @@ export function PickupScanPage() {
         </div>
       )}
 
-      {/* Scan history */}
       <ScanHistoryList entries={scanHistory} />
 
-      {/* Network failure banner */}
       {networkError && (
         <div className="fixed bottom-0 left-0 right-0 z-40">
           <ErrorBanner message={`Network Error: ${networkError}`} onDismiss={clearNetworkError} />
         </div>
       )}
 
-      {/* Manual fulfill modal */}
       <ManualFulfillModal
         isOpen={showManualModal}
         lines={currentOrder.lines}
         saleClosed={saleClosed}
         onFulfill={handleManualFulfill}
         onCancel={handleManualClose}
+      />
+
+      <ConfirmModal
+        isOpen={showUndoConfirm}
+        title="Undo last scan?"
+        message="This will remove the last accepted scan from this order."
+        confirmLabel="Undo scan"
+        variant="warning"
+        onCancel={() => {
+          setShowUndoConfirm(false);
+          refocusScanInput();
+        }}
+        onConfirm={confirmUndoLastScan}
       />
     </div>
   );
