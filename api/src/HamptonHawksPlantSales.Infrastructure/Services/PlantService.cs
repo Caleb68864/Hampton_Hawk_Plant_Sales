@@ -81,8 +81,6 @@ public class PlantService : IPlantService
         };
 
         _db.PlantCatalogs.Add(plant);
-        await _db.SaveChangesAsync();
-
         _db.Inventories.Add(new Inventory
         {
             PlantCatalogId = plant.Id,

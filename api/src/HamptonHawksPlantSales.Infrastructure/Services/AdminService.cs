@@ -42,7 +42,7 @@ public class AdminService : IAdminService
         var query = _db.AdminActions.AsQueryable();
 
         if (orderId.HasValue)
-            query = query.Where(a => a.EntityId == orderId.Value);
+            query = query.Where(a => a.EntityType == "Order" && a.EntityId == orderId.Value);
 
         if (!string.IsNullOrEmpty(entityType))
             query = query.Where(a => a.EntityType == entityType);

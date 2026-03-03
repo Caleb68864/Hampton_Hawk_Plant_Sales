@@ -14,23 +14,21 @@ public class PlantImportHandler
     }
 
     public async Task<(int imported, int skipped, List<ImportIssue> issues)> HandleAsync(
-        Guid batchId, List<Dictionary<string, string>> rows)
+        Guid batchId, List<Dictionary<string, string>> rows, bool upsertBySku)
     {
         int imported = 0;
         int skipped = 0;
         var issues = new List<ImportIssue>();
 
-        var existingSkus = await _db.PlantCatalogs
+        var existingPlants = await _db.PlantCatalogs
             .Where(p => p.DeletedAt == null)
-            .Select(p => p.Sku)
             .ToListAsync();
-        var skuSet = new HashSet<string>(existingSkus, StringComparer.OrdinalIgnoreCase);
+        var plantsBySku = existingPlants
+            .GroupBy(p => p.Sku, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var existingBarcodes = await _db.PlantCatalogs
-            .Where(p => p.DeletedAt == null)
-            .Select(p => p.Barcode)
-            .ToListAsync();
-        var barcodeSet = new HashSet<string>(existingBarcodes, StringComparer.OrdinalIgnoreCase);
+        var barcodeSet = new HashSet<string>(existingPlants.Select(p => p.Barcode), StringComparer.OrdinalIgnoreCase);
+        var importedSkuSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < rows.Count; i++)
         {
@@ -77,23 +75,24 @@ public class PlantImportHandler
                 continue;
             }
 
-            if (skuSet.Contains(sku))
+            if (!importedSkuSet.Add(sku))
             {
                 issues.Add(new ImportIssue
                 {
                     ImportBatchId = batchId,
                     RowNumber = rowNumber,
-                    IssueType = "DuplicateSku",
+                    IssueType = "DuplicateSkuInFile",
                     Sku = sku,
                     Barcode = barcode,
-                    Message = $"Sku '{sku}' already exists.",
+                    Message = $"Sku '{sku}' appears multiple times in import file.",
                     RawData = rawData
                 });
                 skipped++;
                 continue;
             }
 
-            if (barcodeSet.Contains(barcode))
+            var hasExistingSku = plantsBySku.TryGetValue(sku, out var existingPlant);
+            if (barcodeSet.Contains(barcode) && (existingPlant == null || !string.Equals(existingPlant.Barcode, barcode, StringComparison.OrdinalIgnoreCase)))
             {
                 issues.Add(new ImportIssue
                 {
@@ -120,6 +119,39 @@ public class PlantImportHandler
                     isActive = parsedActive;
             }
 
+            if (hasExistingSku)
+            {
+                if (!upsertBySku)
+                {
+                    issues.Add(new ImportIssue
+                    {
+                        ImportBatchId = batchId,
+                        RowNumber = rowNumber,
+                        IssueType = "DuplicateSku",
+                        Sku = sku,
+                        Barcode = barcode,
+                        Message = $"Sku '{sku}' already exists.",
+                        RawData = rawData
+                    });
+                    skipped++;
+                    continue;
+                }
+
+                var previousBarcode = existingPlant!.Barcode;
+                existingPlant.Name = string.IsNullOrWhiteSpace(name) ? existingPlant.Name : name;
+                existingPlant.Variant = string.IsNullOrWhiteSpace(variant) ? null : variant;
+                existingPlant.Price = price;
+                existingPlant.Barcode = barcode;
+                existingPlant.IsActive = isActive;
+                if (!string.IsNullOrWhiteSpace(previousBarcode) && !string.Equals(previousBarcode, barcode, StringComparison.OrdinalIgnoreCase))
+                {
+                    barcodeSet.Remove(previousBarcode);
+                    barcodeSet.Add(barcode);
+                }
+                imported++;
+                continue;
+            }
+
             var plant = new PlantCatalog
             {
                 Sku = sku,
@@ -139,7 +171,7 @@ public class PlantImportHandler
                 OnHandQty = 0
             });
 
-            skuSet.Add(sku);
+            plantsBySku[sku] = plant;
             barcodeSet.Add(barcode);
             imported++;
         }

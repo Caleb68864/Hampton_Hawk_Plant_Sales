@@ -43,7 +43,9 @@ The Vite dev server proxies `/api` requests to `http://localhost:8080`. In produ
 
 1. Navigate to **Imports** in the sidebar
 2. Upload CSV or Excel files for plants, inventory, or orders
-3. Review any import issues on the batch detail page
+3. Use dry-run first (`?dryRun=true`) to validate rows before committing
+4. For plant re-imports, use SKU upsert (`?upsertBySku=true`, default) to update existing items without duplicates
+5. Review any import issues on the batch detail page
 
 ### Managing Orders
 
