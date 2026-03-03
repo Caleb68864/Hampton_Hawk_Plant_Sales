@@ -76,6 +76,59 @@ public class AdminServiceTests
         result.Should().BeTrue();
     }
 
+
+    [Fact]
+    public async Task GetActionsAsync_OrderIdFilter_OnlyReturnsOrderEntityType()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new AdminService(db);
+        var orderId = Guid.NewGuid();
+
+        await service.LogActionAsync("ForceComplete", "Order", orderId, "Order reason");
+        await service.LogActionAsync("InventoryAdjust", "Plant", orderId, "Plant reason");
+
+        var actions = await service.GetActionsAsync(orderId, null, null);
+
+        actions.Should().HaveCount(1);
+        actions[0].EntityType.Should().Be("Order");
+        actions[0].EntityId.Should().Be(orderId);
+    }
+
+    [Fact]
+    public async Task GetActionsAsync_ReturnsNewestFirst()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new AdminService(db);
+
+        var first = await service.LogActionAsync("First", "Order", Guid.NewGuid(), "one");
+        await Task.Delay(5);
+        var second = await service.LogActionAsync("Second", "Order", Guid.NewGuid(), "two");
+
+        var actions = await service.GetActionsAsync(null, null, null);
+
+        actions.Should().HaveCount(2);
+        actions[0].Id.Should().Be(second.Id);
+        actions[1].Id.Should().Be(first.Id);
+    }
+
+    [Fact]
+    public async Task GetActionsAsync_AppliesEntityAndActionFilters()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new AdminService(db);
+        var orderId = Guid.NewGuid();
+
+        await service.LogActionAsync("ForceComplete", "Order", orderId, "r1");
+        await service.LogActionAsync("ResetOrder", "Order", orderId, "r2");
+        await service.LogActionAsync("ForceComplete", "Plant", Guid.NewGuid(), "r3");
+
+        var actions = await service.GetActionsAsync(null, "Order", "ForceComplete");
+
+        actions.Should().HaveCount(1);
+        actions[0].EntityType.Should().Be("Order");
+        actions[0].ActionType.Should().Be("ForceComplete");
+    }
+
     [Fact]
     public async Task ForceComplete_WithPin_CompletesOrderWithUnfulfilledLines()
     {

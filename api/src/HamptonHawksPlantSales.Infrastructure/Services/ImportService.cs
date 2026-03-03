@@ -20,8 +20,9 @@ public class ImportService : IImportService
         _db = db;
     }
 
-    public async Task<ImportResultResponse> ImportAsync(ImportType type, string filename, Stream fileStream)
+    public async Task<ImportResultResponse> ImportAsync(ImportType type, string filename, Stream fileStream, ImportOptions? options = null)
     {
+        options ??= new ImportOptions();
         var rows = ReadRows(filename, fileStream);
 
         var batch = new ImportBatch
@@ -32,8 +33,11 @@ public class ImportService : IImportService
             ImportedCount = 0,
             SkippedCount = 0
         };
-        _db.ImportBatches.Add(batch);
-        await _db.SaveChangesAsync();
+        if (!options.DryRun)
+        {
+            _db.ImportBatches.Add(batch);
+            await _db.SaveChangesAsync();
+        }
 
         int imported;
         int skippedCount;
@@ -43,7 +47,7 @@ public class ImportService : IImportService
         {
             case ImportType.Plants:
                 var plantHandler = new PlantImportHandler(_db);
-                (imported, skippedCount, issues) = await plantHandler.HandleAsync(batch.Id, rows);
+                (imported, skippedCount, issues) = await plantHandler.HandleAsync(batch.Id, rows, options.UpsertPlantsBySku);
                 break;
             case ImportType.Inventory:
                 var invHandler = new InventoryImportHandler(_db);
@@ -57,22 +61,31 @@ public class ImportService : IImportService
                 throw new ArgumentOutOfRangeException(nameof(type));
         }
 
-        // Save issues
-        if (issues.Count > 0)
+        if (!options.DryRun)
         {
-            _db.ImportIssues.AddRange(issues);
-        }
+            // Save issues
+            if (issues.Count > 0)
+            {
+                _db.ImportIssues.AddRange(issues);
+            }
 
-        batch.ImportedCount = imported;
-        batch.SkippedCount = skippedCount;
-        await _db.SaveChangesAsync();
+            batch.ImportedCount = imported;
+            batch.SkippedCount = skippedCount;
+            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            _db.ChangeTracker.Clear();
+        }
 
         return new ImportResultResponse
         {
-            BatchId = batch.Id,
+            BatchId = options.DryRun ? Guid.Empty : batch.Id,
             TotalRows = batch.TotalRows,
             ImportedCount = imported,
-            SkippedCount = skippedCount
+            SkippedCount = skippedCount,
+            IssueCount = issues.Count,
+            DryRun = options.DryRun
         };
     }
 

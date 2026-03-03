@@ -219,7 +219,11 @@ public class OrderService : IOrderService
             .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order line not found.");
 
-        if (request.QtyOrdered < line.QtyFulfilled)
+        var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
+        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
+            throw new ValidationException("QtyOrdered must be greater than 0.");
+
+        if (newQtyOrdered < line.QtyFulfilled)
             throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
 
         var newPlantCatalogId = request.PlantCatalogId ?? line.PlantCatalogId;
@@ -229,7 +233,7 @@ public class OrderService : IOrderService
 
         var plantChanged = newPlantCatalogId != line.PlantCatalogId;
         line.PlantCatalogId = newPlantCatalogId;
-        line.QtyOrdered = request.QtyOrdered;
+        line.QtyOrdered = newQtyOrdered;
         line.Notes = request.Notes;
 
         await _db.SaveChangesAsync();

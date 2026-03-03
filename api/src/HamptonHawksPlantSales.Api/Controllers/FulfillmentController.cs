@@ -71,6 +71,7 @@ public class FulfillmentController : ControllerBase
     [HttpPost("{id:guid}/force-complete")]
     [RequiresAdminPin]
     [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public async Task<IActionResult> ForceComplete(Guid id)
     {
         var reason = HttpContext.Items["AdminReason"] as string ?? string.Empty;

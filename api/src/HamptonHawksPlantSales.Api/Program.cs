@@ -106,11 +106,7 @@ app.MapFallback(async context =>
 {
     context.Response.StatusCode = 404;
     context.Response.ContentType = "application/json";
-    var response = new HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>
-    {
-        Success = false,
-        Errors = new List<string> { "Not found" }
-    };
+    var response = HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>.Fail("Not found");
     var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
     await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, options));
 });

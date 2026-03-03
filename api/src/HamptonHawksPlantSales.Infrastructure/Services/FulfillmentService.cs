@@ -20,6 +20,57 @@ public class FulfillmentService : IFulfillmentService
 
     public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode)
     {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                return await ScanInternalAsync(orderId, barcode);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
+            {
+                _db.ChangeTracker.Clear();
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && IsRetryableConcurrencyException(ex))
+            {
+                _db.ChangeTracker.Clear();
+            }
+        }
+
+        // Final attempt without catch filter so unexpected errors still bubble up.
+        try
+        {
+            return await ScanInternalAsync(orderId, barcode);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
+                "Concurrent scan conflict. Please rescan.");
+
+            return new ScanResponse
+            {
+                Result = FulfillmentResult.AlreadyFulfilled,
+                OrderId = orderId,
+                OrderRemainingItems = await GetOrderRemainingItems(orderId)
+            };
+        }
+        catch (DbUpdateException ex) when (IsRetryableConcurrencyException(ex))
+        {
+            await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
+                "Concurrent scan conflict. Please rescan.");
+
+            return new ScanResponse
+            {
+                Result = FulfillmentResult.AlreadyFulfilled,
+                OrderId = orderId,
+                OrderRemainingItems = await GetOrderRemainingItems(orderId)
+            };
+        }
+    }
+
+    private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode)
+    {
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
@@ -70,13 +121,12 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
-        // 5. Transaction with FOR UPDATE row locks.
-        //    Because we used AsNoTracking above, EF Core's identity map has no cached entries
-        //    for these rows. The FOR UPDATE SQL acquires exclusive locks, and the subsequent
-        //    tracked FirstOrDefaultAsync calls load the actual committed+locked DB values,
-        //    blocking until the lock is granted (i.e., blocking concurrent scan transactions).
+        // 5. Transaction with FOR UPDATE row locks and serializable isolation for relational providers.
         var isRelational = _db.Database.IsRelational();
-        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
+        var transaction = isRelational
+            ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
+            : null;
+
         try
         {
             if (isRelational)
@@ -177,6 +227,14 @@ public class FulfillmentService : IFulfillmentService
             if (transaction != null) await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    private static bool IsRetryableConcurrencyException(DbUpdateException exception)
+    {
+        var message = exception.InnerException?.Message ?? exception.Message;
+        return message.Contains("could not serialize access", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("deadlock detected", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("concurrent update", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<ScanResponse> UndoLastScanAsync(Guid orderId)

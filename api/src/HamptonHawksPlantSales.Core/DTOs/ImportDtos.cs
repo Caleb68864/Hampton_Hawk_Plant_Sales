@@ -6,6 +6,14 @@ public class ImportResultResponse
     public int TotalRows { get; set; }
     public int ImportedCount { get; set; }
     public int SkippedCount { get; set; }
+    public int IssueCount { get; set; }
+    public bool DryRun { get; set; }
+}
+
+public class ImportOptions
+{
+    public bool DryRun { get; set; }
+    public bool UpsertPlantsBySku { get; set; } = true;
 }
 
 public class ImportBatchResponse

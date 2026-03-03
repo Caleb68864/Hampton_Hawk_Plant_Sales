@@ -29,7 +29,7 @@ public class CreateOrderLineRequest
 
 public class UpdateOrderLineRequest
 {
-    public int QtyOrdered { get; set; }
+    public int? QtyOrdered { get; set; }
     public Guid? PlantCatalogId { get; set; }
     public string? Notes { get; set; }
 }
