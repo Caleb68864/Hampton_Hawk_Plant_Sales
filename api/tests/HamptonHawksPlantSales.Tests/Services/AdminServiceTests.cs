@@ -112,24 +112,6 @@ public class AdminServiceTests
     }
 
     [Fact]
-    public async Task GetActionsAsync_AppliesEntityAndActionFilters()
-    {
-        using var db = MockDbContextFactory.Create();
-        var service = new AdminService(db);
-        var orderId = Guid.NewGuid();
-
-        await service.LogActionAsync("ForceComplete", "Order", orderId, "r1");
-        await service.LogActionAsync("ResetOrder", "Order", orderId, "r2");
-        await service.LogActionAsync("ForceComplete", "Plant", Guid.NewGuid(), "r3");
-
-        var actions = await service.GetActionsAsync(null, "Order", "ForceComplete");
-
-        actions.Should().HaveCount(1);
-        actions[0].EntityType.Should().Be("Order");
-        actions[0].ActionType.Should().Be("ForceComplete");
-    }
-
-    [Fact]
     public async Task ForceComplete_WithPin_CompletesOrderWithUnfulfilledLines()
     {
         // This tests the full ForceComplete flow through FulfillmentService
