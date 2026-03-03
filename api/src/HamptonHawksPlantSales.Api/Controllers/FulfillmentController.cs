@@ -44,7 +44,9 @@ public class FulfillmentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ScanResponse>), 400)]
     public async Task<IActionResult> UndoLastScan(Guid id)
     {
-        var result = await _fulfillmentService.UndoLastScanAsync(id);
+        var reason = Request.Headers["X-Admin-Reason"].FirstOrDefault() ?? "Undo last accepted scan";
+        var operatorName = Request.Headers["X-Operator"].FirstOrDefault() ?? "Pickup Operator";
+        var result = await _fulfillmentService.UndoLastScanAsync(id, reason, operatorName);
         if (result.Result == FulfillmentResult.SaleClosedBlocked)
             return BadRequest(ApiResponse<ScanResponse>.Fail("Sale is closed."));
         return Ok(ApiResponse<ScanResponse>.Ok(result));
@@ -75,7 +77,8 @@ public class FulfillmentController : ControllerBase
     public async Task<IActionResult> ForceComplete(Guid id)
     {
         var reason = HttpContext.Items["AdminReason"] as string ?? string.Empty;
-        await _fulfillmentService.ForceCompleteOrderAsync(id, reason);
+        var operatorName = Request.Headers["X-Operator"].FirstOrDefault() ?? "Admin Operator";
+        await _fulfillmentService.ForceCompleteOrderAsync(id, reason, operatorName);
         return Ok(ApiResponse<bool>.Ok(true));
     }
 
@@ -90,7 +93,8 @@ public class FulfillmentController : ControllerBase
     public async Task<IActionResult> Reset(Guid id)
     {
         var reason = HttpContext.Items["AdminReason"] as string ?? string.Empty;
-        await _fulfillmentService.ResetOrderAsync(id, reason);
+        var operatorName = Request.Headers["X-Operator"].FirstOrDefault() ?? "Admin Operator";
+        await _fulfillmentService.ResetOrderAsync(id, reason, operatorName);
         return Ok(ApiResponse<bool>.Ok(true));
     }
 

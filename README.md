@@ -32,6 +32,33 @@ The database is automatically created and migrations run on startup.
 | `INVENTORY_NEGATIVE_ADJUST_THRESHOLD` | Max negative inventory adjustment   | `10`            |
 | `ASPNETCORE_ENVIRONMENT`              | ASP.NET environment                 | `Production`    |
 | `ASPNETCORE_URLS`                     | API listen URL                      | `http://+:8080` |
+| `Cors__AllowedOrigins`                | Comma-separated CORS allowlist      | `http://localhost:3000` |
+
+
+### CORS Allowed Origins
+
+The API uses a strict origin allowlist from `Cors:AllowedOrigins` (no wildcard origins).
+
+Configure in `appsettings*.json` as an array:
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [
+      "https://plantsales.hamptonhawks.org",
+      "https://plantsales-admin.hamptonhawks.org"
+    ]
+  }
+}
+```
+
+Or via environment variable as a comma-separated list:
+
+```bash
+Cors__AllowedOrigins=https://plantsales.hamptonhawks.org,https://plantsales-admin.hamptonhawks.org
+```
+
+Any origin not explicitly listed is blocked by CORS policy.
 
 ### Web (`web` service)
 

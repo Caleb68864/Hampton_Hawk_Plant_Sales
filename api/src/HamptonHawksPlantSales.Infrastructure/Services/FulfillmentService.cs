@@ -210,6 +210,9 @@ public class FulfillmentService : IFulfillmentService
             // Calculate remaining items across all lines
             var remaining = await GetOrderRemainingItems(orderId);
 
+            await _adminService.LogActionAsync("UndoLastScan", "Order", orderId, reason,
+                $"Operator: {operatorName}. Undo applied to barcode {lastAccepted.Barcode}.");
+
             return new ScanResponse
             {
                 Result = FulfillmentResult.Accepted,
@@ -239,7 +242,7 @@ public class FulfillmentService : IFulfillmentService
             || message.Contains("concurrent update", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<ScanResponse> UndoLastScanAsync(Guid orderId)
+    public async Task<ScanResponse> UndoLastScanAsync(Guid orderId, string reason, string operatorName)
     {
         // Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
@@ -328,6 +331,9 @@ public class FulfillmentService : IFulfillmentService
 
             var remaining = await GetOrderRemainingItems(orderId);
 
+            await _adminService.LogActionAsync("UndoLastScan", "Order", orderId, reason,
+                $"Operator: {operatorName}. Undo applied to barcode {lastAccepted.Barcode}.");
+
             return new ScanResponse
             {
                 Result = FulfillmentResult.Accepted,
@@ -365,7 +371,7 @@ public class FulfillmentService : IFulfillmentService
         return true;
     }
 
-    public async Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason)
+    public async Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason, string operatorName)
     {
         var order = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
@@ -375,12 +381,12 @@ public class FulfillmentService : IFulfillmentService
         await _db.SaveChangesAsync();
 
         await _adminService.LogActionAsync("ForceComplete", "Order", orderId, reason,
-            "Order force-completed with unfulfilled lines.");
+            $"Operator: {operatorName}. Order force-completed with unfulfilled lines.");
 
         return true;
     }
 
-    public async Task<bool> ResetOrderAsync(Guid orderId, string reason)
+    public async Task<bool> ResetOrderAsync(Guid orderId, string reason, string operatorName)
     {
         var order = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
@@ -393,7 +399,7 @@ public class FulfillmentService : IFulfillmentService
         await _db.SaveChangesAsync();
 
         await _adminService.LogActionAsync("ResetOrder", "Order", orderId, reason,
-            "Order reset from Complete to InProgress.");
+            $"Operator: {operatorName}. Order reset from Complete to InProgress.");
 
         return true;
     }
