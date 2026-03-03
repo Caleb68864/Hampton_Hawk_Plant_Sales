@@ -17,6 +17,34 @@ interface ImportSectionProps {
   allowedExtensions?: string[];
   promptText?: string;
   onUpload: (file: File) => Promise<ImportResult>;
+  templateLinks?: TemplateDownloadLinksProps;
+}
+
+interface TemplateDownloadLinksProps {
+  csvHref: string;
+  excelHref: string;
+}
+
+function TemplateDownloadLinks({ csvHref, excelHref }: TemplateDownloadLinksProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1">
+      <span className="text-xs font-medium text-gray-600">Templates:</span>
+      <a
+        href={csvHref}
+        download
+        className="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+      >
+        Download CSV
+      </a>
+      <a
+        href={excelHref}
+        download
+        className="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+      >
+        Download Excel
+      </a>
+    </div>
+  );
 }
 
 async function extractCsvColumnValues(file: File, columnName: string) {
@@ -38,6 +66,7 @@ async function extractCsvColumnValues(file: File, columnName: string) {
 }
 
 function ImportSection({ title, hint, type, accept, allowedExtensions, promptText, onUpload }: ImportSectionProps) {
+function ImportSection({ title, hint, type, onUpload, templateLinks }: ImportSectionProps) {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skuPreview, setSkuPreview] = useState<string[]>([]);
@@ -63,6 +92,9 @@ function ImportSection({ title, hint, type, accept, allowedExtensions, promptTex
       <div>
         <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
         <p className="text-xs text-gray-500 mt-1">{hint}</p>
+        {templateLinks && (
+          <TemplateDownloadLinks csvHref={templateLinks.csvHref} excelHref={templateLinks.excelHref} />
+        )}
       </div>
 
       <FileUploader
@@ -160,6 +192,10 @@ export function ImportsPage() {
             title="Import Plants"
             hint="Columns: SKU, Name, Variant, Price, Barcode"
             onUpload={(file) => importsApi.importPlants(file)}
+            templateLinks={{
+              csvHref: '/templates/plants-import-template.csv',
+              excelHref: '/templates/plants-import-template.xls',
+            }}
           />
           <ImportSection
             type="inventory"
@@ -175,6 +211,10 @@ export function ImportsPage() {
             allowedExtensions={['csv', 'xlsx', 'pdf']}
             promptText="Drop a CSV, XLSX, or order PDF file here, or click to browse"
             onUpload={(file) => importsApi.importOrders(file)}
+            templateLinks={{
+              csvHref: '/templates/orders-import-template.csv',
+              excelHref: '/templates/orders-import-template.xls',
+            }}
           />
         </div>
       )}

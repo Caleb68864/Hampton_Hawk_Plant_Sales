@@ -9,6 +9,7 @@ import { PrintCheatsheetPickup } from '@/pages/print/PrintCheatsheetPickup.js';
 import { PrintCheatsheetLookup } from '@/pages/print/PrintCheatsheetLookup.js';
 import { PrintCheatsheetAdmin } from '@/pages/print/PrintCheatsheetAdmin.js';
 import { PrintCheatsheetEndOfDay } from '@/pages/print/PrintCheatsheetEndOfDay.js';
+import { PrintCheatsheetThermal } from '@/pages/print/PrintCheatsheetThermal.js';
 import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
 import { PickupLookupPage } from '@/pages/pickup/PickupLookupPage.js';
 import { PickupScanPage } from '@/pages/pickup/PickupScanPage.js';
@@ -67,6 +68,7 @@ function App() {
           <Route path="print/cheatsheet/lookup" element={<PrintCheatsheetLookup />} />
           <Route path="print/cheatsheet/admin" element={<PrintCheatsheetAdmin />} />
           <Route path="print/cheatsheet/end-of-day" element={<PrintCheatsheetEndOfDay />} />
+          <Route path="print/cheatsheet/thermal-labels" element={<PrintCheatsheetThermal />} />
           <Route path="print/labels" element={<PrintPlantLabelsPage />} />
         </Routes>
       </BrowserRouter>

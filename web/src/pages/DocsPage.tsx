@@ -18,7 +18,10 @@ export function DocsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Documentation</h1>
+      <div className="rounded-xl border border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 p-5">
+        <h1 className="text-2xl font-bold text-hawk-900">Volunteer Help Center</h1>
+        <p className="text-sm text-hawk-800">Improved, practical guides for lookup, pickup, admin actions, and printing.</p>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {sections.map((s) => (
@@ -29,7 +32,7 @@ export function DocsPage() {
             className={`px-3 py-1.5 text-sm font-medium rounded-md ${
               active === s.key
                 ? 'bg-hawk-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-hawk-50 hover:border-hawk-200'
             }`}
           >
             {s.label}
@@ -54,45 +57,19 @@ export function DocsPage() {
 function ScanWorkflowSection() {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-gray-800">Scan Workflow</h2>
-      <p className="text-gray-600">
-        The pickup station uses barcode scanning to fulfill orders. When a customer arrives,
-        look up their order by name, pickup code, or order number, then scan each plant's barcode.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">Scan Results</h3>
-      <dl className="space-y-3">
-        <div>
-          <dt className="font-medium text-hawk-700">Match</dt>
-          <dd className="text-gray-600 ml-4">
-            The barcode matched a line item on the order. The fulfilled quantity was incremented.
-            A success chime plays and the row highlights green.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-amber-700">Duplicate</dt>
-          <dd className="text-gray-600 ml-4">
-            The same barcode was scanned within 2 seconds. Ignored to prevent accidental double-scans.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-amber-700">Over-scan</dt>
-          <dd className="text-gray-600 ml-4">
-            The line item is already fully fulfilled. The scan is still recorded but flagged as an issue.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-red-700">No Match</dt>
-          <dd className="text-gray-600 ml-4">
-            The barcode does not match any line item on this order. An error sound plays.
-            Check that you are scanning the correct order.
-          </dd>
-        </div>
-      </dl>
-      <h3 className="text-lg font-medium text-gray-700">Undo</h3>
-      <p className="text-gray-600">
-        Click "Undo Last Scan" to reverse the most recent scan. This decrements the fulfilled
-        quantity and removes the scan event from history.
-      </p>
+      <h2 className="text-xl font-semibold text-gray-800">Pickup Scan Workflow</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <InfoCard title="1) Find Order">Search by customer name, pickup code, or order number from Pickup Lookup.</InfoCard>
+        <InfoCard title="2) Scan Items">Keep focus in scan input, then scan each plant barcode.</InfoCard>
+        <InfoCard title="3) Complete">When all lines are 100%, click Complete or use admin action if needed.</InfoCard>
+      </div>
+      <h3 className="text-lg font-medium text-gray-700">Result Meanings</h3>
+      <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
+        <li><span className="font-semibold text-green-700">Green:</span> matched and fulfilled successfully.</li>
+        <li><span className="font-semibold text-amber-700">Amber:</span> duplicate/over-scan warning.</li>
+        <li><span className="font-semibold text-red-700">Red:</span> no match or wrong order.</li>
+        <li><span className="font-semibold text-blue-700">Blue:</span> line partially fulfilled.</li>
+      </ul>
     </div>
   );
 }
@@ -101,29 +78,25 @@ function SaleClosedSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Sale Closed Mode</h2>
-      <p className="text-gray-600">
-        When the sale is closed, the system enters a restricted mode to prevent accidental changes
-        after the fundraiser ends.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">What Gets Locked</h3>
-      <ul className="list-disc list-inside text-gray-600 space-y-1">
-        <li>Creating new orders is blocked</li>
-        <li>Modifying existing order line items is blocked</li>
-        <li>Walk-up order creation is blocked</li>
-        <li>Importing new data is blocked</li>
-      </ul>
-      <h3 className="text-lg font-medium text-gray-700">What Admins Can Still Do</h3>
-      <ul className="list-disc list-inside text-gray-600 space-y-1">
-        <li>Continue scanning and fulfilling existing orders at pickup</li>
-        <li>Force-complete or reset orders (with admin PIN)</li>
-        <li>View all reports and dashboards</li>
-        <li>Re-open the sale (with admin PIN)</li>
-      </ul>
-      <h3 className="text-lg font-medium text-gray-700">Toggling Sale Closed</h3>
-      <p className="text-gray-600">
-        Go to Settings and click "Close Sale" or "Reopen Sale". Both actions require the admin
-        PIN and a reason, which is logged for audit purposes.
-      </p>
+      <p className="text-sm text-gray-600">Use when the fundraiser day is ended and new data changes must stop.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <InfoCard title="Locked While Closed">
+          <ul className="list-disc list-inside space-y-1">
+            <li>New order creation</li>
+            <li>Order line modifications</li>
+            <li>Walk-up order creation</li>
+            <li>Imports</li>
+          </ul>
+        </InfoCard>
+        <InfoCard title="Still Allowed">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Viewing orders and reports</li>
+            <li>Fulfillment on existing orders</li>
+            <li>Admin force complete / reset</li>
+            <li>Reopen sale (PIN required)</li>
+          </ul>
+        </InfoCard>
+      </div>
     </div>
   );
 }
@@ -132,23 +105,24 @@ function AdminOverrideSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Admin Override (PIN)</h2>
-      <p className="text-gray-600">
-        Certain actions require the admin PIN to prevent accidental or unauthorized changes.
-        The PIN is configured via the <code className="bg-gray-100 px-1 rounded">APP_ADMIN_PIN</code> environment variable.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">Actions Requiring PIN</h3>
-      <ul className="list-disc list-inside text-gray-600 space-y-1">
-        <li>Force-completing an order with unfulfilled lines</li>
-        <li>Resetting an order back to Open status</li>
-        <li>Toggling the SaleClosed flag</li>
-        <li>Exceeding available walk-up inventory</li>
-      </ul>
-      <h3 className="text-lg font-medium text-gray-700">How to Use</h3>
-      <p className="text-gray-600">
-        When a PIN-protected action is triggered, a modal dialog appears. Enter the 4-digit
-        admin PIN and optionally provide a reason. The reason is stored in the audit log.
-        If the PIN is incorrect, the action is rejected.
-      </p>
+      <p className="text-sm text-gray-600">PIN-protected actions are audit logged. Always add clear reasons.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <InfoCard title="Actions That Need PIN">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Close/Reopen sale</li>
+            <li>Force-complete orders</li>
+            <li>Reset fulfillment</li>
+            <li>Walk-up inventory overrides</li>
+          </ul>
+        </InfoCard>
+        <InfoCard title="Good Reason Examples">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Customer accepted substitution</li>
+            <li>Wrong order was scanned</li>
+            <li>Late pickup window approved</li>
+          </ul>
+        </InfoCard>
+      </div>
     </div>
   );
 }
@@ -157,24 +131,13 @@ function WalkUpProtectionSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Walk-Up Inventory Protection</h2>
-      <p className="text-gray-600">
-        Walk-up orders are day-of purchases that compete with pre-orders for the same inventory.
-        The system protects pre-order commitments by calculating available walk-up quantity.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">How Available Quantity is Calculated</h3>
-      <div className="bg-gray-50 rounded p-4 font-mono text-sm">
-        Available for Walk-Up = Total On Hand - Sum of Unfulfilled Pre-Order Quantities
-      </div>
-      <p className="text-gray-600">
-        For example, if you have 50 Red Maples on hand and pre-orders account for 35 unfulfilled,
-        then 15 are available for walk-up customers.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">Exceeding Available Stock</h3>
-      <p className="text-gray-600">
-        If a walk-up order tries to add more than the available quantity, the system blocks the
-        action. An admin can override this by entering the admin PIN, which logs the override
-        reason for accountability.
-      </p>
+      <p className="text-sm text-gray-600">Walk-up inventory is calculated after reserving preorder commitments.</p>
+      <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1">
+        <li>Select customer and add requested plants.</li>
+        <li>If available quantity is enough, order line saves normally.</li>
+        <li>If quantity exceeds available, prompt requires admin PIN + reason.</li>
+        <li>Only override when approved by event lead.</li>
+      </ol>
     </div>
   );
 }
@@ -183,37 +146,23 @@ function KeyboardShortcutsSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Keyboard Shortcuts</h2>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shortcut</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Where</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          <tr>
-            <td className="px-4 py-3 text-sm font-mono">Ctrl + K</td>
-            <td className="px-4 py-3 text-sm text-gray-600">Open Quick Find overlay</td>
-            <td className="px-4 py-3 text-sm text-gray-500">Anywhere</td>
-          </tr>
-          <tr>
-            <td className="px-4 py-3 text-sm font-mono">A - Z</td>
-            <td className="px-4 py-3 text-sm text-gray-600">Jump to letter tab filter</td>
-            <td className="px-4 py-3 text-sm text-gray-500">List pages with A-Z tabs</td>
-          </tr>
-          <tr>
-            <td className="px-4 py-3 text-sm font-mono">/</td>
-            <td className="px-4 py-3 text-sm text-gray-600">Focus the search input</td>
-            <td className="px-4 py-3 text-sm text-gray-500">List pages</td>
-          </tr>
-          <tr>
-            <td className="px-4 py-3 text-sm font-mono">Esc</td>
-            <td className="px-4 py-3 text-sm text-gray-600">Close overlay / clear input</td>
-            <td className="px-4 py-3 text-sm text-gray-500">Anywhere</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden text-sm">
+          <thead className="bg-hawk-50 text-hawk-900">
+            <tr>
+              <th className="px-4 py-2 text-left">Shortcut</th>
+              <th className="px-4 py-2 text-left">Action</th>
+              <th className="px-4 py-2 text-left">Where</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr><td className="px-4 py-2 font-mono">Ctrl+K</td><td className="px-4 py-2">Open quick find</td><td className="px-4 py-2">Anywhere</td></tr>
+            <tr><td className="px-4 py-2 font-mono">/</td><td className="px-4 py-2">Focus search input</td><td className="px-4 py-2">List pages</td></tr>
+            <tr><td className="px-4 py-2 font-mono">A-Z</td><td className="px-4 py-2">Jump letter tab</td><td className="px-4 py-2">Pickup lookup</td></tr>
+            <tr><td className="px-4 py-2 font-mono">Esc</td><td className="px-4 py-2">Close overlay / clear</td><td className="px-4 py-2">Anywhere</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -221,78 +170,45 @@ function KeyboardShortcutsSection() {
 function CheatSheetsSection() {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-gray-800">Printable Cheat Sheets</h2>
-      <p className="text-gray-600">
-        Print these guides and keep them at each station for quick reference.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a
-          href="/print/cheatsheet/pickup"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block p-4 border rounded-lg hover:border-hawk-500 hover:bg-hawk-50 transition"
-        >
-          <h3 className="font-medium text-gray-800">Pickup Station</h3>
-          <p className="text-sm text-gray-500">How to scan, undo, and complete orders</p>
-        </a>
-        <a
-          href="/print/cheatsheet/lookup"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block p-4 border rounded-lg hover:border-hawk-500 hover:bg-hawk-50 transition"
-        >
-          <h3 className="font-medium text-gray-800">Lookup and Print</h3>
-          <p className="text-sm text-gray-500">Finding orders and printing sheets</p>
-        </a>
-        <a
-          href="/print/cheatsheet/admin"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block p-4 border rounded-lg hover:border-hawk-500 hover:bg-hawk-50 transition"
-        >
-          <h3 className="font-medium text-gray-800">Admin Guide</h3>
-          <p className="text-sm text-gray-500">Settings, overrides, and imports</p>
-        </a>
-        <a
-          href="/print/cheatsheet/end-of-day"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block p-4 border rounded-lg hover:border-hawk-500 hover:bg-hawk-50 transition"
-        >
-          <h3 className="font-medium text-gray-800">End of Day</h3>
-          <p className="text-sm text-gray-500">Closing the sale and final reports</p>
-        </a>
+      <h2 className="text-xl font-semibold text-gray-800">Printable Counter Cheat Sheets</h2>
+      <p className="text-gray-600 text-sm">Open in a new tab and print one-page references for each station.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CheatLink href="/print/cheatsheet/pickup" title="Pickup Station" desc="Scan, undo, complete, and recovery actions" />
+        <CheatLink href="/print/cheatsheet/lookup" title="Lookup and Print" desc="Find orders and print order/seller docs" />
+        <CheatLink href="/print/cheatsheet/admin" title="Admin Guide" desc="Sale controls, overrides, reset, inventory" />
+        <CheatLink href="/print/cheatsheet/end-of-day" title="End-of-Day" desc="Closeout flow and signoff checklist" />
+        <CheatLink href="/print/cheatsheet/thermal-labels" title="Thermal Labels" desc="1x2 printer setup + calibration" />
       </div>
     </div>
   );
 }
 
-
 function LabelPrintingSection() {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-gray-800">Thermal Label Printing</h2>
-      <p className="text-gray-600">
-        Plant labels are optimized for 1&quot; x 2&quot; thermal stock using Code128 barcodes.
-      </p>
-      <h3 className="text-lg font-medium text-gray-700">Recommended Printer Settings</h3>
-      <ul className="list-disc list-inside text-gray-600 space-y-1">
-        <li>Size: 2.00in × 1.00in</li>
-        <li>Scale: 100% (disable fit-to-page)</li>
-        <li>Margins: None or Minimum</li>
-        <li>Background graphics: On</li>
-        <li>Media type: Gap / die-cut labels</li>
-      </ul>
-      <h3 className="text-lg font-medium text-gray-700">Calibration Tips</h3>
-      <ul className="list-disc list-inside text-gray-600 space-y-1">
-        <li>Run media / gap calibration whenever label stock changes.</li>
-        <li>Lower print speed if bars appear blurred.</li>
-        <li>Increase darkness only until barcode bars are fully black.</li>
-        <li>Print a single test sheet and scan before batch jobs.</li>
-      </ul>
-      <p className="text-sm text-gray-500">
-        Full reference: <code className="bg-gray-100 px-1 rounded">docs/cheatsheets/thermal-label-printer-settings.md</code>
-      </p>
+      <h2 className="text-xl font-semibold text-gray-800">Thermal Label Printing (1"×2")</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <InfoCard title="Required Settings">
+          <ul className="list-disc list-inside space-y-1">
+            <li>2.00" x 1.00" label size</li>
+            <li>Scale 100% (never Fit to Page)</li>
+            <li>Margins none/minimum</li>
+            <li>Background graphics ON</li>
+            <li>Gap/die-cut media type</li>
+          </ul>
+        </InfoCard>
+        <InfoCard title="Print Quality Checklist">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Run 1-up test first</li>
+            <li>Calibrate if drifting</li>
+            <li>Darkness only as needed</li>
+            <li>Scan-test with pickup scanner</li>
+          </ul>
+        </InfoCard>
+      </div>
+      <a href="/print/cheatsheet/thermal-labels" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-md bg-hawk-600 px-3 py-2 text-sm font-medium text-white hover:bg-hawk-700">
+        Open Printable Thermal Label Guide
+      </a>
     </div>
   );
 }
@@ -300,60 +216,32 @@ function LabelPrintingSection() {
 function TroubleshootingSection() {
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-gray-800">Common Issues</h2>
-      <div className="space-y-4">
-        <div>
-          <h3 className="font-medium text-gray-800">Scanner is not reading barcodes</h3>
-          <p className="text-gray-600">
-            Make sure the cursor is focused in the scan input field (the large green-bordered input).
-            Click on it or navigate to the pickup scan page. Most USB barcode scanners simulate
-            keyboard input and press Enter automatically.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Order shows "No Match" for every scan</h3>
-          <p className="text-gray-600">
-            Verify you are scanning the correct order. Check the order number and customer name.
-            The barcode must match a plant SKU that exists as a line item on that specific order.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">"Sale is closed" error when creating an order</h3>
-          <p className="text-gray-600">
-            The sale has been closed by an admin. If this is unintentional, go to Settings and use
-            the admin PIN to reopen the sale. Scanning and fulfillment of existing orders still works.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Walk-up order blocked: "Insufficient inventory"</h3>
-          <p className="text-gray-600">
-            The requested quantity exceeds what is available after pre-order commitments. Reduce the
-            quantity or use the admin PIN to override and proceed anyway.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Cannot complete order -- lines are unfulfilled</h3>
-          <p className="text-gray-600">
-            The standard "Complete" button requires all lines to be fully scanned. If items are truly
-            unavailable, use "Force Complete" with the admin PIN and provide a reason.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Import shows many row errors</h3>
-          <p className="text-gray-600">
-            Check the import batch issues page for details. Common causes: missing required columns,
-            duplicate SKUs, or invalid quantity values. Fix the source file and re-import.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Page is not loading / API errors</h3>
-          <p className="text-gray-600">
-            Check that the API server is running (visit /health). If using Docker, run{' '}
-            <code className="bg-gray-100 px-1 rounded">docker-compose ps</code> to verify all services
-            are healthy. Check browser console for network errors.
-          </p>
-        </div>
+      <h2 className="text-xl font-semibold text-gray-800">Common Issues + Fast Fixes</h2>
+      <div className="space-y-2 text-sm">
+        <InfoCard title="Scanner not reading">Click the scan input first. Most scanners act like keyboards and submit Enter.</InfoCard>
+        <InfoCard title="No Match on every scan">Verify correct order is open and barcode belongs to a plant line on that order.</InfoCard>
+        <InfoCard title="Sale Closed message">Admin must reopen in Settings with PIN + reason.</InfoCard>
+        <InfoCard title="Walk-up insufficient inventory">Reduce quantity or admin-override with approved reason.</InfoCard>
+        <InfoCard title="Cannot complete order">Finish all scans or use Force Complete with PIN when appropriate.</InfoCard>
       </div>
+    </div>
+  );
+}
+
+function CheatLink({ href, title, desc }: { href: string; title: string; desc: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-gray-200 p-4 hover:border-hawk-400 hover:bg-hawk-50">
+      <h3 className="font-semibold text-gray-800">{title}</h3>
+      <p className="text-sm text-gray-600">{desc}</p>
+    </a>
+  );
+}
+
+function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <h3 className="mb-1 text-sm font-semibold text-hawk-800">{title}</h3>
+      <div className="text-gray-700">{children}</div>
     </div>
   );
 }
