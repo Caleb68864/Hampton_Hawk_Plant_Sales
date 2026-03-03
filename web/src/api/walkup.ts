@@ -30,6 +30,9 @@ export const walkupApi = {
   createOrder: (data: CreateWalkUpOrderRequest) =>
     post<Order>('/walkup/orders', data),
 
+  getAllAvailability: () =>
+    get<WalkUpAvailability[]>('/walkup/availability'),
+
   getAvailability: (plantCatalogId: string) =>
     get<WalkUpAvailability>('/walkup/availability', { plantCatalogId }),
 
