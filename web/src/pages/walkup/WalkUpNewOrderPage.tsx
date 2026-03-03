@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { walkupApi } from '@/api/walkup.js';
 import type { WalkUpAvailability } from '@/api/walkup.js';
@@ -16,14 +16,50 @@ interface WalkUpLineItem {
   plantSku: string;
   qtyOrdered: number;
   notes: string;
-  availableForWalkup: number;
   overrideApproved: boolean;
   adminPin?: string;
   adminReason?: string;
 }
 
+interface WalkUpPrefillLine {
+  plantCatalogId: string;
+  plantName: string;
+  plantSku: string;
+  qtyOrdered?: number;
+}
+
+function isWalkUpPrefillLine(value: unknown): value is WalkUpPrefillLine {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.plantCatalogId === 'string'
+    && typeof candidate.plantName === 'string'
+    && typeof candidate.plantSku === 'string';
+}
+
+function readPreselectedItems(state: unknown, search: string): WalkUpPrefillLine[] {
+  const stateItems =
+    typeof state === 'object'
+      ? (state as { preselectedItems?: unknown }).preselectedItems
+      : undefined;
+  if (Array.isArray(stateItems)) {
+    return stateItems.filter(isWalkUpPrefillLine);
+  }
+
+  const params = new URLSearchParams(search);
+  const raw = params.get('prefill');
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isWalkUpPrefillLine) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function WalkUpNewOrderPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const openPinModal = useAuthStore((s) => s.openPinModal);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,6 +77,48 @@ export function WalkUpNewOrderPage() {
   const [lines, setLines] = useState<WalkUpLineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
+  const [allAvailability, setAllAvailability] = useState<WalkUpAvailability[]>([]);
+  const [loadingAllAvailability, setLoadingAllAvailability] = useState(false);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
+
+  const loadAllAvailability = useCallback(async () => {
+    setLoadingAllAvailability(true);
+    try {
+      const availability = await walkupApi.getAllAvailability();
+      setAllAvailability(availability);
+      setAvailabilityLoaded(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load walk-up availability');
+    } finally {
+      setLoadingAllAvailability(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAllAvailability();
+  }, [loadAllAvailability]);
+
+  const selectedQtyByPlantId = useMemo(() => {
+    const qtyByPlantId = new Map<string, number>();
+    for (const line of lines) {
+      qtyByPlantId.set(line.plantCatalogId, (qtyByPlantId.get(line.plantCatalogId) ?? 0) + line.qtyOrdered);
+    }
+    return qtyByPlantId;
+  }, [lines]);
+
+  const availabilityByPlantId = useMemo(() => {
+    const availabilityMap = new Map<string, WalkUpAvailability>();
+    for (const availability of allAvailability) {
+      availabilityMap.set(availability.plantCatalogId, availability);
+    }
+    return availabilityMap;
+  }, [allAvailability]);
+
+  function getLineAvailableForWalkup(line: WalkUpLineItem) {
+    const snapshotAvailability = availabilityByPlantId.get(line.plantCatalogId)?.availableForWalkup ?? 0;
+    const selectedQty = selectedQtyByPlantId.get(line.plantCatalogId) ?? 0;
+    return Math.max(0, snapshotAvailability - selectedQty + line.qtyOrdered);
+  }
 
   // Customer search
   useEffect(() => {
@@ -93,11 +171,6 @@ export function WalkUpNewOrderPage() {
       return;
     }
 
-    let availability: WalkUpAvailability | null = null;
-    try {
-      availability = await walkupApi.getAvailability(plant.id);
-    } catch { /* ignore */ }
-
     setLines([
       ...lines,
       {
@@ -106,7 +179,6 @@ export function WalkUpNewOrderPage() {
         plantSku: plant.sku,
         qtyOrdered: 1,
         notes: '',
-        availableForWalkup: availability?.availableForWalkup ?? 0,
         overrideApproved: false,
       },
     ]);
@@ -117,7 +189,7 @@ export function WalkUpNewOrderPage() {
   function updateLineQty(idx: number, qty: number) {
     setLines(lines.map((l, i) => {
       if (i !== idx) return l;
-      return { ...l, qtyOrdered: Math.max(1, qty), overrideApproved: l.overrideApproved && qty <= l.availableForWalkup };
+      return { ...l, qtyOrdered: Math.max(1, qty) };
     }));
   }
 
@@ -134,7 +206,7 @@ export function WalkUpNewOrderPage() {
   }
 
   function isLineValid(line: WalkUpLineItem) {
-    return line.qtyOrdered <= line.availableForWalkup || line.overrideApproved;
+    return line.qtyOrdered <= getLineAvailableForWalkup(line) || line.overrideApproved;
   }
 
   const allLinesValid = lines.length > 0 && lines.every(isLineValid);
@@ -274,9 +346,100 @@ export function WalkUpNewOrderPage() {
                     />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" className="px-3 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700" onClick={handleCreateCustomer}>
-                    Create
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={!selectedCustomer}
+              className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50"
+              onClick={() => setStep(2)}
+            >
+              Next: Add Items
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Line Items */}
+      {step === 2 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Add Line Items</h2>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Current Walk-Up Availability Snapshot</h3>
+              <button
+                type="button"
+                className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50"
+                onClick={() => void loadAllAvailability()}
+                disabled={loadingAllAvailability}
+              >
+                {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Displayed availability is based on the latest server snapshot and adjusted locally for line quantities in this order.
+            </p>
+            <div className="overflow-x-auto border border-gray-200 rounded-md">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">On Hand</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Preorder Reserved/Remaining</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available for Walk-Up</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {allAvailability.length > 0 ? allAvailability.map((availability) => {
+                    const selectedQty = selectedQtyByPlantId.get(availability.plantCatalogId) ?? 0;
+                    const adjustedAvailableForWalkup = Math.max(0, availability.availableForWalkup - selectedQty);
+                    const isOut = adjustedAvailableForWalkup === 0;
+                    return (
+                      <tr key={availability.plantCatalogId} className={isOut ? 'bg-red-50' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{availability.plantName}</td>
+                        <td className="px-4 py-2 text-sm text-gray-500 font-mono">{availability.plantSku}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.onHandQty}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.preorderRemaining}</td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold">
+                          <span className={isOut ? 'text-red-600' : 'text-green-700'}>{adjustedAvailableForWalkup}</span>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                        {loadingAllAvailability
+                          ? 'Loading availability...'
+                          : availabilityLoaded
+                            ? 'No active plant availability found.'
+                            : 'Availability not loaded.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
+              placeholder="Search plants to add..."
+              value={plantSearch}
+              onChange={(e) => setPlantSearch(e.target.value)}
+            />
+            {plantResults.length > 0 && (
+              <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
+                {plantResults.map((p) => (
+                  <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => addPlantLine(p)}>
+                    <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
+                    <span className="text-gray-400">{p.sku}</span>
                   </button>
                   <button type="button" className="px-3 py-2 text-sm text-gray-500" onClick={() => { setCreateInline(false); setNewDisplayName(''); setNewPhone(''); setNewEmail(''); }}>
                     Cancel
@@ -287,32 +450,71 @@ export function WalkUpNewOrderPage() {
           </div>
         )}
 
-        {!hasCustomer && (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-            Select an existing customer or create a new customer before submitting.
-          </p>
-        )}
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Add Line Items</h2>
-
-        <div className="space-y-2">
-          <input
-            type="text"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
-            placeholder="Search plants to add..."
-            value={plantSearch}
-            onChange={(e) => setPlantSearch(e.target.value)}
-          />
-          {plantResults.length > 0 && (
-            <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
-              {plantResults.map((p) => (
-                <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => addPlantLine(p)}>
-                  <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
-                  <span className="text-gray-400">{p.sku}</span>
-                </button>
-              ))}
+          {lines.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {lines.map((line, idx) => {
+                    const lineAvailableForWalkup = getLineAvailableForWalkup(line);
+                    const exceeds = line.qtyOrdered > lineAvailableForWalkup;
+                    return (
+                      <tr key={line.plantCatalogId} className={exceeds && !line.overrideApproved ? 'bg-red-50' : ''}>
+                        <td className="px-4 py-2">
+                          <p className="text-sm text-gray-900">{line.plantName}</p>
+                          <p className="text-xs text-gray-400 font-mono">{line.plantSku}</p>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <span className={`text-sm font-medium ${lineAvailableForWalkup > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {lineAvailableForWalkup}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <input
+                            type="number"
+                            min="1"
+                            className={`w-16 rounded border px-2 py-1 text-sm text-right ${
+                              exceeds && !line.overrideApproved ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
+                            value={line.qtyOrdered}
+                            onChange={(e) => updateLineQty(idx, parseInt(e.target.value, 10) || 1)}
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          {!exceeds && (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">OK</span>
+                          )}
+                          {exceeds && line.overrideApproved && (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Override</span>
+                          )}
+                          {exceeds && !line.overrideApproved && (
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:text-red-700 font-medium"
+                              onClick={() => handleAdminOverride(idx)}
+                            >
+                              Exceeds limit -- Admin Override
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <button type="button" className="text-red-500 hover:text-red-700 text-sm" onClick={() => removeLine(idx)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

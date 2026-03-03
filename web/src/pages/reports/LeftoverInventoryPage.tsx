@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { inventoryApi } from '@/api/inventory.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
@@ -7,11 +7,20 @@ import type { InventoryItem } from '@/types/inventory.js';
 
 const PAGE_SIZE = 200;
 
+interface WalkUpPrefillLine {
+  plantCatalogId: string;
+  plantName: string;
+  plantSku: string;
+  qtyOrdered: number;
+}
+
 export function LeftoverInventoryPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -36,6 +45,47 @@ export function LeftoverInventoryPage() {
 
   const totalLeftoverPlants = leftoverItems.length;
   const totalUnitsLeftover = leftoverItems.reduce((sum, item) => sum + item.onHandQty, 0);
+  const allVisibleSelected = leftoverItems.length > 0 && leftoverItems.every((item) => selectedPlantIds.has(item.plantCatalogId));
+
+  const selectedCount = selectedPlantIds.size;
+
+  function togglePlantSelection(plantCatalogId: string, checked: boolean) {
+    setSelectedPlantIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(plantCatalogId);
+      else next.delete(plantCatalogId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible(checked: boolean) {
+    setSelectedPlantIds((current) => {
+      const next = new Set(current);
+      for (const item of leftoverItems) {
+        if (checked) next.add(item.plantCatalogId);
+        else next.delete(item.plantCatalogId);
+      }
+      return next;
+    });
+  }
+
+  function handleCreateWalkUpFromSelected() {
+    const selectedItems: WalkUpPrefillLine[] = items
+      .filter((item) => item.onHandQty > 0 && selectedPlantIds.has(item.plantCatalogId))
+      .map((item) => ({
+        plantCatalogId: item.plantCatalogId,
+        plantName: item.plantName,
+        plantSku: item.plantSku,
+        qtyOrdered: 1,
+      }));
+
+    if (selectedItems.length === 0) return;
+
+    const serialized = encodeURIComponent(JSON.stringify(selectedItems));
+    navigate(`/walkup/new?prefill=${serialized}`, {
+      state: { preselectedItems: selectedItems },
+    });
+  }
 
   if (loading) return <LoadingSpinner />;
 
@@ -47,6 +97,14 @@ export function LeftoverInventoryPage() {
           <p className="text-sm text-gray-600">Post-sale report for cash-and-carry planning.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={selectedCount === 0}
+            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleCreateWalkUpFromSelected}
+          >
+            Create Walk-Up from Selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
+          </button>
           <Link
             to="/walkup/new"
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
@@ -89,6 +147,14 @@ export function LeftoverInventoryPage() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-3 py-2 text-left">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible leftover inventory rows"
+                      checked={allVisibleSelected}
+                      onChange={(e) => toggleSelectAllVisible(e.target.checked)}
+                    />
+                  </th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">Plant</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">SKU</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">On Hand</th>
@@ -100,6 +166,14 @@ export function LeftoverInventoryPage() {
                   const barWidth = Math.max(6, Math.min(100, (item.onHandQty / 40) * 100));
                   return (
                     <tr key={item.id}>
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${item.plantName}`}
+                          checked={selectedPlantIds.has(item.plantCatalogId)}
+                          onChange={(e) => togglePlantSelection(item.plantCatalogId, e.target.checked)}
+                        />
+                      </td>
                       <td className="px-3 py-2 text-gray-900">{item.plantName}</td>
                       <td className="px-3 py-2 text-gray-600">{item.plantSku}</td>
                       <td className="px-3 py-2 font-semibold text-gray-900">{item.onHandQty.toLocaleString()}</td>
