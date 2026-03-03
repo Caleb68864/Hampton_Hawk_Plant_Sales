@@ -113,6 +113,7 @@ export function WalkUpNewOrderPage() {
   const [plantAzFilter, setPlantAzFilter] = useState<string | null>(null);
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
   const [allAvailability, setAllAvailability] = useState<WalkUpAvailability[]>([]);
+  const [showUnavailableItems, setShowUnavailableItems] = useState(false);
   const [loadingAllAvailability, setLoadingAllAvailability] = useState(false);
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
 
@@ -170,6 +171,30 @@ export function WalkUpNewOrderPage() {
     const selectedQty = selectedQtyByPlantId.get(line.plantCatalogId) ?? 0;
     return Math.max(0, snapshotAvailability - selectedQty + line.qtyOrdered);
   }
+
+  function getAdjustedAvailableForWalkup(plantCatalogId: string) {
+    const snapshotAvailability = availabilityByPlantId.get(plantCatalogId)?.availableForWalkup ?? 0;
+    const selectedQty = selectedQtyByPlantId.get(plantCatalogId) ?? 0;
+    return Math.max(0, snapshotAvailability - selectedQty);
+  }
+
+  const displayedAvailability = useMemo(() => {
+    if (showUnavailableItems) return allAvailability;
+    return allAvailability.filter((availability) => {
+      const snapshotAvailability = availabilityByPlantId.get(availability.plantCatalogId)?.availableForWalkup ?? 0;
+      const selectedQty = selectedQtyByPlantId.get(availability.plantCatalogId) ?? 0;
+      return Math.max(0, snapshotAvailability - selectedQty) > 0;
+    });
+  }, [allAvailability, availabilityByPlantId, showUnavailableItems, selectedQtyByPlantId]);
+
+  const displayedPlantResults = useMemo(() => {
+    if (showUnavailableItems || !availabilityLoaded) return plantResults;
+    return plantResults.filter((plant) => {
+      const snapshotAvailability = availabilityByPlantId.get(plant.id)?.availableForWalkup ?? 0;
+      const selectedQty = selectedQtyByPlantId.get(plant.id) ?? 0;
+      return Math.max(0, snapshotAvailability - selectedQty) > 0;
+    });
+  }, [availabilityByPlantId, availabilityLoaded, plantResults, showUnavailableItems, selectedQtyByPlantId]);
 
   useEffect(() => {
     if (selectedCustomer) {
@@ -387,9 +412,20 @@ export function WalkUpNewOrderPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700">Current Walk-Up Availability Snapshot</h3>
-            <button type="button" className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50" onClick={() => void loadAllAvailability()} disabled={loadingAllAvailability}>
-              {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
-            </button>
+            <div className="flex items-center gap-4">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-hawk-600 focus:ring-hawk-500"
+                  checked={showUnavailableItems}
+                  onChange={(e) => setShowUnavailableItems(e.target.checked)}
+                />
+                Show unavailable items
+              </label>
+              <button type="button" className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50" onClick={() => void loadAllAvailability()} disabled={loadingAllAvailability}>
+                {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
+              </button>
+            </div>
           </div>
           <p className="text-xs text-gray-500">Displayed availability is based on the latest server snapshot and adjusted locally for line quantities in this order.</p>
           <div className="overflow-x-auto border border-gray-200 rounded-md">
@@ -404,9 +440,8 @@ export function WalkUpNewOrderPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allAvailability.length > 0 ? allAvailability.map((availability) => {
-                  const selectedQty = selectedQtyByPlantId.get(availability.plantCatalogId) ?? 0;
-                  const adjustedAvailableForWalkup = Math.max(0, availability.availableForWalkup - selectedQty);
+                {displayedAvailability.length > 0 ? displayedAvailability.map((availability) => {
+                  const adjustedAvailableForWalkup = getAdjustedAvailableForWalkup(availability.plantCatalogId);
                   const isOut = adjustedAvailableForWalkup === 0;
                   return (
                     <tr key={availability.plantCatalogId} className={isOut ? 'bg-red-50' : ''}>
@@ -420,7 +455,13 @@ export function WalkUpNewOrderPage() {
                 }) : (
                   <tr>
                     <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
-                      {loadingAllAvailability ? 'Loading availability...' : availabilityLoaded ? 'No active plant availability found.' : 'Availability not loaded.'}
+                      {loadingAllAvailability
+                        ? 'Loading availability...'
+                        : availabilityLoaded
+                          ? showUnavailableItems
+                            ? 'No active plant availability found.'
+                            : 'No available plants right now. Enable "Show unavailable items" to view zero-availability plants.'
+                          : 'Availability not loaded.'}
                     </td>
                   </tr>
                 )}
@@ -438,9 +479,9 @@ export function WalkUpNewOrderPage() {
             value={plantSearch}
             onChange={(e) => { setPlantAzFilter(null); setPlantSearch(e.target.value); }}
           />
-          {plantResults.length > 0 && (
+          {displayedPlantResults.length > 0 && (
             <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
-              {plantResults.map((p) => (
+              {displayedPlantResults.map((p) => (
                 <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => void addPlantLine(p)}>
                   <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
                   <span className="text-gray-400">{p.sku}</span>
@@ -448,8 +489,12 @@ export function WalkUpNewOrderPage() {
               ))}
             </div>
           )}
-          {plantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
-            <p className="text-xs text-gray-500">No plant matches. Try SKU fragment, barcode digits, or first letter tabs.</p>
+          {displayedPlantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
+            <p className="text-xs text-gray-500">
+              {plantResults.length > 0 && !showUnavailableItems
+                ? 'Matching plants are unavailable right now. Enable "Show unavailable items" to include zero-availability plants.'
+                : 'No plant matches. Try SKU fragment, barcode digits, or first letter tabs.'}
+            </p>
           )}
         </div>
 
