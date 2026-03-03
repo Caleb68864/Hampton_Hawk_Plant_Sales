@@ -14,9 +14,6 @@ export function PrintFooter({ showNotesLines = true, notesLineCount = 3 }: Print
           ))}
         </div>
       )}
-      <div className="text-center text-xs text-gray-500 border-t border-gray-300 pt-2 mt-4">
-        Powered by Logic NE
-      </div>
     </div>
   );
 }
