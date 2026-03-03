@@ -21,6 +21,31 @@
 3. Click **Print Seller Packet**
 4. This prints a summary of all orders attributed to that seller
 
+## Printing Plant Labels
+1. From a plant detail page, click **Print Label** for a single-item test print.
+2. From the **Imports** page after a plant import, click **Print Labels** to open a batch run.
+3. On `/print/labels`, choose density:
+   - **1-up Test** (single label for alignment)
+   - **Full Sheet (30)** for sticker sheets
+   - **Full Roll (80)** for thermal roll stock
+4. Use 100% scale, disable browser "Fit to page", and run a 1-up test before full batches.
+
+### Tested Printer Models / Settings
+- **DYMO LabelWriter 450 Turbo**
+  - Media: 1" x 2-1/8" address labels
+  - Scale: 100%
+  - Margins: None / 0
+  - Browser print setting: background graphics off (faster), header/footer off
+- **Rollo USB Thermal Printer (X1038)**
+  - Custom size: 1.00" x 2.00"
+  - Darkness: 8
+  - Speed: 4 ips
+  - Print orientation: portrait
+- **HP LaserJet Pro (Avery 5160 compatible sheet labels)**
+  - Paper: US Letter label sheet
+  - Scale: 100% (never "Fit")
+  - Feed: tray with label sheet support enabled
+
 ## Finding Customers
 1. Go to **Customers** in the sidebar
 2. Search by name, email, or pickup code
