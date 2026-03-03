@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { walkupApi } from '@/api/walkup.js';
 import type { WalkUpAvailability } from '@/api/walkup.js';
 import { customersApi } from '@/api/customers.js';
@@ -24,8 +24,45 @@ interface WalkUpLineItem {
   adminReason?: string;
 }
 
+interface WalkUpPrefillLine {
+  plantCatalogId: string;
+  plantName: string;
+  plantSku: string;
+  qtyOrdered?: number;
+}
+
+function isWalkUpPrefillLine(value: unknown): value is WalkUpPrefillLine {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.plantCatalogId === 'string'
+    && typeof candidate.plantName === 'string'
+    && typeof candidate.plantSku === 'string';
+}
+
+function readPreselectedItems(state: unknown, search: string): WalkUpPrefillLine[] {
+  const stateItems =
+    typeof state === 'object'
+      ? (state as { preselectedItems?: unknown }).preselectedItems
+      : undefined;
+  if (Array.isArray(stateItems)) {
+    return stateItems.filter(isWalkUpPrefillLine);
+  }
+
+  const params = new URLSearchParams(search);
+  const raw = params.get('prefill');
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isWalkUpPrefillLine) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function WalkUpNewOrderPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const openPinModal = useAuthStore((s) => s.openPinModal);
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +81,54 @@ export function WalkUpNewOrderPage() {
   const [lines, setLines] = useState<WalkUpLineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
+  const lastPreloadKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    const preload = readPreselectedItems(location.state, location.search);
+    if (preload.length === 0) return;
+
+    const dedupedPreload = preload.filter(
+      (item, idx, all) => all.findIndex((candidate) => candidate.plantCatalogId === item.plantCatalogId) === idx,
+    );
+    const preloadKey = JSON.stringify(dedupedPreload.map((item) => item.plantCatalogId).sort());
+    if (lastPreloadKey.current === preloadKey) return;
+    lastPreloadKey.current = preloadKey;
+
+    setStep(2);
+
+    let cancelled = false;
+    Promise.all(
+      dedupedPreload.map(async (item) => {
+        let availability: WalkUpAvailability | null = null;
+        try {
+          availability = await walkupApi.getAvailability(item.plantCatalogId);
+        } catch {
+          // keep default availability value when API call fails
+        }
+
+        return {
+          plantCatalogId: item.plantCatalogId,
+          plantName: item.plantName,
+          plantSku: item.plantSku,
+          qtyOrdered: Math.max(1, item.qtyOrdered ?? 1),
+          notes: '',
+          availableForWalkup: availability?.availableForWalkup ?? 0,
+          overrideApproved: false,
+        } satisfies WalkUpLineItem;
+      }),
+    ).then((prefilledLines) => {
+      if (cancelled) return;
+      setLines((current) => {
+        const existingIds = new Set(current.map((line) => line.plantCatalogId));
+        const additions = prefilledLines.filter((line) => !existingIds.has(line.plantCatalogId));
+        return additions.length > 0 ? [...current, ...additions] : current;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.search, location.state]);
 
   // Customer search
   useEffect(() => {
