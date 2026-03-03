@@ -4,6 +4,7 @@ import { useAudio } from '@/components/shared/AudioFeedback.js';
 import type { FeedbackMode } from '@/hooks/useAudioFeedback.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
@@ -53,6 +54,7 @@ export function PickupScanPage() {
     undoLastScan,
     refreshOrder,
     clearNetworkError,
+    addHistoryEntry,
   } = useScanWorkflow(orderId);
 
   useEffect(() => {
@@ -104,8 +106,59 @@ export function PickupScanPage() {
     refocusScanInput();
   }
 
-  async function handleUndo() {
-    await undoLastScan();
+  async function confirmUndoLastScan() {
+    setShowUndoConfirm(false);
+    const reason = window.prompt('Why are you undoing this scan?', 'Correcting accidental scan')?.trim();
+    if (!reason) {
+      refocusScanInput();
+      return;
+    }
+
+    await undoLastScan(reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:UNDO',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} undid last scan. Reason: ${reason}`,
+      timestamp: Date.now(),
+    });
+    refocusScanInput();
+  }
+
+  async function handleResetOrder() {
+    if (!orderId) return;
+    const auth = await openPinModal();
+    if (!auth) {
+      refocusScanInput();
+      return;
+    }
+
+    await fulfillmentApi.reset(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:RESET',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} reset order. Reason: ${auth.reason}`,
+      timestamp: Date.now(),
+    });
+    await refreshOrder();
+    refocusScanInput();
+  }
+
+  async function handleMarkPartial() {
+    if (!orderId) return;
+    const auth = await openPinModal();
+    if (!auth) {
+      refocusScanInput();
+      return;
+    }
+
+    await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+    addHistoryEntry({
+      barcode: 'RECOVERY:PARTIAL',
+      result: 'Accepted',
+      message: `Operator ${OPERATOR_NAME} marked order partial. Reason: ${auth.reason}`,
+      timestamp: Date.now(),
+    });
+    await refreshOrder();
     refocusScanInput();
   }
 
@@ -233,11 +286,39 @@ export function PickupScanPage() {
       </div>
 
       {!isComplete && (
-        <ScanInput
-          ref={scanInputRef}
-          onScan={handleScan}
-          disabled={isScanning}
-        />
+        <div className="space-y-2">
+          <ScanInput
+            ref={scanInputRef}
+            onScan={handleScan}
+            disabled={isScanning}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              onClick={() => setShowUndoConfirm(true)}
+              disabled={isScanning}
+            >
+              Undo last scan
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              onClick={handleResetOrder}
+              disabled={isScanning}
+            >
+              Reset current order
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
+              onClick={handleMarkPartial}
+              disabled={isScanning}
+            >
+              Mark partial + reason
+            </button>
+          </div>
+        </div>
       )}
 
       <ItemsRemainingCounter lines={currentOrder.lines} />
@@ -312,14 +393,6 @@ export function PickupScanPage() {
           <button
             type="button"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handleUndo}
-            disabled={isScanning}
-          >
-            Undo Last Scan
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             onClick={handleManualOpen}
           >
             Manual Fulfill
@@ -374,6 +447,19 @@ export function PickupScanPage() {
         saleClosed={saleClosed}
         onFulfill={handleManualFulfill}
         onCancel={handleManualClose}
+      />
+
+      <ConfirmModal
+        isOpen={showUndoConfirm}
+        title="Undo last scan?"
+        message="This will remove the last accepted scan from this order."
+        confirmLabel="Undo scan"
+        variant="warning"
+        onCancel={() => {
+          setShowUndoConfirm(false);
+          refocusScanInput();
+        }}
+        onConfirm={confirmUndoLastScan}
       />
     </div>
   );
