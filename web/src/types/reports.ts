@@ -4,10 +4,12 @@ export interface DashboardMetrics {
   completedOrders: number;
   totalCustomers: number;
   totalSellers: number;
-  totalPlants: number;
-  totalInventoryItems: number;
   lowInventoryCount: number;
   problemOrderCount: number;
+  ordersByStatus: Record<string, number>;
+  totalItemsOrdered: number;
+  totalItemsFulfilled: number;
+  saleProgressPercent: number;
 }
 
 export interface LowInventoryItem {
@@ -15,14 +17,25 @@ export interface LowInventoryItem {
   plantName: string;
   sku: string;
   onHandQty: number;
-  preorderRemaining: number;
 }
 
 export interface ProblemOrder {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  sellerName?: string | null;
+  status: string;
+  lineCount: number;
+  createdAt: string;
+}
+
+export interface SellerOrderSummary {
   orderId: string;
   orderNumber: string;
-  customerDisplayName: string;
+  customerName: string;
   status: string;
   hasIssue: boolean;
-  issueDescription: string | null;
+  totalItemsOrdered: number;
+  totalItemsFulfilled: number;
+  createdAt: string;
 }

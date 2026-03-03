@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AudioFeedbackProvider } from '@/components/shared/AudioFeedback.js';
 import { AppLayout } from '@/layouts/AppLayout.js';
-import { PlaceholderPage } from '@/pages/Placeholder.js';
 import { DocsPage } from '@/pages/DocsPage.js';
 import { PrintOrderPage } from '@/pages/print/PrintOrderPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
@@ -13,6 +12,7 @@ import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
 import { PickupLookupPage } from '@/pages/pickup/PickupLookupPage.js';
 import { PickupScanPage } from '@/pages/pickup/PickupScanPage.js';
 import { DashboardPage } from '@/pages/DashboardPage.js';
+import { ReportsPage } from '@/pages/ReportsPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
 import { PlantsListPage } from '@/pages/plants/PlantsListPage.js';
 import { PlantDetailPage } from '@/pages/plants/PlantDetailPage.js';
@@ -52,7 +52,7 @@ function App() {
             <Route path="pickup/:orderId" element={<PickupScanPage />} />
             <Route path="walkup/new" element={<WalkUpNewOrderPage />} />
             <Route path="imports" element={<ImportsPage />} />
-            <Route path="reports" element={<PlaceholderPage title="Reports" />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="docs" element={<DocsPage />} />
           </Route>
 
