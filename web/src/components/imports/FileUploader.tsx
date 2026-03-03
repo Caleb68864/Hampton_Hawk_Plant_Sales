@@ -1,12 +1,20 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 
 interface FileUploaderProps {
   accept?: string;
+  allowedExtensions?: string[];
+  promptText?: string;
   onUpload: (file: File) => Promise<void>;
   disabled?: boolean;
 }
 
-export function FileUploader({ accept = '.csv,.xlsx', onUpload, disabled }: FileUploaderProps) {
+export function FileUploader({
+  accept = '.csv,.xlsx',
+  allowedExtensions = ['csv', 'xlsx'],
+  promptText = 'Drop a CSV or XLSX file here, or click to browse',
+  onUpload,
+  disabled,
+}: FileUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -15,16 +23,16 @@ export function FileUploader({ accept = '.csv,.xlsx', onUpload, disabled }: File
   function handleFileSelect(file: File | undefined) {
     if (!file) return;
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext !== 'csv' && ext !== 'xlsx') return;
+    if (!ext || !allowedExtensions.includes(ext)) return;
     setSelectedFile(file);
   }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     handleFileSelect(file);
-  }, []);
+  }
 
   async function handleUpload() {
     if (!selectedFile) return;
@@ -61,7 +69,7 @@ export function FileUploader({ accept = '.csv,.xlsx', onUpload, disabled }: File
         <p className="text-sm text-gray-600">
           {selectedFile
             ? selectedFile.name
-            : 'Drop a CSV or XLSX file here, or click to browse'}
+            : promptText}
         </p>
         {selectedFile && (
           <p className="text-xs text-gray-400 mt-1">

@@ -124,4 +124,58 @@ public class ImportServiceTests
         var lines = await db.OrderLines.Where(l => l.OrderId == order.Id).OrderBy(l => l.QtyOrdered).ToListAsync();
         Assert.Equal(new[] { 2, 3 }, lines.Select(l => l.QtyOrdered).ToArray());
     }
+
+    [Fact]
+    public async Task OrderImport_Pdf_ExtractsCustomerAndLineItems()
+    {
+        using var db = MockDbContextFactory.Create();
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "108", barcode: "BC-108"));
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "202", barcode: "BC-202"));
+        await db.SaveChangesAsync();
+
+        var service = new ImportService(db);
+        var pdfPath = FindFromRepoRoot("rpcustorderspdf.pdf");
+        using var stream = File.OpenRead(pdfPath);
+
+        var result = await service.ImportAsync(ImportType.Orders, "orders.pdf", stream);
+
+        Assert.True(result.ImportedCount >= 2);
+
+        var customer = await db.Customers.SingleAsync(c => c.DisplayName == "Weedin, Lindsey");
+        var order = await db.Orders.SingleAsync(o => o.CustomerId == customer.Id);
+        var lines = await db.OrderLines.Where(l => l.OrderId == order.Id).ToListAsync();
+
+        Assert.Contains(lines, l => db.PlantCatalogs.First(p => p.Id == l.PlantCatalogId).Sku == "108");
+        Assert.Contains(lines, l => db.PlantCatalogs.First(p => p.Id == l.PlantCatalogId).Sku == "202");
+    }
+
+    [Fact]
+    public async Task PlantImport_Pdf_ThrowsHelpfulMessage()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new ImportService(db);
+        var pdfPath = FindFromRepoRoot("rpcustorderspdf.pdf");
+        using var stream = File.OpenRead(pdfPath);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ImportAsync(ImportType.Plants, "plants.pdf", stream));
+
+        Assert.Contains("orders only", ex.Message);
+    }
+
+    private static string FindFromRepoRoot(string filename)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            var candidate = Path.Combine(dir.FullName, filename);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new FileNotFoundException($"Could not locate {filename}");
+    }
 }
