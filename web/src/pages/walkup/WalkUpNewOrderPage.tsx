@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { walkupApi } from '@/api/walkup.js';
 import type { WalkUpAvailability } from '@/api/walkup.js';
 import { customersApi } from '@/api/customers.js';
@@ -18,7 +18,6 @@ interface WalkUpLineItem {
   plantSku: string;
   qtyOrdered: number;
   notes: string;
-  availableForWalkup: number;
   overrideApproved: boolean;
   adminPin?: string;
   adminReason?: string;
@@ -81,54 +80,48 @@ export function WalkUpNewOrderPage() {
   const [lines, setLines] = useState<WalkUpLineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
-  const lastPreloadKey = useRef<string | null>(null);
+  const [allAvailability, setAllAvailability] = useState<WalkUpAvailability[]>([]);
+  const [loadingAllAvailability, setLoadingAllAvailability] = useState(false);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
+
+  const loadAllAvailability = useCallback(async () => {
+    setLoadingAllAvailability(true);
+    try {
+      const availability = await walkupApi.getAllAvailability();
+      setAllAvailability(availability);
+      setAvailabilityLoaded(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load walk-up availability');
+    } finally {
+      setLoadingAllAvailability(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const preload = readPreselectedItems(location.state, location.search);
-    if (preload.length === 0) return;
+    void loadAllAvailability();
+  }, [loadAllAvailability]);
 
-    const dedupedPreload = preload.filter(
-      (item, idx, all) => all.findIndex((candidate) => candidate.plantCatalogId === item.plantCatalogId) === idx,
-    );
-    const preloadKey = JSON.stringify(dedupedPreload.map((item) => item.plantCatalogId).sort());
-    if (lastPreloadKey.current === preloadKey) return;
-    lastPreloadKey.current = preloadKey;
+  const selectedQtyByPlantId = useMemo(() => {
+    const qtyByPlantId = new Map<string, number>();
+    for (const line of lines) {
+      qtyByPlantId.set(line.plantCatalogId, (qtyByPlantId.get(line.plantCatalogId) ?? 0) + line.qtyOrdered);
+    }
+    return qtyByPlantId;
+  }, [lines]);
 
-    setStep(2);
+  const availabilityByPlantId = useMemo(() => {
+    const availabilityMap = new Map<string, WalkUpAvailability>();
+    for (const availability of allAvailability) {
+      availabilityMap.set(availability.plantCatalogId, availability);
+    }
+    return availabilityMap;
+  }, [allAvailability]);
 
-    let cancelled = false;
-    Promise.all(
-      dedupedPreload.map(async (item) => {
-        let availability: WalkUpAvailability | null = null;
-        try {
-          availability = await walkupApi.getAvailability(item.plantCatalogId);
-        } catch {
-          // keep default availability value when API call fails
-        }
-
-        return {
-          plantCatalogId: item.plantCatalogId,
-          plantName: item.plantName,
-          plantSku: item.plantSku,
-          qtyOrdered: Math.max(1, item.qtyOrdered ?? 1),
-          notes: '',
-          availableForWalkup: availability?.availableForWalkup ?? 0,
-          overrideApproved: false,
-        } satisfies WalkUpLineItem;
-      }),
-    ).then((prefilledLines) => {
-      if (cancelled) return;
-      setLines((current) => {
-        const existingIds = new Set(current.map((line) => line.plantCatalogId));
-        const additions = prefilledLines.filter((line) => !existingIds.has(line.plantCatalogId));
-        return additions.length > 0 ? [...current, ...additions] : current;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.search, location.state]);
+  function getLineAvailableForWalkup(line: WalkUpLineItem) {
+    const snapshotAvailability = availabilityByPlantId.get(line.plantCatalogId)?.availableForWalkup ?? 0;
+    const selectedQty = selectedQtyByPlantId.get(line.plantCatalogId) ?? 0;
+    return Math.max(0, snapshotAvailability - selectedQty + line.qtyOrdered);
+  }
 
   // Customer search
   useEffect(() => {
@@ -181,11 +174,6 @@ export function WalkUpNewOrderPage() {
       return;
     }
 
-    let availability: WalkUpAvailability | null = null;
-    try {
-      availability = await walkupApi.getAvailability(plant.id);
-    } catch { /* ignore */ }
-
     setLines([
       ...lines,
       {
@@ -194,7 +182,6 @@ export function WalkUpNewOrderPage() {
         plantSku: plant.sku,
         qtyOrdered: 1,
         notes: '',
-        availableForWalkup: availability?.availableForWalkup ?? 0,
         overrideApproved: false,
       },
     ]);
@@ -205,7 +192,7 @@ export function WalkUpNewOrderPage() {
   function updateLineQty(idx: number, qty: number) {
     setLines(lines.map((l, i) => {
       if (i !== idx) return l;
-      return { ...l, qtyOrdered: Math.max(1, qty), overrideApproved: l.overrideApproved && qty <= l.availableForWalkup };
+      return { ...l, qtyOrdered: Math.max(1, qty) };
     }));
   }
 
@@ -222,7 +209,7 @@ export function WalkUpNewOrderPage() {
   }
 
   function isLineValid(line: WalkUpLineItem) {
-    return line.qtyOrdered <= line.availableForWalkup || line.overrideApproved;
+    return line.qtyOrdered <= getLineAvailableForWalkup(line) || line.overrideApproved;
   }
 
   const allLinesValid = lines.length > 0 && lines.every(isLineValid);
@@ -409,6 +396,64 @@ export function WalkUpNewOrderPage() {
           <h2 className="text-lg font-semibold text-gray-800">Add Line Items</h2>
 
           <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Current Walk-Up Availability Snapshot</h3>
+              <button
+                type="button"
+                className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50"
+                onClick={() => void loadAllAvailability()}
+                disabled={loadingAllAvailability}
+              >
+                {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Displayed availability is based on the latest server snapshot and adjusted locally for line quantities in this order.
+            </p>
+            <div className="overflow-x-auto border border-gray-200 rounded-md">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">On Hand</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Preorder Reserved/Remaining</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available for Walk-Up</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {allAvailability.length > 0 ? allAvailability.map((availability) => {
+                    const selectedQty = selectedQtyByPlantId.get(availability.plantCatalogId) ?? 0;
+                    const adjustedAvailableForWalkup = Math.max(0, availability.availableForWalkup - selectedQty);
+                    const isOut = adjustedAvailableForWalkup === 0;
+                    return (
+                      <tr key={availability.plantCatalogId} className={isOut ? 'bg-red-50' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{availability.plantName}</td>
+                        <td className="px-4 py-2 text-sm text-gray-500 font-mono">{availability.plantSku}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.onHandQty}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.preorderRemaining}</td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold">
+                          <span className={isOut ? 'text-red-600' : 'text-green-700'}>{adjustedAvailableForWalkup}</span>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                        {loadingAllAvailability
+                          ? 'Loading availability...'
+                          : availabilityLoaded
+                            ? 'No active plant availability found.'
+                            : 'Availability not loaded.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <input
               type="text"
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
@@ -442,7 +487,8 @@ export function WalkUpNewOrderPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {lines.map((line, idx) => {
-                    const exceeds = line.qtyOrdered > line.availableForWalkup;
+                    const lineAvailableForWalkup = getLineAvailableForWalkup(line);
+                    const exceeds = line.qtyOrdered > lineAvailableForWalkup;
                     return (
                       <tr key={line.plantCatalogId} className={exceeds && !line.overrideApproved ? 'bg-red-50' : ''}>
                         <td className="px-4 py-2">
@@ -450,8 +496,8 @@ export function WalkUpNewOrderPage() {
                           <p className="text-xs text-gray-400 font-mono">{line.plantSku}</p>
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <span className={`text-sm font-medium ${line.availableForWalkup > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {line.availableForWalkup}
+                          <span className={`text-sm font-medium ${lineAvailableForWalkup > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {lineAvailableForWalkup}
                           </span>
                         </td>
                         <td className="px-4 py-2 text-right">
