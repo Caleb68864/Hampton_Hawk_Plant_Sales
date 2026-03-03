@@ -19,7 +19,7 @@ interface ImportSectionProps {
 
 interface TemplateDownloadLinksProps {
   csvHref: string;
-  excelHref: string;
+  excelHref?: string;
 }
 
 function TemplateDownloadLinks({ csvHref, excelHref }: TemplateDownloadLinksProps) {
@@ -33,13 +33,15 @@ function TemplateDownloadLinks({ csvHref, excelHref }: TemplateDownloadLinksProp
       >
         Download CSV
       </a>
-      <a
-        href={excelHref}
-        download
-        className="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-      >
-        Download Excel
-      </a>
+      {excelHref && (
+        <a
+          href={excelHref}
+          download
+          className="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Download Excel
+        </a>
+      )}
     </div>
   );
 }
@@ -185,7 +187,6 @@ export function ImportsPage() {
             onUpload={(file) => importsApi.importPlants(file)}
             templateLinks={{
               csvHref: '/templates/plants-import-template.csv',
-              excelHref: '/templates/plants-import-template.xls',
             }}
           />
           <ImportSection
@@ -197,11 +198,10 @@ export function ImportsPage() {
           <ImportSection
             type="orders"
             title="Import Orders"
-            hint="Columns: CustomerDisplayName, SellerDisplayName, PlantSKU, Qty, Notes"
+            hint="Columns: OrderNumber, CustomerDisplayName, SellerDisplayName, Sku, QtyOrdered"
             onUpload={(file) => importsApi.importOrders(file)}
             templateLinks={{
               csvHref: '/templates/orders-import-template.csv',
-              excelHref: '/templates/orders-import-template.xls',
             }}
           />
         </div>
