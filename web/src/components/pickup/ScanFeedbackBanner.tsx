@@ -1,41 +1,31 @@
-import { useEffect, useState } from 'react';
 import type { FulfillmentResultType } from '@/types/fulfillment.js';
 
 interface ScanFeedbackBannerProps {
   result: FulfillmentResultType | null;
   message: string;
   plantName?: string | null;
+  nextAction?: string;
 }
 
 const resultStyles: Record<FulfillmentResultType, string> = {
-  Accepted: 'bg-green-500 text-white',
-  NotFound: 'bg-red-500 text-white',
-  WrongOrder: 'bg-red-500 text-white',
-  AlreadyFulfilled: 'bg-amber-500 text-white',
-  OutOfStock: 'bg-red-500 text-white',
-  SaleClosedBlocked: 'bg-red-500 text-white',
+  Accepted: 'bg-green-700 text-white border-2 border-green-900',
+  NotFound: 'bg-red-700 text-white border-2 border-red-900',
+  WrongOrder: 'bg-red-800 text-white border-2 border-red-950',
+  AlreadyFulfilled: 'bg-amber-500 text-black border-2 border-amber-700',
+  OutOfStock: 'bg-red-700 text-white border-2 border-red-900',
+  SaleClosedBlocked: 'bg-red-700 text-white border-2 border-red-900',
 };
 
-export function ScanFeedbackBanner({ result, message, plantName }: ScanFeedbackBannerProps) {
-  const [flash, setFlash] = useState(false);
-
-  useEffect(() => {
-    if (!result) return;
-    setFlash(true);
-    const timer = setTimeout(() => setFlash(false), 300);
-    return () => clearTimeout(timer);
-  }, [result, message]);
-
+export function ScanFeedbackBanner({ result, message, plantName, nextAction }: ScanFeedbackBannerProps) {
   if (!result) return null;
 
   return (
     <div
-      className={`w-full rounded-lg px-4 py-3 text-center font-semibold text-lg transition-opacity ${
-        resultStyles[result]
-      } ${flash ? 'opacity-100 scale-105' : 'opacity-90 scale-100'} transform transition-all duration-200`}
+      className={`w-full rounded-xl px-6 py-5 text-center font-bold text-2xl ${resultStyles[result]} transform transition-all duration-200 shadow-lg`}
     >
       <div>{message}</div>
-      {plantName && <div className="text-sm font-normal mt-1">{plantName}</div>}
+      {plantName && <div className="text-base font-medium mt-2 opacity-95">{plantName}</div>}
+      {nextAction && <div className="text-base font-semibold mt-2">Next: {nextAction}</div>}
     </div>
   );
 }
