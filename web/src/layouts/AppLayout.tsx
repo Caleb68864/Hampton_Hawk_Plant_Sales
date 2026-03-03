@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAppStore } from '@/stores/appStore.js';
 import { QuickFindOverlay } from '@/components/shared/QuickFindOverlay.js';
+import { GlobalQuickFind } from '@/components/shared/GlobalQuickFind.js';
 import { AdminPinModal } from '@/components/shared/AdminPinModal.js';
 
 const navLinks = [
@@ -11,8 +12,7 @@ const navLinks = [
   { to: '/customers', label: 'Customers' },
   { to: '/sellers', label: 'Sellers' },
   { to: '/orders', label: 'Orders' },
-  { to: '/pickup', label: 'Pickup' },
-  { to: '/walkup/new', label: 'Walk-Up' },
+  { to: '/station', label: 'Station Home' },
   { to: '/imports', label: 'Imports' },
   { to: '/reports', label: 'Reports' },
   { to: '/settings', label: 'Settings' },
@@ -51,6 +51,8 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <GlobalQuickFind />
       </header>
 
       {saleClosed && (

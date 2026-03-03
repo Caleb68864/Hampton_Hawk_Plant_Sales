@@ -106,13 +106,13 @@ export function PlantDetailPage() {
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">{isNew ? 'New Plant' : `Edit: ${plant?.name ?? ''}`}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {!isNew && plant && (
             <a
-              href={`/print/plants?ids=${plant.id}`}
+              href={`/print/labels?plantId=${plant.id}&density=test`}
               target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 text-sm font-medium text-hawk-700 border border-hawk-200 rounded-md hover:bg-hawk-50"
+              rel="noreferrer"
+              className="text-sm text-hawk-700 hover:text-hawk-800 font-medium"
             >
               Print Label
             </a>

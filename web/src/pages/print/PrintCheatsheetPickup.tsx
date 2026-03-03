@@ -3,7 +3,7 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetPickup() {
   return (
-    <PrintLayout backTo="/pickup">
+    <PrintLayout backTo="/station">
       <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
       <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
         Pickup Station Quick Reference
@@ -12,7 +12,8 @@ export function PrintCheatsheetPickup() {
       <div className="space-y-5 text-sm">
         <Section title="How to Find an Order">
           <ul className="list-disc ml-5 space-y-1">
-            <li>Go to the <strong>Pickup</strong> tab in the navigation bar.</li>
+            <li>Start at <strong>Station Home</strong>.</li>
+            <li>Select the <strong>Scan Pickups</strong> card.</li>
             <li>Type the customer name or pickup code in the search bar.</li>
             <li>Click on the matching order to open it.</li>
             <li>You can also use <strong>Ctrl+K</strong> to open Quick Find from any screen.</li>

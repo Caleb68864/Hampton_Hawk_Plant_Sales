@@ -2,8 +2,9 @@
 
 ## Before You Start
 1. Open the app at **http://localhost:3000**
-2. Navigate to **Pickup** from the sidebar
-3. Make sure your barcode scanner is plugged in and working
+2. Navigate to **Station Home** from the top navigation
+3. Select **Scan Pickups**
+4. Make sure your barcode scanner is plugged in and working
 
 ## Looking Up an Order
 - Type the customer's **name**, **pickup code**, or **order number** in the search box

@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { EmptyState } from '@/components/shared/EmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
+import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import type { Customer } from '@/types/customer.js';
@@ -110,6 +111,7 @@ export function PickupLookupPage() {
 
   return (
     <div className="space-y-4">
+      <BackToStationHomeButton />
       <h1 className="text-2xl font-bold text-gray-800">Pickup</h1>
 
       <AzTabs selected={azFilter} onSelect={setAzFilter} />

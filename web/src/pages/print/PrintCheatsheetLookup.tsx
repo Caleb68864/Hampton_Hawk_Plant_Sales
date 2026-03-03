@@ -3,7 +3,7 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetLookup() {
   return (
-    <PrintLayout backTo="/pickup">
+    <PrintLayout backTo="/station">
       <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
       <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
         Lookup Station Quick Reference
@@ -12,6 +12,7 @@ export function PrintCheatsheetLookup() {
       <div className="space-y-5 text-sm">
         <Section title="A-Z Tabs">
           <ul className="list-disc ml-5 space-y-1">
+            <li>Start at <strong>Station Home</strong> and choose <strong>Lookup &amp; Print</strong>.</li>
             <li>The Pickup Lookup page shows <strong>A-Z letter tabs</strong> across the top.</li>
             <li>Click a letter to filter customers whose last name starts with that letter.</li>
             <li>Click <strong>All</strong> to show all customers.</li>

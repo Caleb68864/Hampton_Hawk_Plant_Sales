@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/appStore.js';
 import { useAdminAuth } from '@/hooks/useAdminAuth.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import type { AppSettings } from '@/types/settings.js';
 
 export function SettingsPage() {
@@ -44,6 +45,7 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      <BackToStationHomeButton />
       <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}

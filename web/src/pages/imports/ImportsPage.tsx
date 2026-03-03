@@ -12,17 +12,42 @@ type Tab = 'import' | 'history';
 interface ImportSectionProps {
   title: string;
   hint: string;
+  type: 'plants' | 'orders' | 'inventory';
   onUpload: (file: File) => Promise<ImportResult>;
 }
 
-function ImportSection({ title, hint, onUpload }: ImportSectionProps) {
+async function extractCsvColumnValues(file: File, columnName: string) {
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const index = headers.indexOf(columnName.toLowerCase());
+  if (index === -1) return [];
+
+  return Array.from(new Set(lines.slice(1)
+    .map((line) => line.split(',')[index]?.trim() ?? '')
+    .filter(Boolean)));
+}
+
+function ImportSection({ title, hint, type, onUpload }: ImportSectionProps) {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [skuPreview, setSkuPreview] = useState<string[]>([]);
 
   async function handleUpload(file: File) {
     setError(null);
     setResult(null);
+    setSkuPreview([]);
     try {
+      if (type === 'plants') {
+        const skuValues = await extractCsvColumnValues(file, 'sku');
+        setSkuPreview(skuValues);
+      }
       const r = await onUpload(file);
       setResult(r);
     } catch (e) {
@@ -50,6 +75,24 @@ function ImportSection({ title, hint, onUpload }: ImportSectionProps) {
           />
           {result.skippedCount > 0 && result.issues.length > 0 && (
             <ImportIssuesTable issues={result.issues} />
+          )}
+          {type === 'plants' && result.importedCount > 0 && skuPreview.length > 0 && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-blue-900">Print labels for imported plants</p>
+                <p className="text-xs text-blue-700">
+                  Opens label print view with up to {skuPreview.length} imported SKUs preloaded.
+                </p>
+              </div>
+              <a
+                className="px-3 py-1.5 text-sm bg-hawk-600 text-white rounded-md hover:bg-hawk-700"
+                href={`/print/labels?skus=${encodeURIComponent(skuPreview.join(','))}&density=sheet`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Print Labels
+              </a>
+            </div>
           )}
         </div>
       )}
@@ -105,16 +148,19 @@ export function ImportsPage() {
       {tab === 'import' && (
         <div className="space-y-6">
           <ImportSection
+            type="plants"
             title="Import Plants"
             hint="Columns: SKU, Name, Variant, Price, Barcode"
             onUpload={(file) => importsApi.importPlants(file)}
           />
           <ImportSection
+            type="inventory"
             title="Import Inventory"
             hint="Columns: SKU (or Barcode), OnHandQty"
             onUpload={(file) => importsApi.importInventory(file)}
           />
           <ImportSection
+            type="orders"
             title="Import Orders"
             hint="Columns: CustomerDisplayName, SellerDisplayName, PlantSKU, Qty, Notes"
             onUpload={(file) => importsApi.importOrders(file)}
