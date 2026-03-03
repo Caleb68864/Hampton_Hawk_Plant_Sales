@@ -8,7 +8,7 @@ The admin PIN is set via the `APP_ADMIN_PIN` environment variable (default: `123
 - Overriding walk-up inventory limits
 
 ## Settings Page
-Navigate to **Settings** in the sidebar.
+Navigate to **Station Home**, then choose **Admin Tools** (Settings).
 
 ### Closing the Sale
 1. Click **Close Sale**
