@@ -33,9 +33,10 @@ function customerScore(customer: Customer, query: string) {
 }
 
 function printBlankTicket() {
-  const win = window.open('', '_blank', 'noopener,noreferrer');
+  const win = window.open('', '_blank');
   if (!win) return;
 
+  win.document.open();
   win.document.write(`
     <html>
       <head>
@@ -46,6 +47,11 @@ function printBlankTicket() {
           .line { border-bottom: 1px solid #111; margin-bottom: 18px; height: 24px; }
           .label { font-size: 12px; color: #555; margin-bottom: 4px; }
         </style>
+        <script>
+          window.addEventListener('load', () => {
+            window.print();
+          });
+        </script>
       </head>
       <body>
         <h1>Hampton Hawks - Blank Pickup Ticket</h1>
@@ -60,7 +66,6 @@ function printBlankTicket() {
 
   win.document.close();
   win.focus();
-  win.print();
 }
 
 export function GlobalQuickFind() {
