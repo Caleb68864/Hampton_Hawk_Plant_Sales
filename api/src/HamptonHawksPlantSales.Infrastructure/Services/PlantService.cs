@@ -29,11 +29,20 @@ public class PlantService : IPlantService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
-            query = query.Where(p =>
-                p.Name.ToLower().Contains(term) ||
-                p.Sku.ToLower().Contains(term) ||
-                p.Barcode.ToLower().Contains(term));
+            var trimmed = search.Trim();
+            if (trimmed.EndsWith("*") && trimmed.Length == 2)
+            {
+                var initial = trimmed[..1].ToLower();
+                query = query.Where(p => p.Name.ToLower().StartsWith(initial));
+            }
+            else
+            {
+                var term = trimmed.ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(term) ||
+                    p.Sku.ToLower().Contains(term) ||
+                    p.Barcode.ToLower().Contains(term));
+            }
         }
 
         var totalCount = await query.CountAsync();

@@ -4,6 +4,7 @@ import { walkupApi } from '@/api/walkup.js';
 import type { WalkUpAvailability } from '@/api/walkup.js';
 import { customersApi } from '@/api/customers.js';
 import { plantsApi } from '@/api/plants.js';
+import { AzTabs } from '@/components/shared/AzTabs.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { useAuthStore } from '@/stores/authStore.js';
@@ -24,6 +25,57 @@ interface WalkUpLineItem {
   adminReason?: string;
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .replace(/[\r\n\t]/g, '')
+    .trim()
+    .replace(/^\*+|\*+$/g, '')
+    .replace(/#+$/g, '')
+    .toUpperCase();
+}
+
+function normalizeCompact(value: string) {
+  return normalizeSearchText(value).replace(/[^A-Z0-9]/g, '');
+}
+
+function scoreByFields(query: string, ...fields: string[]) {
+  const compactQuery = normalizeCompact(query);
+  if (!compactQuery) return 0;
+
+  let best = 0;
+  for (const field of fields) {
+    const normalizedField = normalizeSearchText(field ?? '');
+    const compactField = normalizeCompact(field ?? '');
+    if (!normalizedField && !compactField) continue;
+
+    if (normalizedField === query || compactField === compactQuery) best = Math.max(best, 120);
+    else if (normalizedField.startsWith(query) || compactField.startsWith(compactQuery)) best = Math.max(best, 90);
+    else if (normalizedField.includes(query) || compactField.includes(compactQuery)) best = Math.max(best, 60);
+    else if (compactQuery.length >= 3 && compactField.includes(compactQuery.slice(0, 3))) best = Math.max(best, 30);
+  }
+
+  return best;
+}
+
+function scoreCustomerMatch(customer: Customer, query: string) {
+  const boostedDisplay = scoreByFields(query, customer.displayName) + scoreByFields(query, customer.displayName);
+  const fallback = scoreByFields(query, customer.phone ?? '', customer.email ?? '', customer.pickupCode ?? '');
+  return Math.max(boostedDisplay, fallback);
+}
+
+function scorePlantMatch(plant: Plant, query: string) {
+  const nameScore = scoreByFields(query, plant.name, plant.variant ?? '');
+  const idScore = scoreByFields(query, plant.sku, plant.barcode);
+  return Math.max(nameScore, idScore + 5);
+}
+
+function rankResults<T>(items: T[], score: (item: T) => number) {
+  return items
+    .map((item) => ({ item, score: score(item) }))
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.item);
+}
+
 export function WalkUpNewOrderPage() {
   const navigate = useNavigate();
   const openPinModal = useAuthStore((s) => s.openPinModal);
@@ -33,6 +85,7 @@ export function WalkUpNewOrderPage() {
 
   // Customer state
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerAzFilter, setCustomerAzFilter] = useState<string | null>(null);
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [createInline, setCreateInline] = useState(false);
@@ -43,31 +96,50 @@ export function WalkUpNewOrderPage() {
   // Line items
   const [lines, setLines] = useState<WalkUpLineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
+  const [plantAzFilter, setPlantAzFilter] = useState<string | null>(null);
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
 
   // Customer search
   useEffect(() => {
-    if (!customerSearch.trim() || selectedCustomer) { setCustomerResults([]); return; }
+    if (selectedCustomer) { setCustomerResults([]); return; }
+
+    const trimmedSearch = customerSearch.trim();
+    const query = trimmedSearch || (customerAzFilter ? `${customerAzFilter}*` : '');
+    if (!query) { setCustomerResults([]); return; }
+
     const timer = setTimeout(async () => {
       try {
-        const r = await customersApi.list({ search: customerSearch, pageSize: 5 });
+        const r = await customersApi.list({ search: query, pageSize: 20 });
+        if (trimmedSearch) {
+          const normalized = normalizeSearchText(trimmedSearch);
+          setCustomerResults(rankResults(r.items, (customer) => scoreCustomerMatch(customer, normalized)));
+          return;
+        }
         setCustomerResults(r.items);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [customerSearch, selectedCustomer]);
+  }, [customerSearch, customerAzFilter, selectedCustomer]);
 
   // Plant search
   useEffect(() => {
-    if (!plantSearch.trim()) { setPlantResults([]); return; }
+    const trimmedSearch = plantSearch.trim();
+    const query = trimmedSearch || (plantAzFilter ? `${plantAzFilter}*` : '');
+    if (!query) { setPlantResults([]); return; }
+
     const timer = setTimeout(async () => {
       try {
-        const r = await plantsApi.list({ search: plantSearch, pageSize: 10, activeOnly: true });
+        const r = await plantsApi.list({ search: query, pageSize: 40, activeOnly: true });
+        if (trimmedSearch) {
+          const normalized = normalizeSearchText(trimmedSearch);
+          setPlantResults(rankResults(r.items, (plant) => scorePlantMatch(plant, normalized)));
+          return;
+        }
         setPlantResults(r.items);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [plantSearch]);
+  }, [plantSearch, plantAzFilter]);
 
   async function handleCreateCustomer() {
     if (!newDisplayName.trim()) return;
@@ -238,12 +310,22 @@ export function WalkUpNewOrderPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              <AzTabs
+                selected={customerAzFilter}
+                onSelect={(letter) => {
+                  setCustomerAzFilter(letter === '#' ? null : letter);
+                  setCustomerSearch('');
+                }}
+              />
               <input
                 type="text"
                 className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
                 placeholder="Search existing customers..."
                 value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
+                onChange={(e) => {
+                  setCustomerAzFilter(null);
+                  setCustomerSearch(e.target.value);
+                }}
               />
               {customerResults.length > 0 && (
                 <div className="border border-gray-200 rounded-md divide-y">
@@ -253,6 +335,9 @@ export function WalkUpNewOrderPage() {
                     </button>
                   ))}
                 </div>
+              )}
+              {customerResults.length === 0 && (customerSearch.trim() || customerAzFilter) && (
+                <p className="text-xs text-gray-500">No customers yet. Try phone digits, pickup code, or first letter tabs.</p>
               )}
 
               {!createInline ? (
@@ -324,12 +409,22 @@ export function WalkUpNewOrderPage() {
           <h2 className="text-lg font-semibold text-gray-800">Add Line Items</h2>
 
           <div className="space-y-2">
+            <AzTabs
+              selected={plantAzFilter}
+              onSelect={(letter) => {
+                setPlantAzFilter(letter === '#' ? null : letter);
+                setPlantSearch('');
+              }}
+            />
             <input
               type="text"
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
               placeholder="Search plants to add..."
               value={plantSearch}
-              onChange={(e) => setPlantSearch(e.target.value)}
+              onChange={(e) => {
+                setPlantAzFilter(null);
+                setPlantSearch(e.target.value);
+              }}
             />
             {plantResults.length > 0 && (
               <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
@@ -340,6 +435,9 @@ export function WalkUpNewOrderPage() {
                   </button>
                 ))}
               </div>
+            )}
+            {plantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
+              <p className="text-xs text-gray-500">No plant matches. Try SKU fragment, barcode digits, or first letter tabs.</p>
             )}
           </div>
 
