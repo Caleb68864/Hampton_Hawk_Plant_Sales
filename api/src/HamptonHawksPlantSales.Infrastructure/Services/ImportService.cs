@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -23,7 +26,7 @@ public class ImportService : IImportService
     public async Task<ImportResultResponse> ImportAsync(ImportType type, string filename, Stream fileStream, ImportOptions? options = null)
     {
         options ??= new ImportOptions();
-        var rows = ReadRows(filename, fileStream);
+        var rows = ReadRows(type, filename, fileStream);
 
         var batch = new ImportBatch
         {
@@ -163,16 +166,228 @@ public class ImportService : IImportService
         };
     }
 
-    private static List<Dictionary<string, string>> ReadRows(string filename, Stream fileStream)
+    private static List<Dictionary<string, string>> ReadRows(ImportType type, string filename, Stream fileStream)
     {
         var ext = Path.GetExtension(filename).ToLowerInvariant();
         return ext switch
         {
             ".csv" => ReadCsv(fileStream),
             ".xlsx" => ReadXlsx(fileStream),
-            _ => throw new ArgumentException($"Unsupported file type '{ext}'. Supported: .csv, .xlsx")
+            ".pdf" when type == ImportType.Orders => ReadOrdersPdf(fileStream),
+            ".pdf" => throw new ArgumentException("PDF import is supported for orders only."),
+            _ => throw new ArgumentException($"Unsupported file type '{ext}'. Supported: .csv, .xlsx{(type == ImportType.Orders ? ", .pdf" : "")}")
         };
     }
+
+    private static List<Dictionary<string, string>> ReadOrdersPdf(Stream stream)
+    {
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+
+        var text = ExtractPdfContentText(buffer.ToArray());
+        var tokens = ExtractPdfTokens(text);
+
+        var customer = FindValueAfterLabel(tokens, "Customer:");
+        var seller = FindPrefixedValue(tokens, "Seller:");
+        var orderDate = FindPrefixedValue(tokens, "Order Date:");
+        var request = FindPrefixedValue(tokens, "Special Request:");
+        var orderNumber = BuildOrderNumber(customer, orderDate, request);
+
+        var rows = ExtractOrderLineRows(tokens);
+        return rows
+            .Where(r => r.qty > 0 && !string.IsNullOrWhiteSpace(r.sku))
+            .Select(r => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["OrderNumber"] = orderNumber,
+                ["CustomerDisplayName"] = customer,
+                ["SellerDisplayName"] = seller,
+                ["OrderDate"] = orderDate,
+                ["Notes"] = request,
+                ["Sku"] = r.sku,
+                ["QtyOrdered"] = r.qty.ToString(CultureInfo.InvariantCulture)
+            })
+            .ToList();
+    }
+
+    private static string ExtractPdfContentText(byte[] pdfBytes)
+    {
+        var text = new StringBuilder();
+        var streamRegex = new Regex("stream\\r?\\n", RegexOptions.Compiled);
+        var content = Encoding.Latin1.GetString(pdfBytes);
+        foreach (Match match in streamRegex.Matches(content))
+        {
+            var start = match.Index + match.Length;
+            var end = content.IndexOf("endstream", start, StringComparison.Ordinal);
+            if (end < 0)
+            {
+                continue;
+            }
+
+            var raw = new byte[end - start];
+            Array.Copy(pdfBytes, start, raw, 0, raw.Length);
+
+            var decoded = TryInflate(raw);
+            if (decoded == null)
+            {
+                continue;
+            }
+
+            text.AppendLine(decoded);
+        }
+
+        return text.ToString();
+    }
+
+    private static string? TryInflate(byte[] bytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            using var deflate = new ZLibStream(ms, CompressionMode.Decompress);
+            using var reader = new StreamReader(deflate, Encoding.Latin1);
+            return reader.ReadToEnd();
+        }
+        catch
+        {
+            var asText = Encoding.Latin1.GetString(bytes);
+            return asText.Contains("Tj", StringComparison.Ordinal) ? asText : null;
+        }
+    }
+
+    private static List<PdfToken> ExtractPdfTokens(string content)
+    {
+        var tokens = new List<PdfToken>();
+        double x = 0;
+        double y = 0;
+
+        var tmRegex = new Regex(@"1\s+0\s+0\s+1\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+Tm", RegexOptions.Compiled);
+        var tjRegex = new Regex(@"\((?<text>(?:\\.|[^\\)])*)\)Tj", RegexOptions.Compiled);
+
+        foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var tm = tmRegex.Match(line);
+            if (tm.Success)
+            {
+                x = double.Parse(tm.Groups[1].Value, CultureInfo.InvariantCulture);
+                y = double.Parse(tm.Groups[2].Value, CultureInfo.InvariantCulture);
+                continue;
+            }
+
+            var tj = tjRegex.Match(line);
+            if (!tj.Success)
+            {
+                continue;
+            }
+
+            var text = UnescapePdfString(tj.Groups["text"].Value).Trim();
+            if (text.Length == 0)
+            {
+                continue;
+            }
+
+            tokens.Add(new PdfToken(x, y, text));
+        }
+
+        return tokens;
+    }
+
+    private static string UnescapePdfString(string value)
+    {
+        return value
+            .Replace("\\(", "(")
+            .Replace("\\)", ")")
+            .Replace("\\\\", "\\");
+    }
+
+    private static string FindValueAfterLabel(List<PdfToken> tokens, string label)
+    {
+        var index = tokens.FindIndex(t => t.Text.Equals(label, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return string.Empty;
+        }
+
+        for (var i = index + 1; i < tokens.Count; i++)
+        {
+            var candidate = tokens[i].Text.Trim();
+            if (candidate.Length == 0 || candidate.EndsWith(':'))
+            {
+                continue;
+            }
+
+            return candidate;
+        }
+
+        return string.Empty;
+    }
+
+    private static string FindPrefixedValue(List<PdfToken> tokens, string prefix)
+    {
+        var entry = tokens.FirstOrDefault(t => t.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        return entry?.Text[prefix.Length..].Trim() ?? string.Empty;
+    }
+
+    private static string BuildOrderNumber(string customer, string orderDate, string request)
+    {
+        var tidMatch = Regex.Match(request, @"TID:\s*([A-Za-z0-9\-_]+)");
+        if (tidMatch.Success)
+        {
+            return $"PDF-{tidMatch.Groups[1].Value}";
+        }
+
+        var customerPart = Regex.Replace(customer, @"[^A-Za-z0-9]+", string.Empty);
+        if (customerPart.Length > 12)
+        {
+            customerPart = customerPart[..12];
+        }
+
+        var datePart = DateTime.TryParse(orderDate, out var parsed)
+            ? parsed.ToString("yyyyMMdd", CultureInfo.InvariantCulture)
+            : DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+
+        return $"PDF-{datePart}-{customerPart}";
+    }
+
+    private static List<(string sku, int qty)> ExtractOrderLineRows(List<PdfToken> tokens)
+    {
+        var byRow = tokens
+            .GroupBy(t => Math.Round(t.Y, 0))
+            .OrderByDescending(g => g.Key)
+            .ToList();
+
+        var rows = new List<(string sku, int qty)>();
+        foreach (var row in byRow)
+        {
+            var cols = row.OrderBy(t => t.X).ToList();
+            var hasHeader = cols.Any(c => c.Text.Equals("Num", StringComparison.OrdinalIgnoreCase)) &&
+                            cols.Any(c => c.Text.Equals("Quantity", StringComparison.OrdinalIgnoreCase));
+            if (hasHeader)
+            {
+                continue;
+            }
+
+            var sku = cols.Where(c => c.X < 130).Select(c => c.Text).FirstOrDefault(t => Regex.IsMatch(t, @"^\d+$")) ?? string.Empty;
+            var name = cols.FirstOrDefault(c => c.X >= 130 && c.X < 350)?.Text ?? string.Empty;
+            var qtyText = cols.FirstOrDefault(c => c.X >= 350 && c.X < 450)?.Text ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(sku) || !int.TryParse(qtyText, out var qty))
+            {
+                continue;
+            }
+
+            if (name.Contains("Handling Fee", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Total", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            rows.Add((sku, qty));
+        }
+
+        return rows;
+    }
+
+    private sealed record PdfToken(double X, double Y, string Text);
 
     private static List<Dictionary<string, string>> ReadCsv(Stream stream)
     {

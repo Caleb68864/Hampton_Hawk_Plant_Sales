@@ -13,6 +13,9 @@ interface ImportSectionProps {
   title: string;
   hint: string;
   type: 'plants' | 'orders' | 'inventory';
+  accept?: string;
+  allowedExtensions?: string[];
+  promptText?: string;
   onUpload: (file: File) => Promise<ImportResult>;
   templateLinks?: TemplateDownloadLinksProps;
 }
@@ -64,6 +67,7 @@ async function extractCsvColumnValues(file: File, columnName: string) {
     .filter(Boolean)));
 }
 
+function ImportSection({ title, hint, type, accept, allowedExtensions, promptText, onUpload }: ImportSectionProps) {
 function ImportSection({ title, hint, type, onUpload, templateLinks }: ImportSectionProps) {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +99,12 @@ function ImportSection({ title, hint, type, onUpload, templateLinks }: ImportSec
         )}
       </div>
 
-      <FileUploader onUpload={handleUpload} />
+      <FileUploader
+        onUpload={handleUpload}
+        accept={accept}
+        allowedExtensions={allowedExtensions}
+        promptText={promptText}
+      />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -198,7 +207,10 @@ export function ImportsPage() {
           <ImportSection
             type="orders"
             title="Import Orders"
-            hint="Columns: OrderNumber, CustomerDisplayName, SellerDisplayName, Sku, QtyOrdered"
+            hint="Columns: CustomerDisplayName, SellerDisplayName, PlantSKU, Qty, Notes (CSV/XLSX) or Hampton customer-order PDF"
+            accept=".csv,.xlsx,.pdf"
+            allowedExtensions={['csv', 'xlsx', 'pdf']}
+            promptText="Drop a CSV, XLSX, or order PDF file here, or click to browse"
             onUpload={(file) => importsApi.importOrders(file)}
             templateLinks={{
               csvHref: '/templates/orders-import-template.csv',
