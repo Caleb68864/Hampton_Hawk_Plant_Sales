@@ -4,6 +4,7 @@ using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
 using HamptonHawksPlantSales.Tests.Helpers;
 using Moq;
+using Microsoft.EntityFrameworkCore;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using Xunit;
@@ -42,6 +43,11 @@ public class FulfillmentServiceTests
         // Assert
         result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
         result.OrderId.Should().Be(orderId);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Message.Should().Contain("What happened:");
+        evt.Message.Should().Contain("What to do next:");
+        evt.Message.Should().Contain("Sales are currently closed");
     }
 
     [Fact]
@@ -58,6 +64,11 @@ public class FulfillmentServiceTests
         // Assert
         result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
         result.OrderId.Should().Be(orderId);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Message.Should().Contain("What happened:");
+        evt.Message.Should().Contain("What to do next:");
+        evt.Message.Should().Contain("Sales are currently closed");
     }
 
 
@@ -169,6 +180,11 @@ public class FulfillmentServiceTests
         result.Result.Should().Be(FulfillmentResult.WrongOrder);
         result.Plant.Should().NotBeNull();
         result.Plant!.Name.Should().Be(plant.Name);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Message.Should().Contain("What happened:");
+        evt.Message.Should().Contain("What to do next:");
+        evt.Message.Should().Contain("does not belong to the selected order");
     }
 
     [Fact]
@@ -226,6 +242,11 @@ public class FulfillmentServiceTests
 
         // Assert
         result.Result.Should().Be(FulfillmentResult.OutOfStock);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Message.Should().Contain("What happened:");
+        evt.Message.Should().Contain("What to do next:");
+        evt.Message.Should().Contain("out of stock");
     }
 
     // --- Scan Accepted Tests ---
@@ -333,6 +354,11 @@ public class FulfillmentServiceTests
 
         // Assert - should be OutOfStock since no inventory
         result.Result.Should().Be(FulfillmentResult.OutOfStock);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Message.Should().Contain("What happened:");
+        evt.Message.Should().Contain("What to do next:");
+        evt.Message.Should().Contain("out of stock");
 
         // Verify a FulfillmentEvent was recorded
         var events = db.FulfillmentEvents.Where(e => e.OrderId == order.Id).ToList();

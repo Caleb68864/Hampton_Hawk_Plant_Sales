@@ -70,7 +70,7 @@ export function useScanWorkflow(orderId: string | undefined) {
         setState((s) => ({
           ...s,
           lastScanResult: result,
-          scanHistory: [entry, ...s.scanHistory].slice(0, 10),
+          scanHistory: [entry, ...s.scanHistory].slice(0, 3),
           isScanning: false,
         }));
         await refreshOrder();
@@ -87,11 +87,13 @@ export function useScanWorkflow(orderId: string | undefined) {
     [orderId, refreshOrder],
   );
 
-  const undoLastScan = useCallback(async () => {
-    if (!orderId) return;
+  const undoLastScan = useCallback(async (reason?: string, operator = 'Pickup Operator') => {
+    if (!orderId) return null;
     setState((s) => ({ ...s, isScanning: true, networkError: null }));
     try {
-      const result = await fulfillmentApi.undoLastScan(orderId);
+      const result = reason
+        ? await fulfillmentApi.undoLastScanWithReason(orderId, reason, operator)
+        : await fulfillmentApi.undoLastScan(orderId);
       const entry: ScanHistoryEntry = {
         barcode: 'UNDO',
         result: result.result,
@@ -102,18 +104,28 @@ export function useScanWorkflow(orderId: string | undefined) {
       setState((s) => ({
         ...s,
         lastScanResult: result,
-        scanHistory: [entry, ...s.scanHistory].slice(0, 10),
+        scanHistory: [entry, ...s.scanHistory].slice(0, 3),
         isScanning: false,
       }));
       await refreshOrder();
+      return result;
     } catch (e) {
       setState((s) => ({
         ...s,
         isScanning: false,
         networkError: e instanceof Error ? e.message : 'Undo failed',
       }));
+      return null;
     }
   }, [orderId, refreshOrder]);
+
+
+  const addHistoryEntry = useCallback((entry: ScanHistoryEntry) => {
+    setState((s) => ({
+      ...s,
+      scanHistory: [entry, ...s.scanHistory].slice(0, 10),
+    }));
+  }, []);
 
   const clearNetworkError = useCallback(() => {
     setState((s) => ({ ...s, networkError: null }));
@@ -143,5 +155,6 @@ export function useScanWorkflow(orderId: string | undefined) {
     refreshOrder,
     clearNetworkError,
     setLastScanResult,
+    addHistoryEntry,
   };
 }

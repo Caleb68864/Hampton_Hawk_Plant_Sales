@@ -5,9 +5,9 @@ namespace HamptonHawksPlantSales.Core.Interfaces;
 public interface IFulfillmentService
 {
     Task<ScanResponse> ScanAsync(Guid orderId, string barcode);
-    Task<ScanResponse> UndoLastScanAsync(Guid orderId);
+    Task<ScanResponse> UndoLastScanAsync(Guid orderId, string reason, string operatorName);
     Task<bool> CompleteOrderAsync(Guid orderId);
-    Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason);
-    Task<bool> ResetOrderAsync(Guid orderId, string reason);
+    Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason, string operatorName);
+    Task<bool> ResetOrderAsync(Guid orderId, string reason, string operatorName);
     Task<List<FulfillmentEventResponse>> GetEventsAsync(Guid orderId);
 }

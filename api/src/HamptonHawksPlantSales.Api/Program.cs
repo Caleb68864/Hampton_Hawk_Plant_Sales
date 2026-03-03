@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentValidation;
+using HamptonHawksPlantSales.Api.Configuration;
 using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Api.Middleware;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -25,11 +26,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // CORS
+var allowedCorsOrigins = CorsOriginParser.ParseAllowedOrigins(builder.Configuration);
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        if (allowedCorsOrigins.Length == 0)
+        {
+            policy.SetIsOriginAllowed(_ => false);
+            return;
+        }
+
+        policy.WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

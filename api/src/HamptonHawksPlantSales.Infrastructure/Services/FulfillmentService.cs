@@ -46,7 +46,7 @@ public class FulfillmentService : IFulfillmentService
         catch (DbUpdateConcurrencyException)
         {
             await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
-                "Concurrent scan conflict. Please rescan.");
+                BuildActionMessage("Another station updated this order at the same time.", "Wait a moment, then scan again.", "Concurrent scan conflict."));
 
             return new ScanResponse
             {
@@ -58,7 +58,7 @@ public class FulfillmentService : IFulfillmentService
         catch (DbUpdateException ex) when (IsRetryableConcurrencyException(ex))
         {
             await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
-                "Concurrent scan conflict. Please rescan.");
+                BuildActionMessage("Another station updated this order at the same time.", "Wait a moment, then scan again.", "Concurrent scan conflict."));
 
             return new ScanResponse
             {
@@ -74,7 +74,7 @@ public class FulfillmentService : IFulfillmentService
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
-            await CreateEvent(orderId, null, barcode, FulfillmentResult.SaleClosedBlocked, "Sale is closed.");
+            await CreateEvent(orderId, null, barcode, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.SaleClosedBlocked,
@@ -94,7 +94,7 @@ public class FulfillmentService : IFulfillmentService
 
         if (plant == null)
         {
-            await CreateEvent(orderId, null, barcode, FulfillmentResult.NotFound, "Barcode not found in catalog.");
+            await CreateEvent(orderId, null, barcode, FulfillmentResult.NotFound, BuildActionMessage("The scanned barcode is not in the catalog.", "Rescan the label or ask an admin to add the item."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.NotFound,
@@ -111,7 +111,9 @@ public class FulfillmentService : IFulfillmentService
         if (orderLineCheck == null)
         {
             await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.WrongOrder,
-                $"Plant '{plant.Name}' is not on this order.");
+                BuildActionMessage("This scanned item does not belong to the selected order.",
+                    "Confirm the order number or add the item to the order before rescanning.",
+                    $"Plant '{plant.Name}' is not on order {orderId}."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.WrongOrder,
@@ -152,7 +154,7 @@ public class FulfillmentService : IFulfillmentService
             if (lockedInventory == null || lockedOrderLine == null)
             {
                 if (transaction != null) await transaction.RollbackAsync();
-                await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock, "Row not found during lock.");
+                await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock, BuildActionMessage("This item could not be reserved for fulfillment.", "Refresh the order and try scanning again.", "Inventory or order row missing during lock."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, orderLineCheck);
             }
 
@@ -161,7 +163,7 @@ public class FulfillmentService : IFulfillmentService
             {
                 if (transaction != null) await transaction.RollbackAsync();
                 await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.AlreadyFulfilled,
-                    "Already fulfilled (after lock).");
+                    BuildActionMessage("This line is already fully fulfilled.", "Move to the next item or use Undo if the prior scan was incorrect."));
                 return BuildScanResponse(FulfillmentResult.AlreadyFulfilled, orderId, plant, lockedOrderLine);
             }
 
@@ -169,7 +171,7 @@ public class FulfillmentService : IFulfillmentService
             {
                 if (transaction != null) await transaction.RollbackAsync();
                 await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock,
-                    "Out of stock (after lock).");
+                    BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, lockedOrderLine);
             }
 
@@ -208,6 +210,9 @@ public class FulfillmentService : IFulfillmentService
             // Calculate remaining items across all lines
             var remaining = await GetOrderRemainingItems(orderId);
 
+            await _adminService.LogActionAsync("UndoLastScan", "Order", orderId, reason,
+                $"Operator: {operatorName}. Undo applied to barcode {lastAccepted.Barcode}.");
+
             return new ScanResponse
             {
                 Result = FulfillmentResult.Accepted,
@@ -237,12 +242,12 @@ public class FulfillmentService : IFulfillmentService
             || message.Contains("concurrent update", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<ScanResponse> UndoLastScanAsync(Guid orderId)
+    public async Task<ScanResponse> UndoLastScanAsync(Guid orderId, string reason, string operatorName)
     {
         // Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
-            await CreateEvent(orderId, null, string.Empty, FulfillmentResult.SaleClosedBlocked, "Sale is closed.");
+            await CreateEvent(orderId, null, string.Empty, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.SaleClosedBlocked,
@@ -326,6 +331,9 @@ public class FulfillmentService : IFulfillmentService
 
             var remaining = await GetOrderRemainingItems(orderId);
 
+            await _adminService.LogActionAsync("UndoLastScan", "Order", orderId, reason,
+                $"Operator: {operatorName}. Undo applied to barcode {lastAccepted.Barcode}.");
+
             return new ScanResponse
             {
                 Result = FulfillmentResult.Accepted,
@@ -363,7 +371,7 @@ public class FulfillmentService : IFulfillmentService
         return true;
     }
 
-    public async Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason)
+    public async Task<bool> ForceCompleteOrderAsync(Guid orderId, string reason, string operatorName)
     {
         var order = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
@@ -373,12 +381,12 @@ public class FulfillmentService : IFulfillmentService
         await _db.SaveChangesAsync();
 
         await _adminService.LogActionAsync("ForceComplete", "Order", orderId, reason,
-            "Order force-completed with unfulfilled lines.");
+            $"Operator: {operatorName}. Order force-completed with unfulfilled lines.");
 
         return true;
     }
 
-    public async Task<bool> ResetOrderAsync(Guid orderId, string reason)
+    public async Task<bool> ResetOrderAsync(Guid orderId, string reason, string operatorName)
     {
         var order = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
@@ -391,7 +399,7 @@ public class FulfillmentService : IFulfillmentService
         await _db.SaveChangesAsync();
 
         await _adminService.LogActionAsync("ResetOrder", "Order", orderId, reason,
-            "Order reset from Complete to InProgress.");
+            $"Operator: {operatorName}. Order reset from Complete to InProgress.");
 
         return true;
     }
@@ -428,6 +436,15 @@ public class FulfillmentService : IFulfillmentService
         _db.FulfillmentEvents.Add(evt);
         await _db.SaveChangesAsync();
         return evt;
+    }
+
+
+    private static string BuildActionMessage(string whatHappened, string whatToDoNext, string? details = null)
+    {
+        var message = $"What happened: {whatHappened} What to do next: {whatToDoNext}";
+        return string.IsNullOrWhiteSpace(details)
+            ? message
+            : $"{message} Technical details: {details}";
     }
 
     private ScanResponse BuildScanResponse(FulfillmentResult result, Guid orderId, PlantCatalog plant, OrderLine line)
