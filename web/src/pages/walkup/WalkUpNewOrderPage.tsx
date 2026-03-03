@@ -23,8 +23,45 @@ interface WalkUpLineItem {
   adminReason?: string;
 }
 
+interface WalkUpPrefillLine {
+  plantCatalogId: string;
+  plantName: string;
+  plantSku: string;
+  qtyOrdered?: number;
+}
+
+function isWalkUpPrefillLine(value: unknown): value is WalkUpPrefillLine {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.plantCatalogId === 'string'
+    && typeof candidate.plantName === 'string'
+    && typeof candidate.plantSku === 'string';
+}
+
+function readPreselectedItems(state: unknown, search: string): WalkUpPrefillLine[] {
+  const stateItems =
+    typeof state === 'object'
+      ? (state as { preselectedItems?: unknown }).preselectedItems
+      : undefined;
+  if (Array.isArray(stateItems)) {
+    return stateItems.filter(isWalkUpPrefillLine);
+  }
+
+  const params = new URLSearchParams(search);
+  const raw = params.get('prefill');
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isWalkUpPrefillLine) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function WalkUpNewOrderPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const openPinModal = useAuthStore((s) => s.openPinModal);
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState<string | null>(null);
