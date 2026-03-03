@@ -3,95 +3,61 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetEndOfDay() {
   return (
-    <PrintLayout backTo="/">
-      <h1 className="text-2xl font-bold text-center mb-1">Hampton Hawks Plant Sales</h1>
-      <h2 className="text-lg font-semibold text-center text-gray-600 mb-6">
-        End-of-Day Checklist
-      </h2>
+    <PrintLayout backTo="/station">
+      <header className="mb-4 rounded-xl border-2 border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-hawk-700">Hampton Hawks Plant Sales</p>
+        <h1 className="text-2xl font-bold text-hawk-900">End-of-Day Counter Checklist</h1>
+        <p className="text-sm text-hawk-800">One page for closeout volunteers + lead signer.</p>
+      </header>
 
-      <div className="space-y-5 text-sm">
-        <Section title="1. Review the Dashboard">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to the <strong>Dashboard</strong> (home page).</li>
-            <li>Review the summary cards: total orders, fulfilled, remaining, walk-ups.</li>
-            <li>Check for any orders still in <strong>InProgress</strong> status.</li>
+      <section className="grid grid-cols-12 gap-3 text-[13px] leading-tight">
+        <Card className="col-span-8" title="Closeout Flow">
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Orders page: filter Open + InProgress and resolve each one.</li>
+            <li>Dashboard: check problem orders + low inventory panels.</li>
+            <li>Inventory page: note zero/negative counts for reconciliation.</li>
+            <li>Settings: <strong>Close Sale</strong> (PIN + reason).</li>
+            <li>Print final docs: dashboard snapshot, needed order sheets, seller packets.</li>
+          </ol>
+        </Card>
+
+        <Card className="col-span-4" title="If Order Cannot Finish">
+          <ul className="list-disc pl-4 space-y-1">
+            <li>Try pickup scan completion first.</li>
+            <li>If unavailable items: Force Complete + reason.</li>
+            <li>If wrong scans: Reset + re-scan.</li>
           </ul>
-        </Section>
+        </Card>
 
-        <Section title="2. Check Low Inventory">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to <strong>Inventory</strong> and sort by quantity ascending.</li>
-            <li>Note any plants with zero or very low stock.</li>
-            <li>Decide if restocking is needed for the next day.</li>
-          </ul>
-        </Section>
-
-        <Section title="3. Resolve Problem Orders">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>On the <strong>Orders</strong> page, filter by orders with issues (has issue flag).</li>
-            <li>Review each problem order and decide on action:</li>
-            <li className="ml-4"><strong>Force Complete</strong> if the customer has left with partial items.</li>
-            <li className="ml-4"><strong>Reset</strong> if the order needs to be re-done tomorrow.</li>
-            <li className="ml-4">Add notes for context on any unresolved issues.</li>
-          </ul>
-        </Section>
-
-        <Section title="4. Confirm Sale Closed">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to <strong>Settings</strong> and enable the <strong>Sale Closed</strong> toggle.</li>
-            <li>This prevents any accidental scanning overnight.</li>
-            <li>The red &quot;SALE CLOSED&quot; banner will appear across the site.</li>
-          </ul>
-        </Section>
-
-        <Section title="5. Print Seller Packets (if needed)">
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Go to <strong>Sellers</strong> and select each seller who needs a packet.</li>
-            <li>Click <strong>Print Seller Packet</strong> on their detail page.</li>
-            <li>Include completed orders if you want a full record.</li>
-            <li>Print one packet per seller for distribution or filing.</li>
-          </ul>
-        </Section>
-
-        <Section title="End-of-Day Sign-Off">
-          <div className="mt-3 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="print-checkbox" />
-              <span>Dashboard reviewed, no unexpected issues</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="print-checkbox" />
-              <span>Low inventory items noted</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="print-checkbox" />
-              <span>Problem orders resolved or documented</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="print-checkbox" />
-              <span>Sale Closed toggle enabled</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="print-checkbox" />
-              <span>Seller packets printed (if applicable)</span>
-            </div>
-            <div className="mt-4 pt-2 border-t border-gray-300">
-              <p className="font-semibold">Signed: ______________________________ Date: ______________</p>
-            </div>
-          </div>
-        </Section>
-      </div>
+        <Card className="col-span-12" title="Sign-Off">
+          <Checklist item="All remaining orders reviewed and resolved/documented" />
+          <Checklist item="Dashboard checked for problem orders" />
+          <Checklist item="Inventory reconciliation notes captured" />
+          <Checklist item="Sale status set to CLOSED" />
+          <Checklist item="Final printouts completed" />
+          <p className="mt-3 border-t border-hawk-200 pt-2 font-semibold">Lead Signature: ______________________ Date: ______________</p>
+        </Card>
+      </section>
 
       <PrintFooter showNotesLines={false} />
     </PrintLayout>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
-      <h3 className="font-bold text-base border-b border-gray-300 pb-1 mb-2">{title}</h3>
+    <div className={`rounded-lg border border-hawk-200 bg-white p-3 ${className}`}>
+      <h2 className="mb-1 border-b border-hawk-100 pb-1 text-sm font-bold uppercase tracking-wide text-hawk-800">{title}</h2>
       {children}
+    </div>
+  );
+}
+
+function Checklist({ item }: { item: string }) {
+  return (
+    <div className="mb-2 flex items-center gap-3">
+      <span className="print-checkbox" />
+      <span>{item}</span>
     </div>
   );
 }
