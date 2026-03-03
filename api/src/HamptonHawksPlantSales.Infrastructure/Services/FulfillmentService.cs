@@ -83,18 +83,18 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
-        // 2. Normalize barcode
+        // 2. Normalize scan input (scanner barcode or manually typed SKU)
         barcode = barcode.Trim();
 
-        // 3. Lookup PlantCatalog by Barcode — use AsNoTracking so EF does not cache this entity.
+        // 3. Lookup PlantCatalog by Barcode OR SKU — use AsNoTracking so EF does not cache this entity.
         //    This prevents the identity map from returning a stale version inside the transaction.
         var plant = await _db.PlantCatalogs
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Barcode == barcode && p.DeletedAt == null);
+            .FirstOrDefaultAsync(p => (p.Barcode == barcode || p.Sku == barcode) && p.DeletedAt == null);
 
         if (plant == null)
         {
-            await CreateEvent(orderId, null, barcode, FulfillmentResult.NotFound, BuildActionMessage("The scanned barcode is not in the catalog.", "Rescan the label or ask an admin to add the item."));
+            await CreateEvent(orderId, null, barcode, FulfillmentResult.NotFound, BuildActionMessage("The scanned barcode/SKU is not in the catalog.", "Rescan the label, or verify the SKU and ask an admin to add/fix the item."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.NotFound,

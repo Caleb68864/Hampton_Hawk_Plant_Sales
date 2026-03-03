@@ -188,6 +188,32 @@ public class FulfillmentServiceTests
     }
 
     [Fact]
+    public async Task Scan_SkuNotOnOrder_ReturnsWrongOrder()
+    {
+        // Arrange
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-WRONG-SKU", sku: "SKU-WRONG");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id);
+        // No order line linking order to this plant
+
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        var (service, _) = CreateService(db);
+
+        // Act
+        var result = await service.ScanAsync(order.Id, "SKU-WRONG");
+
+        // Assert
+        result.Result.Should().Be(FulfillmentResult.WrongOrder);
+        result.Plant.Should().NotBeNull();
+        result.Plant!.Sku.Should().Be("SKU-WRONG");
+    }
+
+    [Fact]
     public async Task Scan_AlreadyFulfilled_ReturnsAlreadyFulfilled()
     {
         // Arrange
