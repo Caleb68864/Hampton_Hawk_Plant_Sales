@@ -13,6 +13,7 @@ import { PickupLookupPage } from '@/pages/pickup/PickupLookupPage.js';
 import { PickupScanPage } from '@/pages/pickup/PickupScanPage.js';
 import { DashboardPage } from '@/pages/DashboardPage.js';
 import { ReportsPage } from '@/pages/ReportsPage.js';
+import { LeftoverInventoryPage } from '@/pages/reports/LeftoverInventoryPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
 import { PlantsListPage } from '@/pages/plants/PlantsListPage.js';
 import { PlantDetailPage } from '@/pages/plants/PlantDetailPage.js';
@@ -53,6 +54,7 @@ function App() {
             <Route path="walkup/new" element={<WalkUpNewOrderPage />} />
             <Route path="imports" element={<ImportsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="reports/leftover-inventory" element={<LeftoverInventoryPage />} />
             <Route path="docs" element={<DocsPage />} />
           </Route>
 

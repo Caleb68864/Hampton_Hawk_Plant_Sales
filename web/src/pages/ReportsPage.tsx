@@ -97,7 +97,15 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
+        <Link
+          to="/reports/leftover-inventory"
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+        >
+          Leftover Inventory Report
+        </Link>
+      </div>
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
