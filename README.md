@@ -21,6 +21,32 @@ This starts three services:
 
 The database is automatically created and migrations run on startup.
 
+## Portainer Stack (Git Deploy, 2 Containers)
+
+If you want Portainer to pull this repo and deploy only **one app container** (API) plus **one database container** (PostgreSQL), use `docker-compose.portainer.yml`.
+
+### In Portainer
+
+1. Go to **Stacks** -> **Add stack**
+2. Select **Repository**
+3. Set repository URL to this project
+4. Set **Compose path** to: `docker-compose.portainer.yml`
+5. (Optional) set a branch/tag
+6. Add/override environment variables in Portainer:
+   - `POSTGRES_PASSWORD` (required in real deployments)
+   - `POSTGRES_USER` (default: `plantapp`)
+   - `POSTGRES_DB` (default: `hampton_hawks_plant_sales`)
+   - `APP_ADMIN_PIN` (default: `1234`)
+   - `APP_PORT` (default: `8080`)
+   - `CORS_ALLOWED_ORIGINS` (default: `http://localhost:3000`)
+7. Click **Deploy the stack**
+
+After deployment:
+- API health check: `http://<host>:<APP_PORT>/health`
+- Swagger (Development only): `http://<host>:<APP_PORT>/swagger`
+
+> Note: this 2-container stack runs the API + database only. If you also want the React web UI container, use `docker-compose.yml` instead.
+
 ## Environment Variables
 
 ### API (`api` service)
