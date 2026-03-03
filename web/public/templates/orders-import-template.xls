@@ -1,0 +1,12 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+<table>
+<tr><th>CustomerDisplayName</th><th>SellerDisplayName</th><th>PlantSKU</th><th>Qty</th><th>Notes</th></tr>
+<tr><td>Jane Doe</td><td>Alice Johnson</td><td>PLANT-001</td><td>2</td><td>Pickup after 4pm</td></tr>
+<tr><td>John Smith</td><td>Bob Martinez</td><td>PLANT-002</td><td>1</td><td></td></tr>
+</table>
+</body>
+</html>

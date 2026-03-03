@@ -1,0 +1,12 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+<table>
+<tr><th>SKU</th><th>Name</th><th>Variant</th><th>Price</th><th>Barcode</th></tr>
+<tr><td>PLANT-001</td><td>Rose</td><td>Red</td><td>12.99</td><td>123456789012</td></tr>
+<tr><td>PLANT-002</td><td>Lily</td><td>White</td><td>10.5</td><td>123456789013</td></tr>
+</table>
+</body>
+</html>
