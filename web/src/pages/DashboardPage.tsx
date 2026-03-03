@@ -103,12 +103,12 @@ export function DashboardPage() {
           ) : (
             <div className="divide-y divide-gray-200">
               {problemOrders.slice(0, 10).map((o) => (
-                <Link key={o.orderId} to={`/orders/${o.orderId}`} className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-1">
+                <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-1">
                   <div>
-                    <p className="text-sm text-gray-900">{o.orderNumber} - {o.customerDisplayName}</p>
-                    {o.issueDescription && <p className="text-xs text-amber-600">{o.issueDescription}</p>}
+                    <p className="text-sm text-gray-900">{o.orderNumber} - {o.customerName}</p>
+                    <p className="text-xs text-amber-600">Lines: {o.lineCount}</p>
                   </div>
-                  <StatusChip status={o.status as 'Open' | 'InProgress' | 'Complete' | 'Cancelled'} hasIssue={o.hasIssue} />
+                  <StatusChip status={o.status as 'Open' | 'InProgress' | 'Complete' | 'Cancelled'} hasIssue />
                 </Link>
               ))}
             </div>
