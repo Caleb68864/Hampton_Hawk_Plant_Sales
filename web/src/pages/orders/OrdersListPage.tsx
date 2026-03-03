@@ -23,6 +23,9 @@ export function OrdersListPage() {
   const [walkUpFilter, setWalkUpFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [openPrintCount, setOpenPrintCount] = useState('25');
+  const [printingOpen, setPrintingOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -38,6 +41,7 @@ export function OrdersListPage() {
       });
       setOrders(result.items);
       setTotalPages(result.totalPages);
+      setSelectedOrderIds((prev) => prev.filter((orderId) => result.items.some((order) => order.id === orderId)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load orders');
     } finally {
@@ -82,6 +86,76 @@ export function OrdersListPage() {
     setPage(1);
   }
 
+  function toggleOrderSelection(orderId: string) {
+    setSelectedOrderIds((prev) => (prev.includes(orderId)
+      ? prev.filter((id) => id !== orderId)
+      : [...prev, orderId]));
+  }
+
+  function toggleSelectAllCurrentPage() {
+    const currentIds = orders.map((o) => o.id);
+    const isAllSelected = currentIds.every((id) => selectedOrderIds.includes(id));
+    setSelectedOrderIds(isAllSelected ? [] : currentIds);
+  }
+
+  function handlePrintSelected() {
+    if (selectedOrderIds.length === 0) return;
+    window.open(`/print/orders?ids=${selectedOrderIds.join(',')}`, '_blank');
+  }
+
+  async function fetchOpenOrderIds(limit: number): Promise<string[]> {
+    const statuses: OrderStatus[] = ['Open', 'InProgress'];
+    const ids: string[] = [];
+
+    for (const status of statuses) {
+      let currentPage = 1;
+      let total = 1;
+
+      while (currentPage <= total && ids.length < limit) {
+        const remaining = limit - ids.length;
+        const result = await ordersApi.list({
+          page: currentPage,
+          pageSize: Math.min(remaining, 100),
+          status,
+        });
+
+        ids.push(...result.items.map((order) => order.id));
+        total = result.totalPages;
+        currentPage += 1;
+      }
+
+      if (ids.length >= limit) {
+        break;
+      }
+    }
+
+    return ids;
+  }
+
+  async function handlePrintOpenOrders() {
+    const parsed = Number(openPrintCount);
+    const limit = Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 25;
+
+    setPrintingOpen(true);
+    setError(null);
+
+    try {
+      const ids = await fetchOpenOrderIds(limit);
+      if (ids.length === 0) {
+        setError('No open orders found to print.');
+        return;
+      }
+
+      window.open(`/print/orders?ids=${ids.join(',')}`, '_blank');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to prepare open orders for printing');
+    } finally {
+      setPrintingOpen(false);
+    }
+  }
+
+  const allCurrentPageSelected = orders.length > 0 && orders.every((o) => selectedOrderIds.includes(o.id));
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -124,6 +198,37 @@ export function OrdersListPage() {
             <option value="false">Pre-Order Only</option>
           </select>
         </div>
+
+        <div className="ml-auto flex flex-wrap items-end gap-2 rounded-md border border-gray-200 bg-white p-2">
+          <button
+            type="button"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={selectedOrderIds.length === 0}
+            onClick={handlePrintSelected}
+          >
+            Print Selected ({selectedOrderIds.length})
+          </button>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">Open order count</label>
+            <input
+              type="number"
+              min={1}
+              className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm"
+              value={openPrintCount}
+              onChange={(e) => setOpenPrintCount(e.target.value)}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="rounded-md bg-hawk-600 px-3 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={printingOpen}
+            onClick={handlePrintOpenOrders}
+          >
+            {printingOpen ? 'Preparing…' : 'Print Open Orders'}
+          </button>
+        </div>
       </div>
 
       {/* Hidden form for scan-to-search enter */}
@@ -141,6 +246,15 @@ export function OrdersListPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all orders on this page"
+                      checked={allCurrentPageSelected}
+                      onChange={toggleSelectAllCurrentPage}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order #</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
@@ -156,6 +270,14 @@ export function OrdersListPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => navigate(`/orders/${o.id}`)}
                   >
+                    <td className="px-4 py-3 text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select order ${o.orderNumber}`}
+                        checked={selectedOrderIds.includes(o.id)}
+                        onChange={() => toggleOrderSelection(o.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{o.orderNumber}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{o.customerDisplayName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{o.sellerDisplayName ?? '--'}</td>

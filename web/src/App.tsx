@@ -3,6 +3,7 @@ import { AudioFeedbackProvider } from '@/components/shared/AudioFeedback.js';
 import { AppLayout } from '@/layouts/AppLayout.js';
 import { DocsPage } from '@/pages/DocsPage.js';
 import { PrintOrderPage } from '@/pages/print/PrintOrderPage.js';
+import { PrintOrdersBatchPage } from '@/pages/print/PrintOrdersBatchPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
 import { PrintCheatsheetPickup } from '@/pages/print/PrintCheatsheetPickup.js';
 import { PrintCheatsheetLookup } from '@/pages/print/PrintCheatsheetLookup.js';
@@ -58,6 +59,7 @@ function App() {
 
           {/* Print routes -- no layout wrapper */}
           <Route path="print/order/:orderId" element={<PrintOrderPage />} />
+          <Route path="print/orders" element={<PrintOrdersBatchPage />} />
           <Route path="print/seller/:sellerId" element={<PrintSellerPacketPage />} />
           <Route path="print/cheatsheet/pickup" element={<PrintCheatsheetPickup />} />
           <Route path="print/cheatsheet/lookup" element={<PrintCheatsheetLookup />} />
