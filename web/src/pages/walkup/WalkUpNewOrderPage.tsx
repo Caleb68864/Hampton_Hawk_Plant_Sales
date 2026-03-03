@@ -153,9 +153,17 @@ export function WalkUpNewOrderPage() {
   }
 
   function updateLineQty(idx: number, qty: number) {
+    const nextQty = Math.max(1, qty);
     setLines(lines.map((l, i) => {
       if (i !== idx) return l;
-      return { ...l, qtyOrdered: Math.max(1, qty) };
+      if (l.qtyOrdered === nextQty) return l;
+      return {
+        ...l,
+        qtyOrdered: nextQty,
+        overrideApproved: false,
+        adminPin: undefined,
+        adminReason: undefined,
+      };
     }));
   }
 
