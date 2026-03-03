@@ -26,10 +26,20 @@ public class SellerService : ISellerService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
-            query = query.Where(s =>
-                s.DisplayName.ToLower().Contains(term) ||
-                (s.LastName != null && s.LastName.ToLower().Contains(term)));
+            var trimmed = search.Trim();
+            if (trimmed.EndsWith("*") && trimmed.Length == 2)
+            {
+                // A-Z letter filter: e.g. "S*" -> filter by seller display name initial
+                var initial = trimmed[..1].ToLower();
+                query = query.Where(s => s.DisplayName.ToLower().StartsWith(initial));
+            }
+            else
+            {
+                var term = trimmed.ToLower();
+                query = query.Where(s =>
+                    s.DisplayName.ToLower().Contains(term) ||
+                    (s.LastName != null && s.LastName.ToLower().Contains(term)));
+            }
         }
 
         var totalCount = await query.CountAsync();
