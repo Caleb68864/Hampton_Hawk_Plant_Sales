@@ -15,7 +15,7 @@ public class VersionController : ControllerBase
     /// </summary>
     /// <response code="200">Version object.</response>
     [HttpGet("version")]
-    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
     public IActionResult GetVersion()
     {
         return Ok(ApiResponse<object>.Ok(new { version = "1.0.0" }));

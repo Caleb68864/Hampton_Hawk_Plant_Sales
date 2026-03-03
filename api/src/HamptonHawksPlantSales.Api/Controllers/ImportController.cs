@@ -28,13 +28,14 @@ public class ImportController : ControllerBase
     [HttpPost("plants")]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> ImportPlants(IFormFile file)
+    public async Task<IActionResult> ImportPlants(IFormFile file, [FromQuery] bool dryRun = false, [FromQuery] bool upsertBySku = true)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<ImportResultResponse>.Fail("File is required."));
 
         using var stream = file.OpenReadStream();
-        var result = await _importService.ImportAsync(ImportType.Plants, file.FileName, stream);
+        var options = new ImportOptions { DryRun = dryRun, UpsertPlantsBySku = upsertBySku };
+        var result = await _importService.ImportAsync(ImportType.Plants, file.FileName, stream, options);
         return Ok(ApiResponse<ImportResultResponse>.Ok(result));
     }
 
@@ -47,13 +48,14 @@ public class ImportController : ControllerBase
     [HttpPost("inventory")]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> ImportInventory(IFormFile file)
+    public async Task<IActionResult> ImportInventory(IFormFile file, [FromQuery] bool dryRun = false)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<ImportResultResponse>.Fail("File is required."));
 
         using var stream = file.OpenReadStream();
-        var result = await _importService.ImportAsync(ImportType.Inventory, file.FileName, stream);
+        var options = new ImportOptions { DryRun = dryRun };
+        var result = await _importService.ImportAsync(ImportType.Inventory, file.FileName, stream, options);
         return Ok(ApiResponse<ImportResultResponse>.Ok(result));
     }
 
@@ -66,13 +68,14 @@ public class ImportController : ControllerBase
     [HttpPost("orders")]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> ImportOrders(IFormFile file)
+    public async Task<IActionResult> ImportOrders(IFormFile file, [FromQuery] bool dryRun = false)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<ImportResultResponse>.Fail("File is required."));
 
         using var stream = file.OpenReadStream();
-        var result = await _importService.ImportAsync(ImportType.Orders, file.FileName, stream);
+        var options = new ImportOptions { DryRun = dryRun };
+        var result = await _importService.ImportAsync(ImportType.Orders, file.FileName, stream, options);
         return Ok(ApiResponse<ImportResultResponse>.Ok(result));
     }
 

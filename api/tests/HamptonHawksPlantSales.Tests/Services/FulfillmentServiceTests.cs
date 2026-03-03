@@ -60,6 +60,50 @@ public class FulfillmentServiceTests
         result.OrderId.Should().Be(orderId);
     }
 
+
+    [Fact]
+    public async Task UndoLastScan_WhenSaleClosed_DoesNotModifyInventoryOrFulfillment()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-UNDO-CLOSED");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.InProgress);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 3, qtyFulfilled: 1);
+        var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 9);
+        var acceptedEvent = new FulfillmentEvent
+        {
+            OrderId = order.Id,
+            PlantCatalogId = plant.Id,
+            Barcode = plant.Barcode,
+            Result = FulfillmentResult.Accepted,
+            Message = "seed accepted event"
+        };
+
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        db.Inventories.Add(inventory);
+        db.FulfillmentEvents.Add(acceptedEvent);
+        await db.SaveChangesAsync();
+
+        var (service, _) = CreateService(db, saleClosed: true);
+
+        var result = await service.UndoLastScanAsync(order.Id);
+
+        result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
+
+        var updatedLine = await db.OrderLines.FindAsync(line.Id);
+        var updatedInventory = await db.Inventories.FindAsync(inventory.Id);
+        updatedLine!.QtyFulfilled.Should().Be(1);
+        updatedInventory!.OnHandQty.Should().Be(9);
+
+        var activeAcceptedEvents = await db.FulfillmentEvents
+            .Where(e => e.OrderId == order.Id && e.Result == FulfillmentResult.Accepted && e.DeletedAt == null)
+            .CountAsync();
+        activeAcceptedEvents.Should().Be(1);
+    }
+
     [Fact]
     public async Task ForceCompleteOrder_WhenSaleClosed_StillSucceeds()
     {
