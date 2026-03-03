@@ -4,6 +4,7 @@ import { walkupApi } from '@/api/walkup.js';
 import type { WalkUpAvailability } from '@/api/walkup.js';
 import { customersApi } from '@/api/customers.js';
 import { plantsApi } from '@/api/plants.js';
+import { AzTabs } from '@/components/shared/AzTabs.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { useAuthStore } from '@/stores/authStore.js';
@@ -66,6 +67,7 @@ export function WalkUpNewOrderPage() {
 
   // Customer state
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerAzFilter, setCustomerAzFilter] = useState<string | null>(null);
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [createInline, setCreateInline] = useState(false);
@@ -76,6 +78,7 @@ export function WalkUpNewOrderPage() {
   // Line items
   const [lines, setLines] = useState<WalkUpLineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
+  const [plantAzFilter, setPlantAzFilter] = useState<string | null>(null);
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
   const [allAvailability, setAllAvailability] = useState<WalkUpAvailability[]>([]);
   const [loadingAllAvailability, setLoadingAllAvailability] = useState(false);
@@ -122,27 +125,45 @@ export function WalkUpNewOrderPage() {
 
   // Customer search
   useEffect(() => {
-    if (!customerSearch.trim() || selectedCustomer) { setCustomerResults([]); return; }
+    if (selectedCustomer) { setCustomerResults([]); return; }
+
+    const trimmedSearch = customerSearch.trim();
+    const query = trimmedSearch || (customerAzFilter ? `${customerAzFilter}*` : '');
+    if (!query) { setCustomerResults([]); return; }
+
     const timer = setTimeout(async () => {
       try {
-        const r = await customersApi.list({ search: customerSearch, pageSize: 5 });
+        const r = await customersApi.list({ search: query, pageSize: 20 });
+        if (trimmedSearch) {
+          const normalized = normalizeSearchText(trimmedSearch);
+          setCustomerResults(rankResults(r.items, (customer) => scoreCustomerMatch(customer, normalized)));
+          return;
+        }
         setCustomerResults(r.items);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [customerSearch, selectedCustomer]);
+  }, [customerSearch, customerAzFilter, selectedCustomer]);
 
   // Plant search
   useEffect(() => {
-    if (!plantSearch.trim()) { setPlantResults([]); return; }
+    const trimmedSearch = plantSearch.trim();
+    const query = trimmedSearch || (plantAzFilter ? `${plantAzFilter}*` : '');
+    if (!query) { setPlantResults([]); return; }
+
     const timer = setTimeout(async () => {
       try {
-        const r = await plantsApi.list({ search: plantSearch, pageSize: 10, activeOnly: true });
+        const r = await plantsApi.list({ search: query, pageSize: 40, activeOnly: true });
+        if (trimmedSearch) {
+          const normalized = normalizeSearchText(trimmedSearch);
+          setPlantResults(rankResults(r.items, (plant) => scorePlantMatch(plant, normalized)));
+          return;
+        }
         setPlantResults(r.items);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [plantSearch]);
+  }, [plantSearch, plantAzFilter]);
 
   async function handleCreateCustomer() {
     if (!newDisplayName.trim()) return;
@@ -432,7 +453,10 @@ export function WalkUpNewOrderPage() {
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
               placeholder="Search plants to add..."
               value={plantSearch}
-              onChange={(e) => setPlantSearch(e.target.value)}
+              onChange={(e) => {
+                setPlantAzFilter(null);
+                setPlantSearch(e.target.value);
+              }}
             />
             {plantResults.length > 0 && (
               <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
@@ -446,6 +470,9 @@ export function WalkUpNewOrderPage() {
                   </button>
                 </div>
               </div>
+            )}
+            {plantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
+              <p className="text-xs text-gray-500">No plant matches. Try SKU fragment, barcode digits, or first letter tabs.</p>
             )}
           </div>
         )}
