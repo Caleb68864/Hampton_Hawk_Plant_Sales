@@ -78,8 +78,8 @@ export function PlantDetailPage() {
           price,
           isActive: form.isActive,
         };
-        const updated = await plantsApi.update(id!, data);
-        setPlant(updated);
+        await plantsApi.update(id!, data);
+        navigate('/plants', { replace: true });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save plant');
