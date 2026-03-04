@@ -38,6 +38,10 @@ export async function put<T>(url: string, data?: unknown): Promise<T> {
   return unwrap<T>(await apiClient.put<ApiResponse<T>>(url, data));
 }
 
+export async function putWithHeaders<T>(url: string, data: unknown, headers: Record<string, string>): Promise<T> {
+  return unwrap<T>(await apiClient.put<ApiResponse<T>>(url, data, { headers }));
+}
+
 export async function del<T = void>(url: string): Promise<T> {
   return unwrap<T>(await apiClient.delete<ApiResponse<T>>(url));
 }
