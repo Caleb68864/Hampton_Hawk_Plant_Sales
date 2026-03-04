@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcuts.js';
 import { customersApi } from '@/api/customers.js';
@@ -22,6 +22,7 @@ export function QuickFindOverlay() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults>({ customers: [], orders: [], plants: [], sellers: [] });
   const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -30,6 +31,7 @@ export function QuickFindOverlay() {
     setIsOpen(false);
     setQuery('');
     setResults({ customers: [], orders: [], plants: [], sellers: [] });
+    setSelectedIndex(0);
   }, []);
 
   useKeyboardShortcut('k', 'ctrl', open);
@@ -43,6 +45,7 @@ export function QuickFindOverlay() {
   useEffect(() => {
     if (!query.trim()) {
       setResults({ customers: [], orders: [], plants: [], sellers: [] });
+      setSelectedIndex(0);
       return;
     }
 
@@ -61,6 +64,7 @@ export function QuickFindOverlay() {
           plants: plantResult.status === 'fulfilled' ? plantResult.value.items : [],
           sellers: sellerResult.status === 'fulfilled' ? sellerResult.value.items : [],
         });
+        setSelectedIndex(0);
       } finally {
         setLoading(false);
       }
@@ -69,13 +73,24 @@ export function QuickFindOverlay() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  const navigationOptions = useMemo(
+    () => [
+      ...results.customers.map((c) => ({ key: `customer-${c.id}`, route: `/customers/${c.id}` })),
+      ...results.orders.map((o) => ({ key: `order-${o.id}`, route: `/orders/${o.id}` })),
+      ...results.plants.map((p) => ({ key: `plant-${p.id}`, route: `/plants/${p.id}` })),
+      ...results.sellers.map((s) => ({ key: `seller-${s.id}`, route: `/sellers/${s.id}` })),
+    ],
+    [results],
+  );
+
+  function onSelect(route: string) {
+    navigate(route);
+    close();
+  }
+
   if (!isOpen) return null;
 
-  const hasResults =
-    results.customers.length > 0 ||
-    results.orders.length > 0 ||
-    results.plants.length > 0 ||
-    results.sellers.length > 0;
+  const hasResults = navigationOptions.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/50" onClick={close}>
@@ -91,7 +106,34 @@ export function QuickFindOverlay() {
             placeholder="Search customers, orders, plants, sellers... (Esc to close)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                close();
+                return;
+              }
+
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!navigationOptions.length) return;
+                setSelectedIndex((prev) => (prev + 1) % navigationOptions.length);
+                return;
+              }
+
+              if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!navigationOptions.length) return;
+                setSelectedIndex((prev) => (prev - 1 + navigationOptions.length) % navigationOptions.length);
+                return;
+              }
+
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const target = navigationOptions[selectedIndex];
+                if (target) {
+                  onSelect(target.route);
+                }
+              }
+            }}
           />
         </div>
         <div className="max-h-80 overflow-y-auto">
@@ -102,12 +144,15 @@ export function QuickFindOverlay() {
           {results.customers.length > 0 && (
             <div className="p-2">
               <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Customers</p>
-              {results.customers.map((c) => (
+              {results.customers.map((c, index) => (
                 <button
                   key={c.id}
                   type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                  onClick={() => { navigate(`/customers/${c.id}`); close(); }}
+                  className={`w-full text-left px-3 py-2 text-sm rounded ${
+                    selectedIndex === index ? 'bg-hawk-50' : 'hover:bg-gray-100'
+                  }`}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onClick={() => { onSelect(`/customers/${c.id}`); }}
                 >
                   {c.displayName} {c.pickupCode && <span className="text-gray-400">({c.pickupCode})</span>}
                 </button>
@@ -117,49 +162,66 @@ export function QuickFindOverlay() {
           {results.orders.length > 0 && (
             <div className="p-2">
               <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Orders</p>
-              {results.orders.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                  onClick={() => { navigate(`/orders/${o.id}`); close(); }}
-                >
-                  {o.orderNumber} - {o.customerDisplayName}
-                </button>
-              ))}
+              {results.orders.map((o, index) => {
+                const optionIndex = results.customers.length + index;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm rounded ${
+                      selectedIndex === optionIndex ? 'bg-hawk-50' : 'hover:bg-gray-100'
+                    }`}
+                    onMouseEnter={() => setSelectedIndex(optionIndex)}
+                    onClick={() => { onSelect(`/orders/${o.id}`); }}
+                  >
+                    {o.orderNumber} - {o.customerDisplayName}
+                  </button>
+                );
+              })}
             </div>
           )}
           {results.plants.length > 0 && (
             <div className="p-2">
               <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Plants</p>
-              {results.plants.map((plant) => (
-                <button
-                  key={plant.id}
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                  onClick={() => {
-                    navigate(`/plants/${plant.id}`);
-                    close();
-                  }}
-                >
-                  {plant.name} <span className="text-gray-400">({plant.sku})</span>
-                </button>
-              ))}
+              {results.plants.map((plant, index) => {
+                const optionIndex = results.customers.length + results.orders.length + index;
+                return (
+                  <button
+                    key={plant.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm rounded ${
+                      selectedIndex === optionIndex ? 'bg-hawk-50' : 'hover:bg-gray-100'
+                    }`}
+                    onMouseEnter={() => setSelectedIndex(optionIndex)}
+                    onClick={() => {
+                      onSelect(`/plants/${plant.id}`);
+                    }}
+                  >
+                    {plant.name} <span className="text-gray-400">({plant.sku})</span>
+                  </button>
+                );
+              })}
             </div>
           )}
           {results.sellers.length > 0 && (
             <div className="p-2">
               <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Sellers</p>
-              {results.sellers.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
-                  onClick={() => { navigate(`/sellers/${s.id}`); close(); }}
-                >
-                  {s.displayName}
-                </button>
-              ))}
+              {results.sellers.map((s, index) => {
+                const optionIndex = results.customers.length + results.orders.length + results.plants.length + index;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm rounded ${
+                      selectedIndex === optionIndex ? 'bg-hawk-50' : 'hover:bg-gray-100'
+                    }`}
+                    onMouseEnter={() => setSelectedIndex(optionIndex)}
+                    onClick={() => { onSelect(`/sellers/${s.id}`); }}
+                  >
+                    {s.displayName}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
