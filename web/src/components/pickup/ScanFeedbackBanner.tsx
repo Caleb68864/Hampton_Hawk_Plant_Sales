@@ -1,7 +1,7 @@
-import type { FulfillmentResultType } from '@/types/fulfillment.js';
+import type { FulfillmentResultType, ScanResponse } from '@/types/fulfillment.js';
 
 interface ScanFeedbackBannerProps {
-  result: FulfillmentResultType | null;
+  result: ScanResponse | null;
   message: string;
   plantName?: string | null;
   nextAction?: string;
@@ -21,7 +21,7 @@ export function ScanFeedbackBanner({ result, message, plantName, nextAction }: S
 
   return (
     <div
-      className={`w-full rounded-xl px-6 py-5 text-center font-bold text-2xl ${resultStyles[result]} transform transition-all duration-200 shadow-lg`}
+      className={`w-full rounded-xl px-6 py-5 text-center font-bold text-2xl ${resultStyles[result.result]} transform transition-all duration-200 shadow-lg`}
     >
       <div>{message}</div>
       {plantName && <div className="text-base font-medium mt-2 opacity-95">{plantName}</div>}
