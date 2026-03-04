@@ -11,6 +11,7 @@ import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
 import { ItemsRemainingCounter } from '@/components/pickup/ItemsRemainingCounter.js';
 import { ScanHistoryList } from '@/components/pickup/ScanHistoryList.js';
 import { ManualFulfillModal } from '@/components/pickup/ManualFulfillModal.js';
+import { getScanDisplayFields, getScanResultMessage } from '@/components/pickup/scanFeedbackText.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { useScanWorkflow } from '@/hooks/useScanWorkflow.js';
 import { useAppStore } from '@/stores/appStore.js';
@@ -242,6 +243,7 @@ export function PickupScanPage() {
     (l) => l.qtyFulfilled >= l.qtyOrdered,
   );
   const isComplete = currentOrder.status === 'Complete';
+  const scanDisplay = getScanDisplayFields(lastScanResult);
 
   return (
     <div className="space-y-4">
@@ -268,9 +270,9 @@ export function PickupScanPage() {
       </div>
 
       <ScanFeedbackBanner
-        result={lastScanResult?.result ?? null}
-        message={lastScanResult?.message ?? ''}
-        plantName={lastScanResult?.plantName}
+        result={lastScanResult}
+        message={getScanResultMessage(lastScanResult)}
+        plantName={scanDisplay.plantName}
         nextAction={getNextAction(lastScanResult?.result ?? null)}
       />
 
@@ -357,7 +359,7 @@ export function PickupScanPage() {
               const remaining = line.qtyOrdered - line.qtyFulfilled;
               const isLastFulfilled =
                 lastScanResult?.result === 'Accepted' &&
-                lastScanResult?.plantName === line.plantName;
+                scanDisplay.plantName === line.plantName;
 
               return (
                 <tr

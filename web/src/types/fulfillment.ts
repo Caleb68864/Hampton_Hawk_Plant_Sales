@@ -12,10 +12,17 @@ export interface ScanRequest {
 
 export interface ScanResponse {
   result: FulfillmentResultType;
-  message: string;
-  plantName?: string | null;
-  qtyFulfilled?: number;
-  qtyOrdered?: number;
+  orderId?: string | null;
+  plant?: {
+    sku: string;
+    name: string;
+  } | null;
+  line?: {
+    qtyOrdered: number;
+    qtyFulfilled: number;
+    qtyRemaining: number;
+  } | null;
+  orderRemainingItems: number;
 }
 
 export interface FulfillmentResult {

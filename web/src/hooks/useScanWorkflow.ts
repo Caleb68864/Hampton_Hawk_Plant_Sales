@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Order } from '@/types/order.js';
-import type { ScanResponse, FulfillmentResultType } from '@/types/fulfillment.js';
+import type { ScanResponse } from '@/types/fulfillment.js';
 import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
 import type { ScanHistoryEntry } from '@/components/pickup/ScanHistoryList.js';
+import { getScanDisplayFields, getScanResultMessage } from '@/components/pickup/scanFeedbackText.js';
 
 interface ScanWorkflowState {
   currentOrder: Order | null;
@@ -60,11 +61,12 @@ export function useScanWorkflow(orderId: string | undefined) {
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
         const result = await fulfillmentApi.scan(orderId, { barcode });
+        const { plantName } = getScanDisplayFields(result);
         const entry: ScanHistoryEntry = {
           barcode,
           result: result.result,
-          message: result.message,
-          plantName: result.plantName,
+          message: getScanResultMessage(result),
+          plantName,
           timestamp: Date.now(),
         };
         setState((s) => ({
@@ -94,11 +96,12 @@ export function useScanWorkflow(orderId: string | undefined) {
       const result = reason
         ? await fulfillmentApi.undoLastScanWithReason(orderId, reason, operator)
         : await fulfillmentApi.undoLastScan(orderId);
+      const { plantName } = getScanDisplayFields(result);
       const entry: ScanHistoryEntry = {
         barcode: 'UNDO',
         result: result.result,
-        message: result.message,
-        plantName: result.plantName,
+        message: getScanResultMessage(result),
+        plantName,
         timestamp: Date.now(),
       };
       setState((s) => ({
@@ -131,8 +134,8 @@ export function useScanWorkflow(orderId: string | undefined) {
     setState((s) => ({ ...s, networkError: null }));
   }, []);
 
-  const setLastScanResult = useCallback((result: { result: FulfillmentResultType; message: string; plantName?: string | null } | null) => {
-    setState((s) => ({ ...s, lastScanResult: result as ScanResponse | null }));
+  const setLastScanResult = useCallback((result: ScanResponse | null) => {
+    setState((s) => ({ ...s, lastScanResult: result }));
   }, []);
 
   // Initial load
