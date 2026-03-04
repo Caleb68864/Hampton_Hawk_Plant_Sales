@@ -420,34 +420,67 @@ public class ImportService : IImportService
     private static List<Dictionary<string, string>> ReadXlsx(Stream stream)
     {
         var rows = new List<Dictionary<string, string>>();
-        using var workbook = new XLWorkbook(stream);
-        var worksheet = workbook.Worksheets.First();
-
-        var headerRow = worksheet.Row(1);
-        var headers = new List<string>();
-        var lastCol = worksheet.LastColumnUsed()?.ColumnNumber() ?? 0;
-        for (int col = 1; col <= lastCol; col++)
+        try
         {
-            headers.Add(headerRow.Cell(col).GetString().Trim());
-        }
-
-        var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 0;
-        for (int rowNum = 2; rowNum <= lastRow; rowNum++)
-        {
-            var row = worksheet.Row(rowNum);
-            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            bool hasData = false;
-            for (int col = 0; col < headers.Count; col++)
+            using var workbook = new XLWorkbook(stream);
+            if (workbook.Worksheets.Count == 0)
             {
-                var val = row.Cell(col + 1).GetString().Trim();
-                dict[headers[col]] = val;
-                if (!string.IsNullOrWhiteSpace(val))
-                    hasData = true;
+                throw new ValidationException("The uploaded Excel file does not contain any worksheets. Add a worksheet with a header row and try again.");
             }
-            if (hasData)
-                rows.Add(dict);
-        }
 
-        return rows;
+            var worksheet = workbook.Worksheets.First();
+
+            var headerRow = worksheet.Row(1);
+            var lastCol = worksheet.LastColumnUsed()?.ColumnNumber() ?? 0;
+            if (lastCol == 0)
+            {
+                throw new ValidationException("The first worksheet is missing a header row. Add column headers in row 1 and try again.");
+            }
+
+            var headers = new List<string>();
+            var seenHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int col = 1; col <= lastCol; col++)
+            {
+                var headerName = headerRow.Cell(col).GetString().Trim();
+                if (string.IsNullOrWhiteSpace(headerName))
+                {
+                    throw new ValidationException($"Header row contains a blank column name at column {col}. Provide a name for each header column and retry the import.");
+                }
+
+                if (!seenHeaders.Add(headerName))
+                {
+                    throw new ValidationException($"Header row contains duplicate column name '{headerName}'. Rename duplicate headers so each column name is unique.");
+                }
+
+                headers.Add(headerName);
+            }
+
+            var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 0;
+            for (int rowNum = 2; rowNum <= lastRow; rowNum++)
+            {
+                var row = worksheet.Row(rowNum);
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                bool hasData = false;
+                for (int col = 0; col < headers.Count; col++)
+                {
+                    var val = row.Cell(col + 1).GetString().Trim();
+                    dict[headers[col]] = val;
+                    if (!string.IsNullOrWhiteSpace(val))
+                        hasData = true;
+                }
+                if (hasData)
+                    rows.Add(dict);
+            }
+
+            return rows;
+        }
+        catch (ValidationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new ValidationException($"The uploaded Excel file is malformed or unreadable. Please re-save the file as a valid .xlsx workbook and try again. Details: {ex.Message}");
+        }
     }
 }

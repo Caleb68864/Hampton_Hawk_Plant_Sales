@@ -2,7 +2,7 @@ using System.Text.Json;
 using HamptonHawksPlantSales.Api.Controllers;
 using HamptonHawksPlantSales.Api.Middleware;
 using HamptonHawksPlantSales.Core.DTOs;
-using HamptonHawksPlantSales.Infrastructure.Services;
+using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,6 +44,22 @@ public class ResponseEnvelopeTests
         Assert.Contains("\"success\":false", json);
         Assert.Contains("\"data\":null", json);
         Assert.Contains("bad request", json);
+    }
+
+
+    [Fact]
+    public async Task ExceptionMiddleware_ReturnsBadRequest_ForArgumentException()
+    {
+        var middleware = new ExceptionHandlerMiddleware(
+            _ => throw new ArgumentException("bad input"),
+            NullLogger<ExceptionHandlerMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(400, context.Response.StatusCode);
     }
 
     [Fact]

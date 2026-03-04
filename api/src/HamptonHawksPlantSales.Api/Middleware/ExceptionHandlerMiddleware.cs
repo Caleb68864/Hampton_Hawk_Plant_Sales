@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
-using HamptonHawksPlantSales.Infrastructure.Services;
 
 namespace HamptonHawksPlantSales.Api.Middleware;
 
@@ -34,6 +34,7 @@ public class ExceptionHandlerMiddleware
         {
             ValidationException => (int)HttpStatusCode.BadRequest,
             InvalidOperationException => (int)HttpStatusCode.BadRequest,
+            ArgumentException => (int)HttpStatusCode.BadRequest,
             KeyNotFoundException => (int)HttpStatusCode.NotFound,
             _ => (int)HttpStatusCode.InternalServerError
         };

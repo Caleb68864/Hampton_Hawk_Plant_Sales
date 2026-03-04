@@ -39,3 +39,10 @@ export interface FulfillmentEvent {
   message: string | null;
   createdAt: string;
 }
+
+
+export interface ManualFulfillRequest {
+  orderLineId: string;
+  reason: string;
+  operatorName: string;
+}

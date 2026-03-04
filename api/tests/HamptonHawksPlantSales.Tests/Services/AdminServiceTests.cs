@@ -133,7 +133,7 @@ public class AdminServiceTests
         var fulfillmentService = new FulfillmentService(db, adminService);
 
         // Act
-        var result = await fulfillmentService.ForceCompleteOrderAsync(order.Id, "Customer left early");
+        var result = await fulfillmentService.ForceCompleteOrderAsync(order.Id, "Customer left early", "tester");
 
         // Assert
         result.Should().BeTrue();
@@ -164,7 +164,7 @@ public class AdminServiceTests
         var fulfillmentService = new FulfillmentService(db, adminService);
 
         // Act
-        await fulfillmentService.ForceCompleteOrderAsync(order.Id, "Customer left early");
+        await fulfillmentService.ForceCompleteOrderAsync(order.Id, "Customer left early", "tester");
 
         // Assert
         var adminAction = await db.AdminActions
