@@ -152,4 +152,104 @@ public class InventoryProtectionServiceTests
         // Assert: 50 - 10 = 40 (walk-up order's 15 is excluded)
         available.Should().Be(40);
     }
+
+
+    [Fact]
+    public async Task GetAllAvailability_OnlyReturnsActiveNonDeletedPlants_WithComputedAvailability()
+    {
+        using var db = MockDbContextFactory.Create();
+
+        var activePlant = TestDataBuilder.CreatePlant(name: "Active Plant", sku: "ACTIVE", barcode: "ACTIVE-BC");
+        var inactivePlant = TestDataBuilder.CreatePlant(name: "Inactive Plant", sku: "INACTIVE", barcode: "INACTIVE-BC");
+        inactivePlant.IsActive = false;
+        var deletedPlant = TestDataBuilder.CreatePlant(name: "Deleted Plant", sku: "DELETED", barcode: "DELETED-BC");
+        deletedPlant.DeletedAt = DateTimeOffset.UtcNow;
+
+        var customer = TestDataBuilder.CreateCustomer();
+        var preorder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
+        var preorderLine = TestDataBuilder.CreateOrderLine(preorder.Id, activePlant.Id, qtyOrdered: 8, qtyFulfilled: 3);
+
+        db.PlantCatalogs.AddRange(activePlant, inactivePlant, deletedPlant);
+        db.Inventories.AddRange(
+            TestDataBuilder.CreateInventory(activePlant.Id, onHandQty: 12),
+            TestDataBuilder.CreateInventory(inactivePlant.Id, onHandQty: 99),
+            TestDataBuilder.CreateInventory(deletedPlant.Id, onHandQty: 99));
+        db.Customers.Add(customer);
+        db.Orders.Add(preorder);
+        db.OrderLines.Add(preorderLine);
+        await db.SaveChangesAsync();
+
+        var service = new InventoryProtectionService(db);
+
+        var result = await service.GetAllAvailabilityAsync();
+
+        result.Should().HaveCount(1);
+        var availability = result.Single();
+        availability.PlantCatalogId.Should().Be(activePlant.Id);
+        availability.OnHandQty.Should().Be(12);
+        availability.PreorderRemaining.Should().Be(5);
+        availability.AvailableForWalkup.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task ValidateWalkupLine_WhenOverRequested_ReturnsHelpfulErrorAndAvailableCount()
+    {
+        using var db = MockDbContextFactory.Create();
+
+        var plant = TestDataBuilder.CreatePlant(name: "Blue Hydrangea");
+        var customer = TestDataBuilder.CreateCustomer();
+        var preorder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
+        var preorderLine = TestDataBuilder.CreateOrderLine(preorder.Id, plant.Id, qtyOrdered: 6, qtyFulfilled: 2);
+
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, onHandQty: 5));
+        db.Customers.Add(customer);
+        db.Orders.Add(preorder);
+        db.OrderLines.Add(preorderLine);
+        await db.SaveChangesAsync();
+
+        var service = new InventoryProtectionService(db);
+
+        var result = await service.ValidateWalkupLineAsync(plant.Id, requestedQty: 2);
+
+        result.Allowed.Should().BeFalse();
+        result.Available.Should().Be(1);
+        result.ErrorMessage.Should().NotBeNull();
+        result.ErrorMessage.Should().Contain("Only 1 units");
+        result.ErrorMessage.Should().Contain("Blue Hydrangea");
+    }
+
+    [Fact]
+    public async Task ValidateWalkupLine_WithExcludeOrderId_IgnoresThatOrderReservation()
+    {
+        using var db = MockDbContextFactory.Create();
+
+        var plant = TestDataBuilder.CreatePlant();
+        var customer = TestDataBuilder.CreateCustomer();
+
+        var orderToEdit = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
+        var lineOnEditedOrder = TestDataBuilder.CreateOrderLine(orderToEdit.Id, plant.Id, qtyOrdered: 5, qtyFulfilled: 0);
+
+        var secondOrder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
+        var lineOnSecondOrder = TestDataBuilder.CreateOrderLine(secondOrder.Id, plant.Id, qtyOrdered: 4, qtyFulfilled: 0);
+
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10));
+        db.Customers.Add(customer);
+        db.Orders.AddRange(orderToEdit, secondOrder);
+        db.OrderLines.AddRange(lineOnEditedOrder, lineOnSecondOrder);
+        await db.SaveChangesAsync();
+
+        var service = new InventoryProtectionService(db);
+
+        var withoutExclude = await service.ValidateWalkupLineAsync(plant.Id, requestedQty: 2);
+        var withExclude = await service.ValidateWalkupLineAsync(plant.Id, requestedQty: 2, excludeOrderId: orderToEdit.Id);
+
+        withoutExclude.Allowed.Should().BeFalse();
+        withoutExclude.Available.Should().Be(1);
+
+        withExclude.Allowed.Should().BeTrue();
+        withExclude.Available.Should().Be(6);
+    }
+
 }
