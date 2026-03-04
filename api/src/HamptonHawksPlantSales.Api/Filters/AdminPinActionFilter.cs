@@ -1,6 +1,5 @@
-using System.Text.Json;
-using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Core.DTOs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -32,6 +31,11 @@ public class AdminPinActionFilter : IAsyncActionFilter
 
         var pin = context.HttpContext.Request.Headers["X-Admin-Pin"].FirstOrDefault();
         var reason = context.HttpContext.Request.Headers["X-Admin-Reason"].FirstOrDefault();
+        var method = context.HttpContext.Request.Method;
+        var requiresReason = HttpMethods.IsPost(method)
+            || HttpMethods.IsPut(method)
+            || HttpMethods.IsPatch(method)
+            || HttpMethods.IsDelete(method);
 
         if (string.IsNullOrWhiteSpace(pin) || pin != expectedPin)
         {
@@ -42,7 +46,7 @@ public class AdminPinActionFilter : IAsyncActionFilter
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(reason))
+        if (requiresReason && string.IsNullOrWhiteSpace(reason))
         {
             context.Result = new JsonResult(ApiResponse<object>.Fail("Reason is required."))
             {
@@ -51,7 +55,10 @@ public class AdminPinActionFilter : IAsyncActionFilter
             return;
         }
 
-        context.HttpContext.Items["AdminReason"] = reason;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            context.HttpContext.Items["AdminReason"] = reason;
+        }
 
         await next();
     }

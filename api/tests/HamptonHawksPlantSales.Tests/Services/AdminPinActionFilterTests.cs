@@ -17,7 +17,7 @@ public class AdminPinActionFilterTests
     public async Task ForceComplete_WithoutPinHeader_Returns403()
     {
         var filter = BuildFilter("1234");
-        var context = BuildContext<RequiresAdminPinAttribute>();
+        var context = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
         context.HttpContext.Request.Headers["X-Admin-Reason"] = "test";
 
         await filter.OnActionExecutionAsync(context, () => Task.FromResult<ActionExecutedContext>(null!));
@@ -30,10 +30,10 @@ public class AdminPinActionFilterTests
     }
 
     [Fact]
-    public async Task ForceComplete_WithoutReasonHeader_Returns403()
+    public async Task MutatingRequest_WithoutReasonHeader_Returns403()
     {
         var filter = BuildFilter("1234");
-        var context = BuildContext<RequiresAdminPinAttribute>();
+        var context = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
         context.HttpContext.Request.Headers["X-Admin-Pin"] = "1234";
 
         await filter.OnActionExecutionAsync(context, () => Task.FromResult<ActionExecutedContext>(null!));
@@ -46,10 +46,31 @@ public class AdminPinActionFilterTests
     }
 
     [Fact]
+    public async Task GetRequest_WithPinAndNoReason_AllowsRequest()
+    {
+        var filter = BuildFilter("1234");
+        var context = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Get);
+        context.HttpContext.Request.Headers["X-Admin-Pin"] = "1234";
+        var nextCalled = false;
+
+        await filter.OnActionExecutionAsync(
+            context,
+            () =>
+            {
+                nextCalled = true;
+                return Task.FromResult(new ActionExecutedContext(context, new List<IFilterMetadata>(), new object()));
+            });
+
+        Assert.True(nextCalled);
+        Assert.Null(context.Result);
+        Assert.False(context.HttpContext.Items.ContainsKey("AdminReason"));
+    }
+
+    [Fact]
     public async Task ForceComplete_WithPinAndReason_AllowsRequest()
     {
         var filter = BuildFilter("1234");
-        var context = BuildContext<RequiresAdminPinAttribute>();
+        var context = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
         context.HttpContext.Request.Headers["X-Admin-Pin"] = "1234";
         context.HttpContext.Request.Headers["X-Admin-Reason"] = "override";
         var nextCalled = false;
@@ -95,9 +116,10 @@ public class AdminPinActionFilterTests
         return new AdminPinActionFilter(config);
     }
 
-    private static ActionExecutingContext BuildContext<TAttribute>() where TAttribute : Attribute, new()
+    private static ActionExecutingContext BuildContext<TAttribute>(string method = HttpMethods.Get) where TAttribute : Attribute, new()
     {
         var httpContext = new DefaultHttpContext();
+        httpContext.Request.Method = method;
         var routeData = new RouteData();
         var actionDescriptor = new ControllerActionDescriptor
         {
