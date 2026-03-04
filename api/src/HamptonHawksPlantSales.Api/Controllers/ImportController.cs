@@ -68,13 +68,13 @@ public class ImportController : ControllerBase
     [HttpPost("orders")]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> ImportOrders(IFormFile file, [FromQuery] bool dryRun = false)
+    public async Task<IActionResult> ImportOrders(IFormFile file, [FromQuery] bool dryRun = false, [FromQuery] bool resolveDuplicateOrderNumbers = false)
     {
         if (file == null || file.Length == 0)
             return BadRequest(ApiResponse<ImportResultResponse>.Fail("File is required."));
 
         using var stream = file.OpenReadStream();
-        var options = new ImportOptions { DryRun = dryRun };
+        var options = new ImportOptions { DryRun = dryRun, ResolveDuplicateOrderNumbers = resolveDuplicateOrderNumbers };
         var result = await _importService.ImportAsync(ImportType.Orders, file.FileName, stream, options);
         return Ok(ApiResponse<ImportResultResponse>.Ok(result));
     }
