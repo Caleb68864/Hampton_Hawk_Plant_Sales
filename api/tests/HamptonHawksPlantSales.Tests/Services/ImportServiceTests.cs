@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using System.Text;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -149,6 +150,53 @@ public class ImportServiceTests
         Assert.Contains(lines, l => db.PlantCatalogs.First(p => p.Id == l.PlantCatalogId).Sku == "202");
     }
 
+
+    [Fact]
+    public async Task PlantImport_XlsxWithZeroWorksheets_ThrowsValidationError()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new ImportService(db);
+        using var stream = CreateWorkbookStream(ws => ws.Delete());
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => service.ImportAsync(ImportType.Plants, "plants.xlsx", stream));
+
+        Assert.Contains("does not contain any worksheets", ex.Message);
+    }
+
+    [Fact]
+    public async Task PlantImport_XlsxWithBlankHeaderRow_ThrowsValidationError()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new ImportService(db);
+        using var stream = CreateWorkbookStream(ws =>
+        {
+            ws.Cell(2, 1).Value = "SKU-1";
+            ws.Cell(2, 2).Value = "Fern";
+        });
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => service.ImportAsync(ImportType.Plants, "plants.xlsx", stream));
+
+        Assert.Contains("blank column name", ex.Message);
+    }
+
+    [Fact]
+    public async Task PlantImport_XlsxWithDuplicateHeaders_ThrowsValidationError()
+    {
+        using var db = MockDbContextFactory.Create();
+        var service = new ImportService(db);
+        using var stream = CreateWorkbookStream(ws =>
+        {
+            ws.Cell(1, 1).Value = "Sku";
+            ws.Cell(1, 2).Value = "Sku";
+            ws.Cell(2, 1).Value = "SKU-1";
+            ws.Cell(2, 2).Value = "SKU-1";
+        });
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => service.ImportAsync(ImportType.Plants, "plants.xlsx", stream));
+
+        Assert.Contains("duplicate column name", ex.Message);
+    }
+
     [Fact]
     public async Task PlantImport_Pdf_ThrowsHelpfulMessage()
     {
@@ -160,6 +208,19 @@ public class ImportServiceTests
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ImportAsync(ImportType.Plants, "plants.pdf", stream));
 
         Assert.Contains("orders only", ex.Message);
+    }
+
+
+    private static MemoryStream CreateWorkbookStream(Action<IXLWorksheet> configure)
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.AddWorksheet("Sheet1");
+        configure(worksheet);
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
     }
 
     private static string FindFromRepoRoot(string filename)

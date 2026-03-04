@@ -46,6 +46,22 @@ public class ResponseEnvelopeTests
         Assert.Contains("bad request", json);
     }
 
+
+    [Fact]
+    public async Task ExceptionMiddleware_ReturnsBadRequest_ForArgumentException()
+    {
+        var middleware = new ExceptionHandlerMiddleware(
+            _ => throw new ArgumentException("bad input"),
+            NullLogger<ExceptionHandlerMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(400, context.Response.StatusCode);
+    }
+
     [Fact]
     public void VersionEndpoint_ReturnsStandardEnvelope()
     {
