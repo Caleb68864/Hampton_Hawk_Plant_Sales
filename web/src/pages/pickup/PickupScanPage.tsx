@@ -168,7 +168,7 @@ export function PickupScanPage() {
   async function handleManualFulfill(lineId: string, reason: string) {
     if (!orderId) return;
     try {
-      await fulfillmentApi.scan(orderId, { barcode: `MANUAL:${lineId}:${reason}` });
+      await fulfillmentApi.manualFulfill(orderId, { orderLineId: lineId, reason, operatorName: OPERATOR_NAME });
       setShowManualModal(false);
       await refreshOrder();
     } catch {
