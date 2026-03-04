@@ -2,35 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
-import type { Customer } from '@/types/customer.js';
-import type { Order } from '@/types/order.js';
-
-interface MatchOption {
-  order: Order;
-  customer?: Customer;
-  reason: string;
-}
-
-function normalizeScanInput(value: string) {
-  return value
-    .replace(/[\r\n\t]/g, '')
-    .trim()
-    .replace(/^\*+|\*+$/g, '')
-    .replace(/#+$/g, '');
-}
-
-function normalizeKey(value: string) {
-  return normalizeScanInput(value).toUpperCase();
-}
-
-function customerScore(customer: Customer, query: string) {
-  const display = (customer.displayName ?? '').toUpperCase();
-  const compactQuery = query.replace(/\s+/g, ' ').trim();
-  if (display === compactQuery) return 3;
-  if (display.startsWith(compactQuery)) return 2;
-  if (display.includes(compactQuery)) return 1;
-  return 0;
-}
+import { plantsApi } from '@/api/plants.js';
+import { resolveBestMatch, type MatchOption, normalizeScanInput } from './globalQuickFindMatch.js';
 
 function printBlankTicket() {
   const win = window.open('', '_blank');
@@ -79,7 +52,6 @@ export function GlobalQuickFind() {
 
   async function routeBestMatch() {
     const normalized = normalizeScanInput(query);
-    const normalizedKey = normalizeKey(query);
 
     if (!normalized) {
       setOptions([]);
@@ -92,74 +64,19 @@ export function GlobalQuickFind() {
     setNoMatch(false);
 
     try {
-      const [orderRes, customerRes] = await Promise.all([
-        ordersApi.list({ search: normalized, pageSize: 25 }),
-        customersApi.list({ search: normalized, pageSize: 25 }),
-      ]);
+      const decision = await resolveBestMatch(query, {
+        listOrders: ordersApi.list,
+        listCustomers: customersApi.list,
+        listPlants: plantsApi.list,
+      });
 
-      const exactOrder = orderRes.items.find((o) => normalizeKey(o.orderNumber) === normalizedKey);
-      if (exactOrder) {
-        navigate(`/pickup/${exactOrder.id}`);
+      if (decision.type === 'navigate') {
+        navigate(decision.route);
         return;
       }
 
-      const exactPickupCustomers = customerRes.items.filter(
-        (c) => normalizeKey(c.pickupCode ?? '') === normalizedKey,
-      );
-
-      if (exactPickupCustomers.length > 0) {
-        const pickupOrders = orderRes.items.filter((o) =>
-          exactPickupCustomers.some((c) => c.id === o.customerId),
-        );
-
-        if (pickupOrders.length === 1) {
-          navigate(`/pickup/${pickupOrders[0].id}`);
-          return;
-        }
-
-        if (pickupOrders.length > 1) {
-          setOptions(
-            pickupOrders.map((order) => ({
-              order,
-              customer: exactPickupCustomers.find((c) => c.id === order.customerId),
-              reason: 'Exact pickup code match',
-            })),
-          );
-          return;
-        }
-      }
-
-      const rankedCustomer = customerRes.items
-        .map((customer) => ({ customer, score: customerScore(customer, normalizedKey) }))
-        .sort((a, b) => b.score - a.score)[0];
-
-      if (rankedCustomer && rankedCustomer.score > 0) {
-        const customerOrders = orderRes.items.filter((o) => o.customerId === rankedCustomer.customer.id);
-        if (customerOrders.length === 1) {
-          navigate(`/pickup/${customerOrders[0].id}`);
-          return;
-        }
-
-        if (customerOrders.length > 1) {
-          setOptions(
-            customerOrders.map((order) => ({
-              order,
-              customer: rankedCustomer.customer,
-              reason: 'Closest customer name match',
-            })),
-          );
-          return;
-        }
-      }
-
-      if (orderRes.items.length > 1) {
-        setOptions(
-          orderRes.items.map((order) => ({
-            order,
-            customer: customerRes.items.find((c) => c.id === order.customerId),
-            reason: 'Possible match',
-          })),
-        );
+      if (decision.type === 'options') {
+        setOptions(decision.options);
         return;
       }
 
@@ -181,7 +98,7 @@ export function GlobalQuickFind() {
         type="text"
         value={query}
         className="w-full rounded-md border border-white/40 bg-white px-3 py-3 text-lg font-semibold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-white"
-        placeholder="Order #, customer, pickup code, phone"
+        placeholder="Order #, pickup code, customer, plant SKU/barcode/name, phone"
         onChange={(e) => {
           setQuery(e.target.value);
           setNoMatch(false);
@@ -203,13 +120,19 @@ export function GlobalQuickFind() {
               <p className="text-xs font-semibold uppercase text-gray-500">Tap a match</p>
               {options.map((option) => (
                 <button
-                  key={option.order.id}
+                  key={option.order?.id ?? option.plant?.id}
                   type="button"
                   className="w-full rounded-md border border-gray-300 p-4 text-left hover:bg-gray-50"
-                  onClick={() => navigate(`/pickup/${option.order.id}`)}
+                  onClick={() => navigate(option.route)}
                 >
-                  <p className="text-lg font-bold text-gray-900">{option.order.orderNumber}</p>
-                  <p className="text-sm text-gray-700">{option.order.customerDisplayName}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {option.order ? `Order #${option.order.orderNumber}` : option.plant?.name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {option.order
+                      ? (option.customer?.displayName ?? option.order.customerDisplayName ?? 'Customer unavailable')
+                      : option.plant ? `${option.plant.sku} • ${option.plant.barcode}` : ''}
+                  </p>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">{option.reason}</p>
                 </button>
               ))}

@@ -8,7 +8,7 @@ const meta: Meta<typeof QuickFindOverlay> = {
   decorators: [
     (Story) => (
       <BrowserRouter>
-        <p className="text-sm text-gray-500 mb-4">Press Ctrl+K to open the overlay</p>
+        <p className="text-sm text-gray-500 mb-4">Press Ctrl+K to open the overlay (customers, orders, plants, sellers)</p>
         <Story />
       </BrowserRouter>
     ),
