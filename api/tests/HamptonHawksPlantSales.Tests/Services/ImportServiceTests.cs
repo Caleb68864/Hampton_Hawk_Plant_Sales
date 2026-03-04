@@ -4,6 +4,7 @@ using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Services;
+using FluentValidation;
 using HamptonHawksPlantSales.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 
@@ -148,6 +149,56 @@ public class ImportServiceTests
 
         Assert.Contains(lines, l => db.PlantCatalogs.First(p => p.Id == l.PlantCatalogId).Sku == "108");
         Assert.Contains(lines, l => db.PlantCatalogs.First(p => p.Id == l.PlantCatalogId).Sku == "202");
+    }
+
+    [Fact]
+    public async Task OrderImport_ThrowsHelpfulError_WhenImportedOrderNumberAlreadyExists()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = new Customer { DisplayName = "Existing Customer", PickupCode = "EXIST1" };
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "SKU-1", barcode: "BC-1"));
+        db.Orders.Add(new Order { Customer = customer, OrderNumber = "ORD-1" });
+        await db.SaveChangesAsync();
+
+        var service = new ImportService(db);
+        var csv = "OrderNumber,CustomerDisplayName,Sku,QtyOrdered\nORD-1,Existing Customer,SKU-1,2\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => service.ImportAsync(ImportType.Orders, "orders.csv", stream));
+
+        Assert.Contains("already exists", ex.Message);
+    }
+
+    [Fact]
+    public async Task OrderImport_UsesUniqueOrderNumber_WhenConfirmedAndImportedOrderNumberAlreadyExists()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = new Customer { DisplayName = "Existing Customer", PickupCode = "EXIST1" };
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "SKU-1", barcode: "BC-1"));
+        db.Orders.Add(new Order { Customer = customer, OrderNumber = "ORD-1" });
+        await db.SaveChangesAsync();
+
+        var service = new ImportService(db);
+        var csv = "OrderNumber,CustomerDisplayName,Sku,QtyOrdered\nORD-1,Existing Customer,SKU-1,2\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+
+        var result = await service.ImportAsync(
+            ImportType.Orders,
+            "orders.csv",
+            stream,
+            new ImportOptions { ResolveDuplicateOrderNumbers = true });
+
+        Assert.Equal(1, result.ImportedCount);
+
+        var orderNumbers = await db.Orders
+            .OrderBy(o => o.OrderNumber)
+            .Select(o => o.OrderNumber)
+            .ToListAsync();
+
+        Assert.Contains("ORD-1", orderNumbers);
+        Assert.Contains("ORD-1-2", orderNumbers);
     }
 
 

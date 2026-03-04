@@ -1,6 +1,7 @@
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace HamptonHawksPlantSales.Infrastructure.Services;
@@ -15,7 +16,7 @@ public class OrderImportHandler
     }
 
     public async Task<(int imported, int skipped, List<ImportIssue> issues)> HandleAsync(
-        Guid batchId, List<Dictionary<string, string>> rows)
+        Guid batchId, List<Dictionary<string, string>> rows, bool resolveDuplicateOrderNumbers = false)
     {
         int imported = 0;
         int skipped = 0;
@@ -42,6 +43,13 @@ public class OrderImportHandler
             .ToListAsync())
             .GroupBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var usedOrderNumbers = new HashSet<string>(
+            await _db.Orders
+                .Where(o => o.DeletedAt == null)
+                .Select(o => o.OrderNumber)
+                .ToListAsync(),
+            StringComparer.OrdinalIgnoreCase);
 
         // Group rows by OrderNumber
         var grouped = new List<(string orderNumber, List<(Dictionary<string, string> row, int rowNumber)> lines)>();
@@ -70,6 +78,7 @@ public class OrderImportHandler
 
         foreach (var (orderNumber, lines) in grouped)
         {
+            var resolvedOrderNumber = ResolveOrderNumber(orderNumber, usedOrderNumbers, resolveDuplicateOrderNumbers);
             var firstRow = lines[0].row;
 
             // Resolve customer
@@ -222,7 +231,7 @@ public class OrderImportHandler
                 {
                     CustomerId = customer.Id,
                     SellerId = seller?.Id,
-                    OrderNumber = orderNumber,
+                    OrderNumber = resolvedOrderNumber,
                     Status = OrderStatus.Open,
                     IsWalkUp = isWalkUp
                 };
@@ -249,5 +258,29 @@ public class OrderImportHandler
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var random = Random.Shared;
         return new string(Enumerable.Range(0, 6).Select(_ => chars[random.Next(chars.Length)]).ToArray());
+    }
+
+    private static string ResolveOrderNumber(string requestedOrderNumber, HashSet<string> usedOrderNumbers, bool resolveDuplicateOrderNumbers)
+    {
+        if (usedOrderNumbers.Add(requestedOrderNumber))
+        {
+            return requestedOrderNumber;
+        }
+
+        if (!resolveDuplicateOrderNumbers)
+        {
+            throw new ValidationException(
+                $"Order number '{requestedOrderNumber}' already exists. Confirm import to create a new order number automatically.");
+        }
+
+        var suffix = 2;
+        string candidate;
+        do
+        {
+            candidate = $"{requestedOrderNumber}-{suffix}";
+            suffix++;
+        } while (!usedOrderNumbers.Add(candidate));
+
+        return candidate;
     }
 }

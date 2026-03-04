@@ -17,9 +17,9 @@ export const importsApi = {
     return postForm<ImportResult>('/import/inventory', fd);
   },
 
-  importOrders: (file: File) => {
+  importOrders: (file: File, resolveDuplicateOrderNumbers = false) => {
     const fd = new FormData();
     fd.append('file', file);
-    return postForm<ImportResult>('/import/orders', fd);
+    return postForm<ImportResult>('/import/orders', fd, { resolveDuplicateOrderNumbers });
   },
 };

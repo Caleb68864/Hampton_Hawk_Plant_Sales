@@ -157,6 +157,30 @@ export function ImportsPage() {
     }
   }, [tab]);
 
+  async function importOrdersWithDuplicateConfirmation(file: File) {
+    try {
+      return await importsApi.importOrders(file);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Import failed';
+      const hasDuplicateOrderNumber =
+        message.toLowerCase().includes('order number') && message.toLowerCase().includes('already exists');
+
+      if (!hasDuplicateOrderNumber) {
+        throw e;
+      }
+
+      const confirmed = window.confirm(
+        `${message}\n\nThis order number is already in the system. Do you want to import it with a new order number?`,
+      );
+
+      if (!confirmed) {
+        throw e;
+      }
+
+      return importsApi.importOrders(file, true);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-gray-800">Imports</h1>
@@ -210,7 +234,7 @@ export function ImportsPage() {
             accept=".csv,.xlsx,.pdf"
             allowedExtensions={['csv', 'xlsx', 'pdf']}
             promptText="Drop a CSV, XLSX, or order PDF file here, or click to browse"
-            onUpload={(file) => importsApi.importOrders(file)}
+            onUpload={(file) => importOrdersWithDuplicateConfirmation(file)}
             templateLinks={{
               csvHref: '/templates/orders-import-template.csv',
             }}

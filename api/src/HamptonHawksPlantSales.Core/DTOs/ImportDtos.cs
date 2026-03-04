@@ -14,6 +14,7 @@ public class ImportOptions
 {
     public bool DryRun { get; set; }
     public bool UpsertPlantsBySku { get; set; } = true;
+    public bool ResolveDuplicateOrderNumbers { get; set; }
 }
 
 public class ImportBatchResponse
