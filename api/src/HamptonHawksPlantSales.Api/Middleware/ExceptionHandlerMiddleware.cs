@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
-using HamptonHawksPlantSales.Infrastructure.Services;
 
 namespace HamptonHawksPlantSales.Api.Middleware;
 
