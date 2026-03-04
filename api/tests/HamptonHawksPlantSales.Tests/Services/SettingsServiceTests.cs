@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Tests.Helpers;
 
@@ -11,17 +12,14 @@ public class SettingsServiceTests
     [Fact]
     public async Task GetSettingsAsync_DefaultState_ReturnsSaleClosedFalse()
     {
-        // Arrange
+        // Arrange: AppDbContext seeds an AppSettings row automatically via HasData
         using var db = MockDbContextFactory.Create();
-        db.AppSettings.Add(TestDataBuilder.CreateAppSettings(saleClosed: false));
-        await db.SaveChangesAsync();
-
         var service = new SettingsService(db);
 
         // Act
         var result = await service.GetSettingsAsync();
 
-        // Assert
+        // Assert: seeded row has SaleClosed=false
         result.SaleClosed.Should().BeFalse();
         result.SaleClosedAt.Should().BeNull();
     }
@@ -29,11 +27,11 @@ public class SettingsServiceTests
     [Fact]
     public async Task GetSettingsAsync_SaleClosedTrue_ReturnsSaleClosedWithTimestamp()
     {
-        // Arrange
+        // Arrange: update the seeded AppSettings row to SaleClosed=true
         using var db = MockDbContextFactory.Create();
-        var settings = TestDataBuilder.CreateAppSettings(saleClosed: true);
+        var settings = await db.AppSettings.FirstAsync();
+        settings.SaleClosed = true;
         settings.SaleClosedAt = DateTimeOffset.UtcNow;
-        db.AppSettings.Add(settings);
         await db.SaveChangesAsync();
 
         var service = new SettingsService(db);
@@ -50,11 +48,8 @@ public class SettingsServiceTests
     [Fact]
     public async Task GetSettingsAsync_AfterToggle_ReflectsUpdatedState()
     {
-        // Arrange
+        // Arrange: seeded row has SaleClosed=false
         using var db = MockDbContextFactory.Create();
-        db.AppSettings.Add(TestDataBuilder.CreateAppSettings(saleClosed: false));
-        await db.SaveChangesAsync();
-
         var service = new SettingsService(db);
 
         // Verify default state

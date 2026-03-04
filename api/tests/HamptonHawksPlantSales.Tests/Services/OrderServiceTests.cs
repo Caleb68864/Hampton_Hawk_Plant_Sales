@@ -714,7 +714,8 @@ public class OrderServiceTests
     [Fact]
     public async Task DeleteLineAsync_SoftDeletesLine_NoLongerAppearsInOrder()
     {
-        using var db = MockDbContextFactory.Create();
+        var dbName = Guid.NewGuid().ToString();
+        using var db = MockDbContextFactory.Create(dbName);
         var customer = TestDataBuilder.CreateCustomer();
         var plant = TestDataBuilder.CreatePlant(name: "EP23 Ivy", sku: "EP23-IVY", barcode: "BC-EP23");
 
@@ -741,8 +742,10 @@ public class OrderServiceTests
         var deleted = await service.DeleteLineAsync(created.Id, lineToDelete.Id);
         deleted.Should().BeTrue();
 
-        // Re-fetch and verify only one line remains
-        var refetched = await service.GetByIdAsync(created.Id);
+        // Re-fetch with a fresh context to avoid change-tracker returning the soft-deleted entity
+        using var db2 = MockDbContextFactory.Create(dbName);
+        var service2 = CreateService(db2);
+        var refetched = await service2.GetByIdAsync(created.Id);
         refetched.Should().NotBeNull();
         refetched!.Lines.Should().HaveCount(1);
         refetched.Lines[0].Id.Should().Be(lineToKeep.Id);
