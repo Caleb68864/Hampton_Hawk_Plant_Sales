@@ -2,12 +2,19 @@ import { get, post, put, del } from './client.js';
 import type { Order, CreateOrderRequest, OrderLine, CreateOrderLineRequest } from '@/types/order.js';
 import type { PagedResult, PaginationParams } from '@/types/api.js';
 import type { FulfillmentEvent } from '@/types/fulfillment.js';
+import { mapApiOrder, type ApiOrder } from './orderMappers.js';
 
 export const ordersApi = {
-  list: (params?: PaginationParams & { status?: string; isWalkUp?: boolean; sellerId?: string; customerId?: string; includeDeleted?: boolean }) =>
-    get<PagedResult<Order>>('/orders', params as Record<string, unknown>),
+  list: async (params?: PaginationParams & { status?: string; isWalkUp?: boolean; sellerId?: string; customerId?: string; includeDeleted?: boolean }) => {
+    const response = await get<PagedResult<ApiOrder>>('/orders', params as Record<string, unknown>);
 
-  getById: (id: string) => get<Order>(`/orders/${id}`),
+    return {
+      ...response,
+      items: response.items.map((order) => mapApiOrder(order)),
+    };
+  },
+
+  getById: async (id: string) => mapApiOrder(await get<ApiOrder>(`/orders/${id}`)),
 
   create: (data: CreateOrderRequest) => post<Order>('/orders', data),
 
