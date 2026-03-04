@@ -588,10 +588,7 @@ export function WalkUpNewOrderPage() {
                         <td className="px-4 py-2 text-right">
                           <button
                             type="button"
-                            className={`inline-flex h-8 min-w-16 items-center justify-center rounded-md px-3 text-xs font-semibold shadow-sm transition ${alreadyAdded
-                              ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                              : 'cursor-pointer bg-hawk-600 text-white hover:bg-hawk-700 focus:outline-none focus:ring-2 focus:ring-hawk-500 focus:ring-offset-1'
-                            }`}
+                            className="text-sm text-hawk-600 hover:text-hawk-700 disabled:text-gray-400 disabled:cursor-not-allowed"
                             disabled={alreadyAdded}
                             onClick={() => void addPlantLine({ id: availability.plantCatalogId, name: availability.plantName, sku: availability.plantSku })}
                           >
