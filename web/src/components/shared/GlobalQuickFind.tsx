@@ -2,31 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
-import type { Customer } from '@/types/customer.js';
-import { resolveFallbackOrderMatches, type QuickFindFallbackOption } from './globalQuickFindFallback.js';
-
-type MatchOption = QuickFindFallbackOption;
-
-function normalizeScanInput(value: string) {
-  return value
-    .replace(/[\r\n\t]/g, '')
-    .trim()
-    .replace(/^\*+|\*+$/g, '')
-    .replace(/#+$/g, '');
-}
-
-function normalizeKey(value: string) {
-  return normalizeScanInput(value).toUpperCase();
-}
-
-function customerScore(customer: Customer, query: string) {
-  const display = (customer.displayName ?? '').toUpperCase();
-  const compactQuery = query.replace(/\s+/g, ' ').trim();
-  if (display === compactQuery) return 3;
-  if (display.startsWith(compactQuery)) return 2;
-  if (display.includes(compactQuery)) return 1;
-  return 0;
-}
+import { resolveBestMatch, type MatchOption, normalizeScanInput } from './globalQuickFindMatch.js';
 
 function printBlankTicket() {
   const win = window.open('', '_blank');
@@ -75,7 +51,6 @@ export function GlobalQuickFind() {
 
   async function routeBestMatch() {
     const normalized = normalizeScanInput(query);
-    const normalizedKey = normalizeKey(query);
 
     if (!normalized) {
       setOptions([]);
@@ -88,75 +63,18 @@ export function GlobalQuickFind() {
     setNoMatch(false);
 
     try {
-      const [orderRes, customerRes] = await Promise.all([
-        ordersApi.list({ search: normalized, pageSize: 25 }),
-        customersApi.list({ search: normalized, pageSize: 25 }),
-      ]);
+      const decision = await resolveBestMatch(query, {
+        listOrders: ordersApi.list,
+        listCustomers: customersApi.list,
+      });
 
-      const exactOrder = orderRes.items.find((o) => normalizeKey(o.orderNumber) === normalizedKey);
-      if (exactOrder) {
-        navigate(`/pickup/${exactOrder.id}`);
+      if (decision.type === 'navigate') {
+        navigate(`/pickup/${decision.orderId}`);
         return;
       }
 
-      const exactPickupCustomers = customerRes.items.filter(
-        (c) => normalizeKey(c.pickupCode ?? '') === normalizedKey,
-      );
-
-      if (exactPickupCustomers.length > 0) {
-        const pickupOrders = orderRes.items.filter((o) =>
-          exactPickupCustomers.some((c) => c.id === o.customerId),
-        );
-
-        if (pickupOrders.length === 1) {
-          navigate(`/pickup/${pickupOrders[0].id}`);
-          return;
-        }
-
-        if (pickupOrders.length > 1) {
-          setOptions(
-            pickupOrders.map((order) => ({
-              order,
-              customer: exactPickupCustomers.find((c) => c.id === order.customerId),
-              reason: 'Exact pickup code match',
-            })),
-          );
-          return;
-        }
-      }
-
-      const rankedCustomer = customerRes.items
-        .map((customer) => ({ customer, score: customerScore(customer, normalizedKey) }))
-        .sort((a, b) => b.score - a.score)[0];
-
-      if (rankedCustomer && rankedCustomer.score > 0) {
-        const customerOrders = orderRes.items.filter((o) => o.customerId === rankedCustomer.customer.id);
-        if (customerOrders.length === 1) {
-          navigate(`/pickup/${customerOrders[0].id}`);
-          return;
-        }
-
-        if (customerOrders.length > 1) {
-          setOptions(
-            customerOrders.map((order) => ({
-              order,
-              customer: rankedCustomer.customer,
-              reason: 'Closest customer name match',
-            })),
-          );
-          return;
-        }
-      }
-
-      const fallbackMatches = resolveFallbackOrderMatches(orderRes.items, customerRes.items);
-
-      if (fallbackMatches.navigateToOrderId) {
-        navigate(`/pickup/${fallbackMatches.navigateToOrderId}`);
-        return;
-      }
-
-      if (fallbackMatches.options.length > 0) {
-        setOptions(fallbackMatches.options);
+      if (decision.type === 'options') {
+        setOptions(decision.options);
         return;
       }
 
