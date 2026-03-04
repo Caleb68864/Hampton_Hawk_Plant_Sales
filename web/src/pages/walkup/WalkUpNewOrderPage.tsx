@@ -265,7 +265,7 @@ export function WalkUpNewOrderPage() {
     }
   }
 
-  async function addPlantLine(plant: Plant) {
+  async function addPlantLine(plant: { id: string; name: string; sku: string }) {
     const existing = lines.find((l) => l.plantCatalogId === plant.id);
     if (existing) {
       setPlantSearch('');
@@ -409,94 +409,6 @@ export function WalkUpNewOrderPage() {
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
         <h2 className="text-lg font-semibold text-gray-800">Add Line Items</h2>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Current Walk-Up Availability Snapshot</h3>
-            <div className="flex items-center gap-4">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-hawk-600 focus:ring-hawk-500"
-                  checked={showUnavailableItems}
-                  onChange={(e) => setShowUnavailableItems(e.target.checked)}
-                />
-                Show unavailable items
-              </label>
-              <button type="button" className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50" onClick={() => void loadAllAvailability()} disabled={loadingAllAvailability}>
-                {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
-              </button>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500">Displayed availability is based on the latest server snapshot and adjusted locally for line quantities in this order.</p>
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">On Hand</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Preorder Reserved/Remaining</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available for Walk-Up</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {displayedAvailability.length > 0 ? displayedAvailability.map((availability) => {
-                  const adjustedAvailableForWalkup = getAdjustedAvailableForWalkup(availability.plantCatalogId);
-                  const isOut = adjustedAvailableForWalkup === 0;
-                  return (
-                    <tr key={availability.plantCatalogId} className={isOut ? 'bg-red-50' : ''}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{availability.plantName}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500 font-mono">{availability.plantSku}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.onHandQty}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.preorderRemaining}</td>
-                      <td className="px-4 py-2 text-sm text-right font-semibold"><span className={isOut ? 'text-red-600' : 'text-green-700'}>{adjustedAvailableForWalkup}</span></td>
-                    </tr>
-                  );
-                }) : (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
-                      {loadingAllAvailability
-                        ? 'Loading availability...'
-                        : availabilityLoaded
-                          ? showUnavailableItems
-                            ? 'No active plant availability found.'
-                            : 'No available plants right now. Enable "Show unavailable items" to view zero-availability plants.'
-                          : 'Availability not loaded.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <AzTabs selected={plantAzFilter} onSelect={setPlantAzFilter} />
-          <input
-            type="text"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
-            placeholder="Search plants to add..."
-            value={plantSearch}
-            onChange={(e) => { setPlantAzFilter(null); setPlantSearch(e.target.value); }}
-          />
-          {displayedPlantResults.length > 0 && (
-            <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
-              {displayedPlantResults.map((p) => (
-                <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => void addPlantLine(p)}>
-                  <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
-                  <span className="text-gray-400">{p.sku}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {displayedPlantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
-            <p className="text-xs text-gray-500">
-              {plantResults.length > 0 && !showUnavailableItems
-                ? 'Matching plants are unavailable right now. Enable "Show unavailable items" to include zero-availability plants.'
-                : 'No plant matches. Try SKU fragment, barcode digits, or first letter tabs.'}
-            </p>
-          )}
-        </div>
 
         {lines.length > 0 ? (
           <div className="overflow-x-auto">
@@ -549,7 +461,7 @@ export function WalkUpNewOrderPage() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 text-center py-4">Search and add plants above</p>
+          <p className="text-sm text-gray-500 text-center py-4">Use the plant list below to add items</p>
         )}
 
         {!hasLines && <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">Add at least one line item before creating the order.</p>}
@@ -598,6 +510,110 @@ export function WalkUpNewOrderPage() {
           <button type="button" disabled={saving || !canSubmit} className="px-6 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50" onClick={() => void handleSubmit()}>
             {saving ? 'Creating...' : 'Create Walk-Up Order'}
           </button>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Plant List to Add Line Items</h2>
+          <div className="space-y-2">
+            <AzTabs selected={plantAzFilter} onSelect={setPlantAzFilter} />
+            <input
+              type="text"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hawk-500 focus:outline-none focus:ring-1 focus:ring-hawk-500"
+              placeholder="Search plants to add..."
+              value={plantSearch}
+              onChange={(e) => { setPlantAzFilter(null); setPlantSearch(e.target.value); }}
+            />
+            {displayedPlantResults.length > 0 && (
+              <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
+                {displayedPlantResults.map((p) => (
+                  <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => void addPlantLine(p)}>
+                    <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
+                    <span className="text-gray-400">{p.sku}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {displayedPlantResults.length === 0 && (plantSearch.trim() || plantAzFilter) && (
+              <p className="text-xs text-gray-500">
+                {plantResults.length > 0 && !showUnavailableItems
+                  ? 'Matching plants are unavailable right now. Enable "Show unavailable items" to include zero-availability plants.'
+                  : 'No plant matches. Try SKU fragment, barcode digits, or first letter tabs.'}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Current Walk-Up Availability Snapshot</h3>
+              <div className="flex items-center gap-4">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-hawk-600 focus:ring-hawk-500"
+                    checked={showUnavailableItems}
+                    onChange={(e) => setShowUnavailableItems(e.target.checked)}
+                  />
+                  Show unavailable items
+                </label>
+                <button type="button" className="text-sm text-hawk-600 hover:text-hawk-700 disabled:opacity-50" onClick={() => void loadAllAvailability()} disabled={loadingAllAvailability}>
+                  {loadingAllAvailability ? 'Refreshing...' : 'Refresh Availability'}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">Displayed availability is based on the latest server snapshot and adjusted locally for line quantities in this order.</p>
+            <div className="overflow-x-auto border border-gray-200 rounded-md">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">On Hand</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Preorder Reserved/Remaining</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available for Walk-Up</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {displayedAvailability.length > 0 ? displayedAvailability.map((availability) => {
+                    const adjustedAvailableForWalkup = getAdjustedAvailableForWalkup(availability.plantCatalogId);
+                    const isOut = adjustedAvailableForWalkup === 0;
+                    const alreadyAdded = lines.some((line) => line.plantCatalogId === availability.plantCatalogId);
+                    return (
+                      <tr key={availability.plantCatalogId} className={isOut ? 'bg-red-50' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{availability.plantName}</td>
+                        <td className="px-4 py-2 text-sm text-gray-500 font-mono">{availability.plantSku}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.onHandQty}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 text-right">{availability.preorderRemaining}</td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold"><span className={isOut ? 'text-red-600' : 'text-green-700'}>{adjustedAvailableForWalkup}</span></td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            type="button"
+                            className="text-sm text-hawk-600 hover:text-hawk-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            disabled={alreadyAdded}
+                            onClick={() => void addPlantLine({ id: availability.plantCatalogId, name: availability.plantName, sku: availability.plantSku })}
+                          >
+                            {alreadyAdded ? 'Added' : 'Add'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                        {loadingAllAvailability
+                          ? 'Loading availability...'
+                          : availabilityLoaded
+                            ? showUnavailableItems
+                              ? 'No active plant availability found.'
+                              : 'No available plants right now. Enable "Show unavailable items" to view zero-availability plants.'
+                            : 'Availability not loaded.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
