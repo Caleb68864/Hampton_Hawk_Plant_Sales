@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { plantsApi } from '@/api/plants.js';
 import { resolveBestMatch, type MatchOption, normalizeScanInput } from './globalQuickFindMatch.js';
 
 function printBlankTicket() {
@@ -66,10 +67,11 @@ export function GlobalQuickFind() {
       const decision = await resolveBestMatch(query, {
         listOrders: ordersApi.list,
         listCustomers: customersApi.list,
+        listPlants: plantsApi.list,
       });
 
       if (decision.type === 'navigate') {
-        navigate(`/pickup/${decision.orderId}`);
+        navigate(decision.route);
         return;
       }
 
@@ -118,14 +120,18 @@ export function GlobalQuickFind() {
               <p className="text-xs font-semibold uppercase text-gray-500">Tap a match</p>
               {options.map((option) => (
                 <button
-                  key={option.order.id}
+                  key={option.order?.id ?? option.plant?.id}
                   type="button"
                   className="w-full rounded-md border border-gray-300 p-4 text-left hover:bg-gray-50"
-                  onClick={() => navigate(`/pickup/${option.order.id}`)}
+                  onClick={() => navigate(option.route)}
                 >
-                  <p className="text-lg font-bold text-gray-900">Order #{option.order.orderNumber}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {option.order ? `Order #${option.order.orderNumber}` : option.plant?.name}
+                  </p>
                   <p className="text-sm text-gray-700">
-                    {option.customer?.displayName ?? option.order.customerDisplayName ?? 'Customer unavailable'}
+                    {option.order
+                      ? (option.customer?.displayName ?? option.order.customerDisplayName ?? 'Customer unavailable')
+                      : option.plant ? `${option.plant.sku} • ${option.plant.barcode}` : ''}
                   </p>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">{option.reason}</p>
                 </button>

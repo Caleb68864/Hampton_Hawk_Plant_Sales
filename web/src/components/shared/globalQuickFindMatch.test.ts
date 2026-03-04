@@ -55,9 +55,10 @@ test('phone search routes using customerId orders when direct order search has n
       return { items: [makeOrder({ id: 'order-other', customerId: 'other-customer' })] };
     },
     listCustomers: async () => ({ items: [customer] }),
+    listPlants: async () => ({ items: [] }),
   });
 
-  assert.deepEqual(decision, { type: 'navigate', orderId: customerOrder.id });
+  assert.deepEqual(decision, { type: 'navigate', route: `/pickup/${customerOrder.id}` });
   assert.deepEqual(orderCalls, [
     { search: '5551200', pageSize: 25 },
     { customerId: customer.id, pageSize: 25 },
@@ -80,6 +81,7 @@ test('customer name search shows options from customerId orders when direct orde
       return { items: [] };
     },
     listCustomers: async () => ({ items: [customer] }),
+    listPlants: async () => ({ items: [] }),
   });
 
   assert.equal(decision.type, 'options');
@@ -89,7 +91,49 @@ test('customer name search shows options from customerId orders when direct orde
   assert.equal(decision.options[0].reason, 'Closest customer name match');
   assert.equal(decision.options[1].reason, 'Closest customer name match');
   assert.deepEqual(
-    decision.options.map((option) => option.order.id),
+    decision.options.map((option) => option.order?.id),
     ['order-a', 'order-b'],
   );
+  assert.deepEqual(
+    decision.options.map((option) => option.route),
+    ['/pickup/order-a', '/pickup/order-b'],
+  );
+});
+
+test('single fuzzy order result navigates directly', async () => {
+  const order = makeOrder({ id: 'order-single', orderNumber: 'HH-1009' });
+
+  const decision = await resolveBestMatch('1009', {
+    listOrders: async () => ({ items: [order] }),
+    listCustomers: async () => ({ items: [] }),
+    listPlants: async () => ({ items: [] }),
+  });
+
+  assert.deepEqual(decision, { type: 'navigate', route: '/pickup/order-single' });
+});
+
+test('single plant result navigates to plant detail', async () => {
+  const decision = await resolveBestMatch('AZ-001', {
+    listOrders: async () => ({ items: [] }),
+    listCustomers: async () => ({ items: [] }),
+    listPlants: async () => ({
+      items: [
+        {
+          id: 'plant-1',
+          sku: 'AZ-001',
+          name: 'Aloe Vera',
+          variant: null,
+          price: 10,
+          barcode: '100200300',
+          isActive: true,
+          barcodeLockedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        },
+      ],
+    }),
+  });
+
+  assert.deepEqual(decision, { type: 'navigate', route: '/plants/plant-1' });
 });
