@@ -2,14 +2,27 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { plantsApi } from '@/api/plants.js';
 import type { Customer } from '@/types/customer.js';
-import type { Order } from '@/types/order.js';
+import type { Plant } from '@/types/plant.js';
 
-interface MatchOption {
-  order: Order;
-  customer?: Customer;
+interface OrderMatchOption {
+  kind: 'order';
+  id: string;
+  title: string;
+  subtitle: string;
   reason: string;
 }
+
+interface PlantMatchOption {
+  kind: 'plant';
+  id: string;
+  title: string;
+  subtitle: string;
+  reason: string;
+}
+
+type MatchOption = OrderMatchOption | PlantMatchOption;
 
 function normalizeScanInput(value: string) {
   return value
@@ -29,6 +42,21 @@ function customerScore(customer: Customer, query: string) {
   if (display === compactQuery) return 3;
   if (display.startsWith(compactQuery)) return 2;
   if (display.includes(compactQuery)) return 1;
+  return 0;
+}
+
+function plantScore(plant: Plant, query: string) {
+  const normalizedName = (plant.name ?? '').toUpperCase().trim();
+  const normalizedSku = (plant.sku ?? '').toUpperCase().trim();
+  const normalizedBarcode = (plant.barcode ?? '').toUpperCase().trim();
+  const compactQuery = query.replace(/\s+/g, ' ').trim();
+
+  if (!compactQuery) return 0;
+  if (normalizedSku === compactQuery || normalizedBarcode === compactQuery || normalizedName === compactQuery) return 5;
+  if (normalizedSku.startsWith(compactQuery) || normalizedBarcode.startsWith(compactQuery)) return 4;
+  if (normalizedName.startsWith(compactQuery)) return 3;
+  if (normalizedName.includes(compactQuery)) return 2;
+  if (normalizedSku.includes(compactQuery) || normalizedBarcode.includes(compactQuery)) return 1;
   return 0;
 }
 
@@ -92,9 +120,10 @@ export function GlobalQuickFind() {
     setNoMatch(false);
 
     try {
-      const [orderRes, customerRes] = await Promise.all([
+      const [orderRes, customerRes, plantRes] = await Promise.all([
         ordersApi.list({ search: normalized, pageSize: 25 }),
         customersApi.list({ search: normalized, pageSize: 25 }),
+        plantsApi.list({ search: normalized, pageSize: 25 }),
       ]);
 
       const exactOrder = orderRes.items.find((o) => normalizeKey(o.orderNumber) === normalizedKey);
@@ -120,8 +149,10 @@ export function GlobalQuickFind() {
         if (pickupOrders.length > 1) {
           setOptions(
             pickupOrders.map((order) => ({
-              order,
-              customer: exactPickupCustomers.find((c) => c.id === order.customerId),
+              kind: 'order',
+              id: order.id,
+              title: order.orderNumber,
+              subtitle: order.customerDisplayName,
               reason: 'Exact pickup code match',
             })),
           );
@@ -143,8 +174,10 @@ export function GlobalQuickFind() {
         if (customerOrders.length > 1) {
           setOptions(
             customerOrders.map((order) => ({
-              order,
-              customer: rankedCustomer.customer,
+              kind: 'order',
+              id: order.id,
+              title: order.orderNumber,
+              subtitle: order.customerDisplayName,
               reason: 'Closest customer name match',
             })),
           );
@@ -152,11 +185,48 @@ export function GlobalQuickFind() {
         }
       }
 
+      const exactPlant = plantRes.items.find((plant) => {
+        const sku = normalizeKey(plant.sku);
+        const barcode = normalizeKey(plant.barcode);
+        const name = normalizeKey(plant.name);
+        return sku === normalizedKey || barcode === normalizedKey || name === normalizedKey;
+      });
+
+      if (exactPlant) {
+        navigate(`/plants/${exactPlant.id}`);
+        return;
+      }
+
+      const rankedPlants = plantRes.items
+        .map((plant) => ({ plant, score: plantScore(plant, normalizedKey) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+      if (rankedPlants.length === 1 && rankedPlants[0].score >= 4) {
+        navigate(`/plants/${rankedPlants[0].plant.id}`);
+        return;
+      }
+
+      if (rankedPlants.length > 1) {
+        setOptions(
+          rankedPlants.slice(0, 6).map(({ plant, score }) => ({
+            kind: 'plant',
+            id: plant.id,
+            title: `${plant.name} (${plant.sku})`,
+            subtitle: `Barcode ${plant.barcode}`,
+            reason: score >= 4 ? 'Strong plant match' : 'Possible plant match',
+          })),
+        );
+        return;
+      }
+
       if (orderRes.items.length > 1) {
         setOptions(
           orderRes.items.map((order) => ({
-            order,
-            customer: customerRes.items.find((c) => c.id === order.customerId),
+            kind: 'order',
+            id: order.id,
+            title: order.orderNumber,
+            subtitle: order.customerDisplayName,
             reason: 'Possible match',
           })),
         );
@@ -181,7 +251,7 @@ export function GlobalQuickFind() {
         type="text"
         value={query}
         className="w-full rounded-md border border-white/40 bg-white px-3 py-3 text-lg font-semibold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-white"
-        placeholder="Order #, customer, pickup code, phone"
+        placeholder="Order #, pickup code, customer, plant SKU/barcode/name, phone"
         onChange={(e) => {
           setQuery(e.target.value);
           setNoMatch(false);
@@ -203,13 +273,13 @@ export function GlobalQuickFind() {
               <p className="text-xs font-semibold uppercase text-gray-500">Tap a match</p>
               {options.map((option) => (
                 <button
-                  key={option.order.id}
+                  key={`${option.kind}-${option.id}`}
                   type="button"
                   className="w-full rounded-md border border-gray-300 p-4 text-left hover:bg-gray-50"
-                  onClick={() => navigate(`/pickup/${option.order.id}`)}
+                  onClick={() => navigate(option.kind === 'plant' ? `/plants/${option.id}` : `/pickup/${option.id}`)}
                 >
-                  <p className="text-lg font-bold text-gray-900">{option.order.orderNumber}</p>
-                  <p className="text-sm text-gray-700">{option.order.customerDisplayName}</p>
+                  <p className="text-lg font-bold text-gray-900">{option.title}</p>
+                  <p className="text-sm text-gray-700">{option.subtitle}</p>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">{option.reason}</p>
                 </button>
               ))}
