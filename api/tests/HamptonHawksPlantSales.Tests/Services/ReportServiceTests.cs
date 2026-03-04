@@ -1,4 +1,6 @@
+using FluentAssertions;
 using HamptonHawksPlantSales.Core.Enums;
+using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Tests.Helpers;
 using HamptonHawksPlantSales.Infrastructure.Services;
 

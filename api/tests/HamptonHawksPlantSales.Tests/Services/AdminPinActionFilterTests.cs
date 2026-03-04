@@ -116,10 +116,10 @@ public class AdminPinActionFilterTests
         return new AdminPinActionFilter(config);
     }
 
-    private static ActionExecutingContext BuildContext<TAttribute>(string method = HttpMethods.Get) where TAttribute : Attribute, new()
+    private static ActionExecutingContext BuildContext<TAttribute>(string? method = null) where TAttribute : Attribute, new()
     {
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Method = method;
+        httpContext.Request.Method = method ?? HttpMethods.Get;
         var routeData = new RouteData();
         var actionDescriptor = new ControllerActionDescriptor
         {

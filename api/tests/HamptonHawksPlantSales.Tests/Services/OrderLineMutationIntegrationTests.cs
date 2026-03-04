@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HamptonHawksPlantSales.Tests.Services;
 
@@ -82,12 +83,22 @@ public class OrderLineMutationIntegrationTests
 
             builder.ConfigureServices(services =>
             {
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-                if (descriptor != null)
-                    services.Remove(descriptor);
+                // Remove ALL EF Core and Npgsql services to avoid dual-provider conflict
+                var efDescriptors = services
+                    .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
+                             || d.ServiceType == typeof(DbContextOptions)
+                             || d.ServiceType == typeof(AppDbContext)
+                             || (d.ServiceType.FullName?.Contains("EntityFrameworkCore") == true)
+                             || (d.ServiceType.FullName?.Contains("Npgsql") == true))
+                    .ToList();
 
+                foreach (var d in efDescriptors)
+                    services.Remove(d);
+
+                // Use a fixed name so seed and request scopes share the same DB
+                var dbName = $"tests-db-{Guid.NewGuid()}";
                 services.AddDbContext<AppDbContext>(options =>
-                    options.UseInMemoryDatabase($"tests-db-{Guid.NewGuid()}"));
+                    options.UseInMemoryDatabase(dbName));
             });
         }
     }
