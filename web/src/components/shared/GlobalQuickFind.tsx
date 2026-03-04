@@ -3,13 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import type { Customer } from '@/types/customer.js';
-import type { Order } from '@/types/order.js';
+import { resolveFallbackOrderMatches, type QuickFindFallbackOption } from './globalQuickFindFallback.js';
 
-interface MatchOption {
-  order: Order;
-  customer?: Customer;
-  reason: string;
-}
+type MatchOption = QuickFindFallbackOption;
 
 function normalizeScanInput(value: string) {
   return value
@@ -152,14 +148,15 @@ export function GlobalQuickFind() {
         }
       }
 
-      if (orderRes.items.length > 1) {
-        setOptions(
-          orderRes.items.map((order) => ({
-            order,
-            customer: customerRes.items.find((c) => c.id === order.customerId),
-            reason: 'Possible match',
-          })),
-        );
+      const fallbackMatches = resolveFallbackOrderMatches(orderRes.items, customerRes.items);
+
+      if (fallbackMatches.navigateToOrderId) {
+        navigate(`/pickup/${fallbackMatches.navigateToOrderId}`);
+        return;
+      }
+
+      if (fallbackMatches.options.length > 0) {
+        setOptions(fallbackMatches.options);
         return;
       }
 
