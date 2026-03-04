@@ -1,10 +1,13 @@
 import type { Customer } from '../../types/customer.js';
 import type { Order } from '../../types/order.js';
+import type { Plant } from '../../types/plant.js';
 
 export interface MatchOption {
-  order: Order;
+  order?: Order;
+  plant?: Plant;
   customer?: Customer;
   reason: string;
+  route: string;
 }
 
 interface ListResult<T> {
@@ -14,10 +17,11 @@ interface ListResult<T> {
 interface ResolveBestMatchDeps {
   listOrders: (params: { search?: string; customerId?: string; pageSize: number }) => Promise<ListResult<Order>>;
   listCustomers: (params: { search: string; pageSize: number }) => Promise<ListResult<Customer>>;
+  listPlants: (params: { search: string; pageSize: number }) => Promise<ListResult<Plant>>;
 }
 
 export type BestMatchDecision =
-  | { type: 'navigate'; orderId: string }
+  | { type: 'navigate'; route: string }
   | { type: 'options'; options: MatchOption[] }
   | { type: 'none' };
 
@@ -59,14 +63,15 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
 
   if (!normalized) return { type: 'none' };
 
-  const [orderRes, customerRes] = await Promise.all([
+  const [orderRes, customerRes, plantRes] = await Promise.all([
     deps.listOrders({ search: normalized, pageSize }),
     deps.listCustomers({ search: normalized, pageSize }),
+    deps.listPlants({ search: normalized, pageSize }),
   ]);
 
   const exactOrder = orderRes.items.find((order) => normalizeKey(order.orderNumber) === normalizedKey);
   if (exactOrder) {
-    return { type: 'navigate', orderId: exactOrder.id };
+    return { type: 'navigate', route: `/pickup/${exactOrder.id}` };
   }
 
   const customerOrderCache = new Map<string, Order[]>();
@@ -92,7 +97,7 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
     const pickupOrders = pickupOrderMatches.flat();
 
     if (pickupOrders.length === 1) {
-      return { type: 'navigate', orderId: pickupOrders[0].order.id };
+      return { type: 'navigate', route: `/pickup/${pickupOrders[0].order.id}` };
     }
 
     if (pickupOrders.length > 1) {
@@ -102,6 +107,7 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
           order: match.order,
           customer: match.customer,
           reason: 'Exact pickup code match',
+          route: `/pickup/${match.order.id}`,
         })),
       };
     }
@@ -117,7 +123,7 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
   if (rankedCustomer && rankedCustomer.score > 0) {
     const customerOrders = await loadOrdersByCustomer(rankedCustomer.customer);
     if (customerOrders.length === 1) {
-      return { type: 'navigate', orderId: customerOrders[0].id };
+      return { type: 'navigate', route: `/pickup/${customerOrders[0].id}` };
     }
 
     if (customerOrders.length > 1) {
@@ -127,9 +133,48 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
           order,
           customer: rankedCustomer.customer,
           reason: 'Closest customer name match',
+          route: `/pickup/${order.id}`,
         })),
       };
     }
+  }
+
+  const exactPlants = plantRes.items.filter((plant) =>
+    normalizeKey(plant.sku) === normalizedKey || normalizeKey(plant.barcode) === normalizedKey,
+  );
+
+  if (exactPlants.length === 1) {
+    return { type: 'navigate', route: `/plants/${exactPlants[0].id}` };
+  }
+
+  if (exactPlants.length > 1) {
+    return {
+      type: 'options',
+      options: exactPlants.map((plant) => ({
+        plant,
+        reason: 'Exact plant SKU/barcode match',
+        route: `/plants/${plant.id}`,
+      })),
+    };
+  }
+
+  if (plantRes.items.length === 1) {
+    return { type: 'navigate', route: `/plants/${plantRes.items[0].id}` };
+  }
+
+  if (plantRes.items.length > 1) {
+    return {
+      type: 'options',
+      options: plantRes.items.map((plant) => ({
+        plant,
+        reason: 'Possible plant match',
+        route: `/plants/${plant.id}`,
+      })),
+    };
+  }
+
+  if (orderRes.items.length === 1) {
+    return { type: 'navigate', route: `/pickup/${orderRes.items[0].id}` };
   }
 
   if (orderRes.items.length > 1) {
@@ -139,6 +184,7 @@ export async function resolveBestMatch(query: string, deps: ResolveBestMatchDeps
         order,
         customer: customerRes.items.find((customer) => customer.id === order.customerId),
         reason: 'Possible match',
+        route: `/pickup/${order.id}`,
       })),
     };
   }
