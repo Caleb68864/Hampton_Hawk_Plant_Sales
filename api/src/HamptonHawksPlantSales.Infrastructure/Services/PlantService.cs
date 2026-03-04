@@ -1,3 +1,4 @@
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
@@ -149,9 +150,4 @@ public class PlantService : IPlantService
         UpdatedAt = p.UpdatedAt,
         DeletedAt = p.DeletedAt
     };
-}
-
-public class ValidationException : Exception
-{
-    public ValidationException(string message) : base(message) { }
 }

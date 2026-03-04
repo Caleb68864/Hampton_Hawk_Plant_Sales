@@ -2,7 +2,7 @@ using System.Text.Json;
 using HamptonHawksPlantSales.Api.Controllers;
 using HamptonHawksPlantSales.Api.Middleware;
 using HamptonHawksPlantSales.Core.DTOs;
-using HamptonHawksPlantSales.Infrastructure.Services;
+using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
