@@ -2,48 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
-import { plantsApi } from '@/api/plants.js';
-import type { Customer } from '@/types/customer.js';
-import type { Plant } from '@/types/plant.js';
-
-interface OrderMatchOption {
-  kind: 'order';
-  id: string;
-  title: string;
-  subtitle: string;
-  reason: string;
-}
-
-interface PlantMatchOption {
-  kind: 'plant';
-  id: string;
-  title: string;
-  subtitle: string;
-  reason: string;
-}
-
-type MatchOption = OrderMatchOption | PlantMatchOption;
-
-function normalizeScanInput(value: string) {
-  return value
-    .replace(/[\r\n\t]/g, '')
-    .trim()
-    .replace(/^\*+|\*+$/g, '')
-    .replace(/#+$/g, '');
-}
-
-function normalizeKey(value: string) {
-  return normalizeScanInput(value).toUpperCase();
-}
-
-function customerScore(customer: Customer, query: string) {
-  const display = (customer.displayName ?? '').toUpperCase();
-  const compactQuery = query.replace(/\s+/g, ' ').trim();
-  if (display === compactQuery) return 3;
-  if (display.startsWith(compactQuery)) return 2;
-  if (display.includes(compactQuery)) return 1;
-  return 0;
-}
+import { resolveBestMatch, type MatchOption, normalizeScanInput } from './globalQuickFindMatch.js';
 
 function plantScore(plant: Plant, query: string) {
   const normalizedName = (plant.name ?? '').toUpperCase().trim();
@@ -107,7 +66,6 @@ export function GlobalQuickFind() {
 
   async function routeBestMatch() {
     const normalized = normalizeScanInput(query);
-    const normalizedKey = normalizeKey(query);
 
     if (!normalized) {
       setOptions([]);
@@ -120,116 +78,18 @@ export function GlobalQuickFind() {
     setNoMatch(false);
 
     try {
-      const [orderRes, customerRes, plantRes] = await Promise.all([
-        ordersApi.list({ search: normalized, pageSize: 25 }),
-        customersApi.list({ search: normalized, pageSize: 25 }),
-        plantsApi.list({ search: normalized, pageSize: 25 }),
-      ]);
-
-      const exactOrder = orderRes.items.find((o) => normalizeKey(o.orderNumber) === normalizedKey);
-      if (exactOrder) {
-        navigate(`/pickup/${exactOrder.id}`);
-        return;
-      }
-
-      const exactPickupCustomers = customerRes.items.filter(
-        (c) => normalizeKey(c.pickupCode ?? '') === normalizedKey,
-      );
-
-      if (exactPickupCustomers.length > 0) {
-        const pickupOrders = orderRes.items.filter((o) =>
-          exactPickupCustomers.some((c) => c.id === o.customerId),
-        );
-
-        if (pickupOrders.length === 1) {
-          navigate(`/pickup/${pickupOrders[0].id}`);
-          return;
-        }
-
-        if (pickupOrders.length > 1) {
-          setOptions(
-            pickupOrders.map((order) => ({
-              kind: 'order',
-              id: order.id,
-              title: order.orderNumber,
-              subtitle: order.customerDisplayName,
-              reason: 'Exact pickup code match',
-            })),
-          );
-          return;
-        }
-      }
-
-      const rankedCustomer = customerRes.items
-        .map((customer) => ({ customer, score: customerScore(customer, normalizedKey) }))
-        .sort((a, b) => b.score - a.score)[0];
-
-      if (rankedCustomer && rankedCustomer.score > 0) {
-        const customerOrders = orderRes.items.filter((o) => o.customerId === rankedCustomer.customer.id);
-        if (customerOrders.length === 1) {
-          navigate(`/pickup/${customerOrders[0].id}`);
-          return;
-        }
-
-        if (customerOrders.length > 1) {
-          setOptions(
-            customerOrders.map((order) => ({
-              kind: 'order',
-              id: order.id,
-              title: order.orderNumber,
-              subtitle: order.customerDisplayName,
-              reason: 'Closest customer name match',
-            })),
-          );
-          return;
-        }
-      }
-
-      const exactPlant = plantRes.items.find((plant) => {
-        const sku = normalizeKey(plant.sku);
-        const barcode = normalizeKey(plant.barcode);
-        const name = normalizeKey(plant.name);
-        return sku === normalizedKey || barcode === normalizedKey || name === normalizedKey;
+      const decision = await resolveBestMatch(query, {
+        listOrders: ordersApi.list,
+        listCustomers: customersApi.list,
       });
 
-      if (exactPlant) {
-        navigate(`/plants/${exactPlant.id}`);
+      if (decision.type === 'navigate') {
+        navigate(`/pickup/${decision.orderId}`);
         return;
       }
 
-      const rankedPlants = plantRes.items
-        .map((plant) => ({ plant, score: plantScore(plant, normalizedKey) }))
-        .filter((entry) => entry.score > 0)
-        .sort((a, b) => b.score - a.score);
-
-      if (rankedPlants.length === 1 && rankedPlants[0].score >= 4) {
-        navigate(`/plants/${rankedPlants[0].plant.id}`);
-        return;
-      }
-
-      if (rankedPlants.length > 1) {
-        setOptions(
-          rankedPlants.slice(0, 6).map(({ plant, score }) => ({
-            kind: 'plant',
-            id: plant.id,
-            title: `${plant.name} (${plant.sku})`,
-            subtitle: `Barcode ${plant.barcode}`,
-            reason: score >= 4 ? 'Strong plant match' : 'Possible plant match',
-          })),
-        );
-        return;
-      }
-
-      if (orderRes.items.length > 1) {
-        setOptions(
-          orderRes.items.map((order) => ({
-            kind: 'order',
-            id: order.id,
-            title: order.orderNumber,
-            subtitle: order.customerDisplayName,
-            reason: 'Possible match',
-          })),
-        );
+      if (decision.type === 'options') {
+        setOptions(decision.options);
         return;
       }
 

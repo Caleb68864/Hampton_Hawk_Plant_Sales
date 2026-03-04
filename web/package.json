@@ -11,7 +11,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "docs": "typedoc",
-    "test": "node --test --experimental-strip-types src/api/client.test.ts"
+    "test": "node --test --experimental-strip-types src/api/client.test.ts src/components/shared/globalQuickFindMatch.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
