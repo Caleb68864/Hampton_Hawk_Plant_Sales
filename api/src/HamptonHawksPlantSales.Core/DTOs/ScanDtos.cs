@@ -7,6 +7,13 @@ public class ScanRequest
     public string Barcode { get; set; } = string.Empty;
 }
 
+public class ManualFulfillRequest
+{
+    public Guid OrderLineId { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string OperatorName { get; set; } = string.Empty;
+}
+
 public class ScanResponse
 {
     public FulfillmentResult Result { get; set; }

@@ -1,5 +1,5 @@
 import { post, postWithHeaders } from './client.js';
-import type { ScanRequest, ScanResponse } from '@/types/fulfillment.js';
+import type { ManualFulfillRequest, ScanRequest, ScanResponse } from '@/types/fulfillment.js';
 
 export const fulfillmentApi = {
   scan: (orderId: string, data: ScanRequest) =>
@@ -7,6 +7,9 @@ export const fulfillmentApi = {
 
   undoLastScan: (orderId: string) =>
     post<ScanResponse>(`/orders/${orderId}/undo-last-scan`),
+
+  manualFulfill: (orderId: string, data: ManualFulfillRequest) =>
+    post<ScanResponse>(`/orders/${orderId}/manual-fulfill`, data),
 
   undoLastScanWithReason: (orderId: string, reason: string, operator: string) =>
     postWithHeaders<ScanResponse>(`/orders/${orderId}/undo-last-scan`, {}, {

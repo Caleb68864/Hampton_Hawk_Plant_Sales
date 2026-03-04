@@ -241,6 +241,134 @@ public class FulfillmentService : IFulfillmentService
             || message.Contains("concurrent update", StringComparison.OrdinalIgnoreCase);
     }
 
+
+    public async Task<ScanResponse> ManualFulfillAsync(Guid orderId, ManualFulfillRequest request)
+    {
+        if (request.OrderLineId == Guid.Empty)
+            throw new ValidationException("Order line is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new ValidationException("Reason is required for manual fulfillment.");
+
+        if (string.IsNullOrWhiteSpace(request.OperatorName))
+            throw new ValidationException("Operator name is required for manual fulfillment.");
+
+        if (await _adminService.IsSaleClosedAsync())
+        {
+            await CreateEvent(orderId, null, "MANUAL", FulfillmentResult.SaleClosedBlocked,
+                BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
+            return new ScanResponse
+            {
+                Result = FulfillmentResult.SaleClosedBlocked,
+                OrderId = orderId,
+                OrderRemainingItems = 0
+            };
+        }
+
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational
+            ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
+            : null;
+
+        try
+        {
+            if (isRelational)
+            {
+                await _db.Database.ExecuteSqlRawAsync(
+                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                    request.OrderLineId);
+            }
+
+            var line = await _db.OrderLines
+                .Include(l => l.PlantCatalog)
+                .FirstOrDefaultAsync(l => l.Id == request.OrderLineId && l.DeletedAt == null)
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            if (line.OrderId != orderId)
+                throw new ValidationException("Order line does not belong to this order.");
+
+            if (isRelational)
+            {
+                await _db.Database.ExecuteSqlRawAsync(
+                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                    line.PlantCatalogId);
+            }
+
+            var inventory = await _db.Inventories
+                .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null)
+                ?? throw new KeyNotFoundException("Inventory record not found.");
+
+            if (line.QtyFulfilled >= line.QtyOrdered)
+                throw new ValidationException("This line is already fully fulfilled.");
+
+            if (inventory.OnHandQty <= 0)
+            {
+                if (transaction != null) await transaction.RollbackAsync();
+                await CreateEvent(orderId, line.PlantCatalogId, "MANUAL", FulfillmentResult.OutOfStock,
+                    BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
+                return new ScanResponse
+                {
+                    Result = FulfillmentResult.OutOfStock,
+                    OrderId = orderId,
+                    Plant = new ScanPlantInfo { Sku = line.PlantCatalog.Sku, Name = line.PlantCatalog.Name },
+                    Line = new ScanLineInfo
+                    {
+                        QtyOrdered = line.QtyOrdered,
+                        QtyFulfilled = line.QtyFulfilled,
+                        QtyRemaining = line.QtyOrdered - line.QtyFulfilled
+                    },
+                    OrderRemainingItems = await GetOrderRemainingItems(orderId)
+                };
+            }
+
+            inventory.OnHandQty -= 1;
+            line.QtyFulfilled += 1;
+
+            var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
+            if (order != null && order.Status == OrderStatus.Open)
+                order.Status = OrderStatus.InProgress;
+
+            var evt = new FulfillmentEvent
+            {
+                OrderId = orderId,
+                PlantCatalogId = line.PlantCatalogId,
+                Barcode = "MANUAL",
+                Result = FulfillmentResult.Accepted,
+                Message = $"MANUAL FULFILL: {request.OperatorName} fulfilled 1x '{line.PlantCatalog.Name}'. Reason: {request.Reason}. Fulfilled {line.QtyFulfilled}/{line.QtyOrdered}."
+            };
+            _db.FulfillmentEvents.Add(evt);
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+
+            await _adminService.LogActionAsync(
+                "ManualFulfill",
+                "Order",
+                orderId,
+                request.Reason,
+                $"Operator: {request.OperatorName}. OrderLineId: {request.OrderLineId}.");
+
+            return new ScanResponse
+            {
+                Result = FulfillmentResult.Accepted,
+                OrderId = orderId,
+                Plant = new ScanPlantInfo { Sku = line.PlantCatalog.Sku, Name = line.PlantCatalog.Name },
+                Line = new ScanLineInfo
+                {
+                    QtyOrdered = line.QtyOrdered,
+                    QtyFulfilled = line.QtyFulfilled,
+                    QtyRemaining = line.QtyOrdered - line.QtyFulfilled
+                },
+                OrderRemainingItems = await GetOrderRemainingItems(orderId)
+            };
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<ScanResponse> UndoLastScanAsync(Guid orderId, string reason, string operatorName)
     {
         // Check SaleClosed

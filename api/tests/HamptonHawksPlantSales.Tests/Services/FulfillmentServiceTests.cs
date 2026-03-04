@@ -59,7 +59,7 @@ public class FulfillmentServiceTests
         var orderId = Guid.NewGuid();
 
         // Act
-        var result = await service.UndoLastScanAsync(orderId);
+        var result = await service.UndoLastScanAsync(orderId, "test", "tester");
 
         // Assert
         result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
@@ -100,7 +100,7 @@ public class FulfillmentServiceTests
 
         var (service, _) = CreateService(db, saleClosed: true);
 
-        var result = await service.UndoLastScanAsync(order.Id);
+        var result = await service.UndoLastScanAsync(order.Id, "test", "tester");
 
         result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
 
@@ -131,12 +131,118 @@ public class FulfillmentServiceTests
         var (service, adminMock) = CreateService(db, saleClosed: true);
 
         // Act
-        var result = await service.ForceCompleteOrderAsync(order.Id, "Closing out remaining");
+        var result = await service.ForceCompleteOrderAsync(order.Id, "Closing out remaining", "tester");
 
         // Assert
         result.Should().BeTrue();
         var updated = await db.Orders.FindAsync(order.Id);
         updated!.Status.Should().Be(OrderStatus.Complete);
+    }
+
+
+    [Fact]
+    public async Task ManualFulfill_SucceedsAndWritesAuditEvent()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-MANUAL-SUCCESS", sku: "SKU-MANUAL-SUCCESS");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 2, qtyFulfilled: 0);
+        var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 4);
+
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        db.Inventories.Add(inventory);
+        await db.SaveChangesAsync();
+
+        var (service, adminMock) = CreateService(db);
+
+        var result = await service.ManualFulfillAsync(order.Id, new HamptonHawksPlantSales.Core.DTOs.ManualFulfillRequest
+        {
+            OrderLineId = line.Id,
+            Reason = "Label missing",
+            OperatorName = "Pickup Operator"
+        });
+
+        result.Result.Should().Be(FulfillmentResult.Accepted);
+        result.Line!.QtyFulfilled.Should().Be(1);
+
+        var updatedLine = await db.OrderLines.FindAsync(line.Id);
+        var updatedInventory = await db.Inventories.FindAsync(inventory.Id);
+        updatedLine!.QtyFulfilled.Should().Be(1);
+        updatedInventory!.OnHandQty.Should().Be(3);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Result.Should().Be(FulfillmentResult.Accepted);
+        evt.Message.Should().Contain("MANUAL FULFILL");
+        evt.Message.Should().Contain("Label missing");
+
+        adminMock.Verify(a => a.LogActionAsync(
+            "ManualFulfill",
+            "Order",
+            order.Id,
+            "Label missing",
+            It.Is<string>(m => m.Contains("Pickup Operator"))),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ManualFulfill_InvalidLineForOrder_ThrowsValidationException()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-MANUAL-INVALID");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id);
+        var otherOrder = TestDataBuilder.CreateOrder(customer.Id);
+        var otherLine = TestDataBuilder.CreateOrderLine(otherOrder.Id, plant.Id, qtyOrdered: 1, qtyFulfilled: 0);
+        var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 2);
+
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.AddRange(order, otherOrder);
+        db.OrderLines.Add(otherLine);
+        db.Inventories.Add(inventory);
+        await db.SaveChangesAsync();
+
+        var (service, _) = CreateService(db);
+
+        var act = () => service.ManualFulfillAsync(order.Id, new HamptonHawksPlantSales.Core.DTOs.ManualFulfillRequest
+        {
+            OrderLineId = otherLine.Id,
+            Reason = "Wrong order test",
+            OperatorName = "Pickup Operator"
+        });
+
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("*does not belong to this order*");
+    }
+
+    [Fact]
+    public async Task ManualFulfill_WhenSaleClosed_ReturnsSaleClosedBlocked()
+    {
+        using var db = CreateDb();
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        var (service, _) = CreateService(db, saleClosed: true);
+
+        var result = await service.ManualFulfillAsync(order.Id, new HamptonHawksPlantSales.Core.DTOs.ManualFulfillRequest
+        {
+            OrderLineId = Guid.NewGuid(),
+            Reason = "Sale closed test",
+            OperatorName = "Pickup Operator"
+        });
+
+        result.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
+
+        var evt = await db.FulfillmentEvents.OrderByDescending(e => e.CreatedAt).FirstAsync();
+        evt.Result.Should().Be(FulfillmentResult.SaleClosedBlocked);
+        evt.Message.Should().Contain("Sales are currently closed");
     }
 
     // --- Wrong Order / Not Found / Already Fulfilled Tests ---
@@ -346,7 +452,7 @@ public class FulfillmentServiceTests
         var (service, adminMock) = CreateService(db);
 
         // Act
-        var result = await service.ResetOrderAsync(order.Id, "Need to add more items");
+        var result = await service.ResetOrderAsync(order.Id, "Need to add more items", "tester");
 
         // Assert
         result.Should().BeTrue();

@@ -34,6 +34,24 @@ public class FulfillmentController : ControllerBase
         return Ok(ApiResponse<ScanResponse>.Ok(result));
     }
 
+
+    /// <summary>
+    /// Manually fulfills a specific order line with explicit operator audit details.
+    /// </summary>
+    /// <param name="id">Order ID.</param>
+    /// <param name="request">Manual fulfill payload.</param>
+    /// <response code="200">Manual fulfillment result and updated order state.</response>
+    [HttpPost("{id:guid}/manual-fulfill")]
+    [ProducesResponseType(typeof(ApiResponse<ScanResponse>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<ScanResponse>), 400)]
+    public async Task<IActionResult> ManualFulfill(Guid id, [FromBody] ManualFulfillRequest request)
+    {
+        var result = await _fulfillmentService.ManualFulfillAsync(id, request);
+        if (result.Result == FulfillmentResult.SaleClosedBlocked)
+            return BadRequest(ApiResponse<ScanResponse>.Fail("Sale is closed."));
+        return Ok(ApiResponse<ScanResponse>.Ok(result));
+    }
+
     /// <summary>
     /// Undoes the most recent scan on an order, decrementing the fulfilled quantity.
     /// </summary>
