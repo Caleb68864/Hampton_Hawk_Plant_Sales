@@ -156,7 +156,7 @@ function KeyboardShortcutsSection() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            <tr><td className="px-4 py-2 font-mono">Ctrl+K</td><td className="px-4 py-2">Open quick find</td><td className="px-4 py-2">Anywhere</td></tr>
+            <tr><td className="px-4 py-2 font-mono">Ctrl+K</td><td className="px-4 py-2">Open quick find (customers, orders, plants, sellers)</td><td className="px-4 py-2">Anywhere</td></tr>
             <tr><td className="px-4 py-2 font-mono">/</td><td className="px-4 py-2">Focus search input</td><td className="px-4 py-2">List pages</td></tr>
             <tr><td className="px-4 py-2 font-mono">A-Z</td><td className="px-4 py-2">Jump letter tab</td><td className="px-4 py-2">Pickup lookup</td></tr>
             <tr><td className="px-4 py-2 font-mono">Esc</td><td className="px-4 py-2">Close overlay / clear</td><td className="px-4 py-2">Anywhere</td></tr>

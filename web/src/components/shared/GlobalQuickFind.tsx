@@ -4,6 +4,21 @@ import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import { resolveBestMatch, type MatchOption, normalizeScanInput } from './globalQuickFindMatch.js';
 
+function plantScore(plant: Plant, query: string) {
+  const normalizedName = (plant.name ?? '').toUpperCase().trim();
+  const normalizedSku = (plant.sku ?? '').toUpperCase().trim();
+  const normalizedBarcode = (plant.barcode ?? '').toUpperCase().trim();
+  const compactQuery = query.replace(/\s+/g, ' ').trim();
+
+  if (!compactQuery) return 0;
+  if (normalizedSku === compactQuery || normalizedBarcode === compactQuery || normalizedName === compactQuery) return 5;
+  if (normalizedSku.startsWith(compactQuery) || normalizedBarcode.startsWith(compactQuery)) return 4;
+  if (normalizedName.startsWith(compactQuery)) return 3;
+  if (normalizedName.includes(compactQuery)) return 2;
+  if (normalizedSku.includes(compactQuery) || normalizedBarcode.includes(compactQuery)) return 1;
+  return 0;
+}
+
 function printBlankTicket() {
   const win = window.open('', '_blank');
   if (!win) return;
@@ -96,7 +111,7 @@ export function GlobalQuickFind() {
         type="text"
         value={query}
         className="w-full rounded-md border border-white/40 bg-white px-3 py-3 text-lg font-semibold text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-white"
-        placeholder="Order #, customer, pickup code, phone"
+        placeholder="Order #, pickup code, customer, plant SKU/barcode/name, phone"
         onChange={(e) => {
           setQuery(e.target.value);
           setNoMatch(false);
@@ -118,13 +133,13 @@ export function GlobalQuickFind() {
               <p className="text-xs font-semibold uppercase text-gray-500">Tap a match</p>
               {options.map((option) => (
                 <button
-                  key={option.order.id}
+                  key={`${option.kind}-${option.id}`}
                   type="button"
                   className="w-full rounded-md border border-gray-300 p-4 text-left hover:bg-gray-50"
-                  onClick={() => navigate(`/pickup/${option.order.id}`)}
+                  onClick={() => navigate(option.kind === 'plant' ? `/plants/${option.id}` : `/pickup/${option.id}`)}
                 >
-                  <p className="text-lg font-bold text-gray-900">{option.order.orderNumber}</p>
-                  <p className="text-sm text-gray-700">{option.order.customerDisplayName}</p>
+                  <p className="text-lg font-bold text-gray-900">{option.title}</p>
+                  <p className="text-sm text-gray-700">{option.subtitle}</p>
                   <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">{option.reason}</p>
                 </button>
               ))}
