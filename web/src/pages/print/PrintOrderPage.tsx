@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
@@ -7,11 +7,13 @@ import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
 import type { Order } from '@/types/order.js';
 import type { Customer } from '@/types/customer.js';
 
 export function PrintOrderPage() {
   const { orderId } = useParams<{ orderId: string }>();
+  const [searchParams] = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,8 +35,10 @@ export function PrintOrderPage() {
   if (loading) return <LoadingSpinner />;
   if (error || !order) return <ErrorBanner message={error ?? 'Order not found'} />;
 
+  const backTo = resolvePrintReturnTo(searchParams.get('returnTo'), `/orders/${order.id}`);
+
   return (
-    <PrintLayout backTo={`/orders/${order.id}`}>
+    <PrintLayout backTo={backTo}>
       <PrintHeader
         subtitle="Customer Order Sheet"
         customerName={order.customerDisplayName}

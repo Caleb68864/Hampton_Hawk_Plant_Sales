@@ -16,8 +16,10 @@ import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeBu
 import { useScanWorkflow } from '@/hooks/useScanWorkflow.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
+import { useKioskStore } from '@/stores/kioskStore.js';
 import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
+import { buildPrintOrderPath } from '@/utils/printRoutes.js';
 import type { FulfillmentResultType } from '@/types/fulfillment.js';
 
 const FEEDBACK_MODE_KEY = 'pickup-feedback-mode';
@@ -38,10 +40,12 @@ export function PickupScanPage() {
   const audio = useAudio();
   const saleClosed = useAppStore((s) => s.saleClosed);
   const openPinModal = useAuthStore((s) => s.openPinModal);
+  const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
 
   const scanInputRef = useRef<ScanInputHandle>(null);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>(() => {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
@@ -173,7 +177,7 @@ export function PickupScanPage() {
       setShowManualModal(false);
       await refreshOrder();
     } catch {
-      // Error handled by scan workflow
+      // handled by scan workflow
     }
     refocusScanInput();
   }
@@ -219,6 +223,18 @@ export function PickupScanPage() {
     setShowUndoConfirm(true);
   }
 
+  function handlePrintOrder() {
+    if (!currentOrder) {
+      return;
+    }
+
+    setActionError(null);
+    const printWindow = window.open(buildPrintOrderPath(currentOrder.id, `/pickup/${currentOrder.id}`), '_blank', 'noopener,noreferrer');
+    if (!printWindow) {
+      setActionError('Allow pop-ups for this site so the order sheet can open for printing.');
+    }
+  }
+
   if (isLoading && !currentOrder) {
     return <LoadingSpinner message="Loading order..." />;
   }
@@ -226,14 +242,14 @@ export function PickupScanPage() {
   if (!currentOrder) {
     return (
       <div className="space-y-4">
-        <BackToStationHomeButton />
+        {!isPickupKiosk && <BackToStationHomeButton to="/pickup" label="Back to Pickup Lookup" />}
         <ErrorBanner message="Order not found" />
         <button
           type="button"
           className="text-sm text-hawk-600 hover:text-hawk-800"
-          onClick={() => navigate('/station')}
+          onClick={() => navigate('/pickup')}
         >
-          Back to Station Home
+          Back to Pickup Lookup
         </button>
       </div>
     );
@@ -252,7 +268,7 @@ export function PickupScanPage() {
           <button
             type="button"
             className="text-sm text-gray-500 hover:text-gray-700 mb-1"
-            onClick={() => navigate('/station')}
+            onClick={() => navigate('/pickup')}
           >
             &larr; Back to Lookup
           </button>
@@ -268,6 +284,8 @@ export function PickupScanPage() {
         </div>
         <StatusChip status={currentOrder.status} hasIssue={currentOrder.hasIssue} />
       </div>
+
+      {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
       <ScanFeedbackBanner
         result={lastScanResult}
@@ -417,6 +435,13 @@ export function PickupScanPage() {
           </button>
           <button
             type="button"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            onClick={handlePrintOrder}
+          >
+            Print Order Sheet
+          </button>
+          <button
+            type="button"
             className="px-4 py-2 text-sm font-medium text-amber-900 bg-amber-100 rounded-md hover:bg-amber-200"
             onClick={() => navigate('/pickup')}
           >
@@ -474,4 +499,3 @@ export function PickupScanPage() {
     </div>
   );
 }
-

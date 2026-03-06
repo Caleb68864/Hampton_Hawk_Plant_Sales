@@ -1,4 +1,5 @@
 import { get, putWithHeaders } from './client.js';
+import { buildAdminHeaders } from './adminHeaders.js';
 import type { AppSettings } from '@/types/settings.js';
 
 export const settingsApi = {
@@ -8,9 +9,6 @@ export const settingsApi = {
     putWithHeaders<AppSettings>(
       '/settings/sale-closed',
       { saleClosed },
-      {
-        'X-Admin-Pin': adminPin,
-        'X-Admin-Reason': reason,
-      },
+      buildAdminHeaders(adminPin, reason),
     ),
 };

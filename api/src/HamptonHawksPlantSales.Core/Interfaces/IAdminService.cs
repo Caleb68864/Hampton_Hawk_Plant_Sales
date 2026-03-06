@@ -7,5 +7,6 @@ public interface IAdminService
 {
     Task<AdminAction> LogActionAsync(string actionType, string entityType, Guid entityId, string reason, string? message = null);
     Task<bool> IsSaleClosedAsync();
+    Task<AdminPinValidationResponse> ValidatePinAsync();
     Task<List<AdminActionResponse>> GetActionsAsync(Guid? orderId, string? entityType, string? actionType);
 }

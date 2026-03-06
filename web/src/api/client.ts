@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ApiResponse } from '@/types/api.js';
+import type { ApiResponse } from '../types/api.js';
 import { getApiErrorMessage } from './errorMessage.js';
 
 const apiClient = axios.create({
@@ -24,6 +24,10 @@ function unwrap<T>(response: { data: ApiResponse<T> }): T {
 
 export async function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
   return unwrap<T>(await apiClient.get<ApiResponse<T>>(url, { params }));
+}
+
+export async function getWithHeaders<T>(url: string, headers: Record<string, string>): Promise<T> {
+  return unwrap<T>(await apiClient.get<ApiResponse<T>>(url, { headers }));
 }
 
 export async function post<T>(url: string, data?: unknown): Promise<T> {

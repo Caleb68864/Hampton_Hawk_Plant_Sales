@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { sellersApi } from '@/api/sellers.js';
 import { customersApi } from '@/api/customers.js';
@@ -8,12 +8,14 @@ import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
 import type { Order } from '@/types/order.js';
 import type { Seller } from '@/types/seller.js';
 import type { Customer } from '@/types/customer.js';
 
 export function PrintSellerPacketPage() {
   const { sellerId } = useParams<{ sellerId: string }>();
+  const [searchParams] = useSearchParams();
   const [seller, setSeller] = useState<Seller | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Map<string, Customer>>(new Map());
@@ -34,7 +36,6 @@ export function PrintSellerPacketPage() {
       .then(async ([s, result]) => {
         setSeller(s);
         setOrders(result.items);
-        // Fetch unique customers
         const uniqueIds = [...new Set(result.items.map((o) => o.customerId))];
         const custMap = new Map<string, Customer>();
         await Promise.all(
@@ -49,7 +50,7 @@ export function PrintSellerPacketPage() {
   }, [sellerId]);
 
   const filteredOrders = useMemo(() => {
-    let filtered = orders.filter((o) => {
+    const filtered = orders.filter((o) => {
       if (!includePreorders && !o.isWalkUp) return false;
       if (!includeWalkups && o.isWalkUp) return false;
       if (!includeCompleted && o.status === 'Complete') return false;
@@ -69,9 +70,10 @@ export function PrintSellerPacketPage() {
   if (loading) return <LoadingSpinner />;
   if (error || !seller) return <ErrorBanner message={error ?? 'Seller not found'} />;
 
+  const backTo = resolvePrintReturnTo(searchParams.get('returnTo'), `/sellers/${seller.id}`);
+
   return (
-    <PrintLayout backTo={`/sellers/${seller.id}`}>
-      {/* Controls - hidden in print */}
+    <PrintLayout backTo={backTo}>
       <div className="no-print mb-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Print Options</h2>
         <div className="flex flex-wrap gap-4 items-center">
@@ -116,7 +118,6 @@ export function PrintSellerPacketPage() {
         </p>
       </div>
 
-      {/* Printed pages - one per order */}
       {filteredOrders.map((order, idx) => {
         const customer = customers.get(order.customerId);
         return (

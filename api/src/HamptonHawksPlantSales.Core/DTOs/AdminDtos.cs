@@ -1,5 +1,11 @@
 namespace HamptonHawksPlantSales.Core.DTOs;
 
+public class AdminPinValidationResponse
+{
+    public bool Valid { get; set; }
+    public DateTimeOffset ValidatedAt { get; set; }
+}
+
 public class AdminActionResponse
 {
     public Guid Id { get; set; }

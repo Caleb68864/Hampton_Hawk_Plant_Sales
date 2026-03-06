@@ -37,6 +37,15 @@ public class AdminService : IAdminService
         return settings?.SaleClosed ?? false;
     }
 
+    public Task<AdminPinValidationResponse> ValidatePinAsync()
+    {
+        return Task.FromResult(new AdminPinValidationResponse
+        {
+            Valid = true,
+            ValidatedAt = DateTimeOffset.UtcNow
+        });
+    }
+
     public async Task<List<AdminActionResponse>> GetActionsAsync(Guid? orderId, string? entityType, string? actionType)
     {
         var query = _db.AdminActions.AsQueryable();

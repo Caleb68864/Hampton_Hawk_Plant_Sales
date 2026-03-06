@@ -23,8 +23,8 @@ const modeCards: StationModeCard[] = [
     title: 'Lookup & Print',
     mode: 'lookup',
     icon: '🖨️',
-    instruction: 'Quickly search orders and customers, then print order sheets or seller packets as needed.',
-    to: '/orders',
+    instruction: 'Search by customer, order number, or pickup code and print only the paperwork volunteers need.',
+    to: '/lookup-print',
     colorClass: 'border-sky-300 bg-sky-50 text-sky-900',
   },
   {

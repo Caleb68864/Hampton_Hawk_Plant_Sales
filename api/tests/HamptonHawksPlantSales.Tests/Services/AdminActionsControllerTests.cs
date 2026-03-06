@@ -9,6 +9,32 @@ namespace HamptonHawksPlantSales.Tests.Services;
 public class AdminActionsControllerTests
 {
     [Fact]
+    public async Task VerifyPin_ReturnsValidationEnvelope()
+    {
+        var expected = new AdminPinValidationResponse
+        {
+            Valid = true,
+            ValidatedAt = DateTimeOffset.UtcNow
+        };
+
+        var adminMock = new Mock<IAdminService>();
+        adminMock.Setup(a => a.ValidatePinAsync())
+            .ReturnsAsync(expected);
+
+        var controller = new AdminActionsController(adminMock.Object);
+
+        var result = await controller.VerifyPin();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var envelope = Assert.IsType<ApiResponse<AdminPinValidationResponse>>(ok.Value);
+        Assert.True(envelope.Success);
+        Assert.True(envelope.Data!.Valid);
+        Assert.Equal(expected.ValidatedAt, envelope.Data!.ValidatedAt);
+
+        adminMock.Verify(a => a.ValidatePinAsync(), Times.Once);
+    }
+
+    [Fact]
     public async Task GetAll_ForwardsFiltersAndReturnsEnvelope()
     {
         var orderId = Guid.NewGuid();

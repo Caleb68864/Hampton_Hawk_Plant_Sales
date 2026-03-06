@@ -89,6 +89,14 @@ public class AdminPinActionFilterTests
     }
 
     [Fact]
+    public void AdminActionsVerifyPinEndpoint_IsDecoratedWithRequiresAdminPin()
+    {
+        var method = typeof(AdminActionsController).GetMethod("VerifyPin");
+        Assert.NotNull(method);
+        Assert.Contains(method!.GetCustomAttributes(inherit: true), a => a is RequiresAdminPinAttribute);
+    }
+
+    [Fact]
     public void AdminActionsGetAllEndpoint_IsDecoratedWithRequiresAdminPin()
     {
         var method = typeof(AdminActionsController).GetMethod("GetAll");

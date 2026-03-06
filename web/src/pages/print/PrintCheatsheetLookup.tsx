@@ -3,53 +3,52 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetLookup() {
   return (
-    <PrintLayout backTo="/station">
+    <PrintLayout backTo="/docs">
       <header className="mb-4 rounded-xl border-2 border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-hawk-700">Hampton Hawks Plant Sales</p>
-        <h1 className="text-2xl font-bold text-hawk-900">Lookup + Print One-Page Guide</h1>
-        <p className="text-sm text-hawk-800">For volunteers helping families find orders and print paperwork.</p>
+        <h1 className="text-2xl font-bold text-hawk-900">Lookup & Print One-Page Guide</h1>
+        <p className="text-sm text-hawk-800">For volunteers who search orders and print the paperwork families need.</p>
       </header>
 
       <section className="grid grid-cols-12 gap-3 text-[13px] leading-tight">
-        <Card className="col-span-8" title="Find the Right Order Quickly">
+        <Card className="col-span-8" title="Start the Station">
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Start at <strong>Station Home</strong> → <strong>Lookup &amp; Print</strong>.</li>
-            <li>Search by <strong>order #</strong>, <strong>customer</strong>, <strong>seller</strong>, or <strong>pickup code</strong>.</li>
-            <li>Use status filter for Open / InProgress / Complete / Cancelled.</li>
-            <li>Use A-Z tabs to jump by customer last-name initial.</li>
-            <li>Open the order and verify customer before printing.</li>
+            <li>Open <strong>Settings</strong> on this browser.</li>
+            <li>Under <strong>This Device</strong>, choose <strong>Lookup &amp; Print</strong>.</li>
+            <li>Enter the admin PIN to enable kiosk mode.</li>
+            <li>Verify the header says <strong>Lookup &amp; Print Station</strong>.</li>
           </ol>
         </Card>
 
-        <Card className="col-span-4" title="Hotkeys">
+        <Card className="col-span-4" title="Use This Search Box">
           <ul className="space-y-1">
-            <li><strong>Ctrl+K</strong> → global Quick Find</li>
-            <li><strong>/</strong> → focus page search</li>
-            <li><strong>A-Z</strong> → jump letter tabs</li>
-            <li><strong>Esc</strong> → clear overlay/filter</li>
+            <li>Customer name</li>
+            <li>Order number</li>
+            <li>Pickup code</li>
+            <li>No extra filters needed</li>
           </ul>
         </Card>
 
         <Card className="col-span-6" title="Print Order Sheet">
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Open order detail page.</li>
+            <li>Find the order in the station search.</li>
             <li>Click <strong>Print Order Sheet</strong>.</li>
-            <li>In browser print: 100% scale, header/footer OFF.</li>
-            <li>Hand sheet to pickup team with order number visible.</li>
+            <li>The print preview opens in a new tab.</li>
+            <li>Hand the printed sheet to pickup volunteers or the customer.</li>
           </ol>
         </Card>
 
         <Card className="col-span-6" title="Print Seller Packet">
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Go to <strong>Sellers</strong> → open seller.</li>
+            <li>Use only when the order shows a seller packet button.</li>
             <li>Click <strong>Print Seller Packet</strong>.</li>
-            <li>Select include/exclude toggles as needed.</li>
-            <li>Print and paper-clip by seller.</li>
+            <li>The original station tab stays open while printing.</li>
+            <li>Close the print tab to return to the station.</li>
           </ol>
         </Card>
 
-        <Card className="col-span-12" title="Label Printing Reminder (Plant Labels)">
-          <p>Go to <strong>/print/labels</strong> and always run <strong>1-up test</strong> first. Use 100% scale and disable “Fit to page”.</p>
+        <Card className="col-span-12 border-red-200 bg-red-50" title="Station Safety Rules">
+          <p>This station does not create orders, edit orders, or open imports, reports, or settings. If you need those tools, ask a lead to unlock the browser.</p>
         </Card>
       </section>
 

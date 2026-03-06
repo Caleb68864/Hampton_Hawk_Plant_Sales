@@ -20,6 +20,21 @@ public class AdminActionsController : ControllerBase
     }
 
     /// <summary>
+    /// Validates the supplied admin PIN and returns a verification timestamp.
+    /// </summary>
+    /// <response code="200">PIN is valid.</response>
+    /// <response code="403">Missing or invalid admin PIN.</response>
+    [HttpGet("verify-pin")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<AdminPinValidationResponse>), 200)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> VerifyPin()
+    {
+        var result = await _adminService.ValidatePinAsync();
+        return Ok(ApiResponse<AdminPinValidationResponse>.Ok(result));
+    }
+
+    /// <summary>
     /// Returns a list of admin action audit records, optionally filtered. Requires admin PIN.
     /// </summary>
     /// <param name="orderId">Filter by entity ID (e.g. order ID).</param>

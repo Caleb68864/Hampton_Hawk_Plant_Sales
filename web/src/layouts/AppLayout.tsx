@@ -3,7 +3,6 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAppStore } from '@/stores/appStore.js';
 import { QuickFindOverlay } from '@/components/shared/QuickFindOverlay.js';
 import { GlobalQuickFind } from '@/components/shared/GlobalQuickFind.js';
-import { AdminPinModal } from '@/components/shared/AdminPinModal.js';
 
 const navLinks = [
   { to: '/', label: 'Dashboard' },
@@ -67,7 +66,6 @@ export function AppLayout() {
       </main>
 
       <QuickFindOverlay />
-      <AdminPinModal />
     </div>
   );
 }

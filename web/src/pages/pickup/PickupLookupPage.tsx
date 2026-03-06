@@ -9,6 +9,7 @@ import { StatusChip } from '@/components/shared/StatusChip.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { useKioskStore } from '@/stores/kioskStore.js';
 import type { Customer } from '@/types/customer.js';
 import type { Order } from '@/types/order.js';
 
@@ -19,6 +20,7 @@ interface CustomerWithOrders {
 
 export function PickupLookupPage() {
   const navigate = useNavigate();
+  const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
   const [azFilter, setAzFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<CustomerWithOrders[]>([]);
@@ -29,7 +31,6 @@ export function PickupLookupPage() {
     setLoading(true);
     setError(null);
     try {
-      // Search customers
       const params: Record<string, unknown> = { pageSize: 50 };
       if (search) params.search = search;
       if (azFilter) params.sortBy = 'lastName';
@@ -37,7 +38,6 @@ export function PickupLookupPage() {
       const customerResult = await customersApi.list(params);
       let customers = customerResult.items;
 
-      // Filter by A-Z tab (last name starts with letter)
       if (azFilter) {
         if (azFilter === '#') {
           customers = customers.filter(
@@ -52,7 +52,6 @@ export function PickupLookupPage() {
         }
       }
 
-      // Fetch orders for each customer
       const withOrders: CustomerWithOrders[] = await Promise.all(
         customers.map(async (customer) => {
           try {
@@ -67,7 +66,6 @@ export function PickupLookupPage() {
         }),
       );
 
-      // If search looks like an order number or pickup code, also search orders directly
       if (search && search.length >= 2) {
         try {
           const orderResult = await ordersApi.list({ search, pageSize: 20 });
@@ -76,7 +74,6 @@ export function PickupLookupPage() {
               wo.orders.some((o) => o.id === order.id),
             );
             if (!exists) {
-              // Find or create customer entry
               const existing = withOrders.find(
                 (wo) => wo.customer.id === order.customerId,
               );
@@ -87,13 +84,13 @@ export function PickupLookupPage() {
                   const customer = await customersApi.getById(order.customerId);
                   withOrders.push({ customer, orders: [order] });
                 } catch {
-                  // skip if can't fetch customer
+                  // ignore customer fetch failures here
                 }
               }
             }
           }
         } catch {
-          // order search may fail, that's okay
+          // direct order search is a convenience only
         }
       }
 
@@ -111,8 +108,8 @@ export function PickupLookupPage() {
 
   return (
     <div className="space-y-4">
-      <BackToStationHomeButton />
-      <h1 className="text-2xl font-bold text-gray-800">Pickup</h1>
+      {!isPickupKiosk && <BackToStationHomeButton />}
+      <h1 className="text-2xl font-bold text-gray-800">Pickup Station</h1>
 
       <AzTabs selected={azFilter} onSelect={setAzFilter} />
 
