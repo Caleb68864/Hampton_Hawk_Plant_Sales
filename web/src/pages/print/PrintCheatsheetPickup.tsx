@@ -30,19 +30,19 @@ export function PrintCheatsheetPickup() {
 
         <Card className="col-span-7" title="Fast Workflow">
           <ol className="space-y-1 list-decimal pl-4">
-            <li><strong>Find order:</strong> search name, pickup code, or order number.</li>
-            <li><strong>Confirm identity:</strong> say customer name and order number out loud.</li>
-            <li><strong>Scan each plant:</strong> keep the cursor in the scan box.</li>
+            <li><strong>Scan order sheet:</strong> keep the cursor in the search box and scan the barcode printed at the top of the order sheet.</li>
+            <li><strong>Confirm identity:</strong> say the customer name and order number out loud after the order opens.</li>
+            <li><strong>Scan each plant:</strong> keep the cursor in the scan box on the order page.</li>
             <li><strong>Finish:</strong> click <strong>Complete Order</strong> when all lines are done.</li>
           </ol>
         </Card>
 
         <Card className="col-span-5" title="If Something Goes Wrong">
           <ul className="space-y-1 list-disc pl-4">
+            <li><strong>No match:</strong> use <strong>Clear for Next Order</strong>, then rescan the order sheet barcode.</li>
+            <li><strong>Duplicate order number:</strong> choose the correct customer from the list before scanning plants.</li>
             <li><strong>Wrong scan:</strong> click <strong>Undo last scan</strong>.</li>
             <li><strong>Need paperwork:</strong> click <strong>Print Order Sheet</strong>.</li>
-            <li><strong>Reset the order:</strong> use <strong>Reset current order</strong> with admin approval.</li>
-            <li><strong>Missing items:</strong> use <strong>Force Complete</strong> or <strong>Mark partial + reason</strong> only with admin approval.</li>
             <li><strong>Need full app access:</strong> use <strong>Admin Unlock</strong> in the kiosk header.</li>
           </ul>
         </Card>

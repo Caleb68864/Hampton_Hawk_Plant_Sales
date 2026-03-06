@@ -11,11 +11,12 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "docs": "typedoc",
-    "test": "node --test --experimental-strip-types src/api/client.test.ts src/api/orders.test.ts src/api/errorMessage.test.ts src/components/shared/globalQuickFindMatch.test.ts src/components/shared/globalQuickFindFallback.test.ts src/components/pickup/scanFeedbackText.test.ts src/utils/errorMessaging.test.ts src/pages/print/studentPickListSummary.test.ts"
+    "test": "node --test --experimental-strip-types src/api/client.test.ts src/api/orders.test.ts src/api/errorMessage.test.ts src/components/shared/globalQuickFindMatch.test.ts src/components/shared/globalQuickFindFallback.test.ts src/components/pickup/scanFeedbackText.test.ts src/utils/errorMessaging.test.ts src/pages/print/studentPickListSummary.test.ts src/utils/orderLookup.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "axios": "^1.13.6",
+    "jsbarcode": "^3.12.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
@@ -41,5 +42,4 @@
     "vite": "^7.3.1"
   }
 }
-
 

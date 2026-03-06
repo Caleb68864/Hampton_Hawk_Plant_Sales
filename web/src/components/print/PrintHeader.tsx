@@ -1,3 +1,5 @@
+import { OrderNumberBarcode } from './OrderNumberBarcode.js';
+
 interface PrintHeaderProps {
   subtitle?: string;
   customerName?: string;
@@ -39,6 +41,11 @@ export function PrintHeader({ subtitle, customerName, orderNumber, pickupCode, s
             <div className="col-span-2 mt-2 text-center">
               <span className="font-semibold text-sm">Pickup Code:</span>
               <div className="text-4xl font-mono font-bold tracking-widest mt-1">{pickupCode}</div>
+            </div>
+          )}
+          {orderNumber && (
+            <div className="col-span-2">
+              <OrderNumberBarcode value={orderNumber} />
             </div>
           )}
         </div>
