@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using ClosedXML.Excel;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -421,9 +422,13 @@ public class ImportService : IImportService
     private static List<Dictionary<string, string>> ReadXlsx(Stream stream)
     {
         var rows = new List<Dictionary<string, string>>();
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        buffer.Position = 0;
+
         try
         {
-            using var workbook = new XLWorkbook(stream);
+            using var workbook = new XLWorkbook(buffer);
             if (workbook.Worksheets.Count == 0)
             {
                 throw new ValidationException("The uploaded Excel file does not contain any worksheets. Add a worksheet with a header row and try again.");
@@ -481,7 +486,154 @@ public class ImportService : IImportService
         }
         catch (Exception ex)
         {
+            if (TryGetWorksheetHeaderError(buffer, out var headerError))
+            {
+                throw new ValidationException(headerError);
+            }
+
             throw new ValidationException($"The uploaded Excel file is malformed or unreadable. Please re-save the file as a valid .xlsx workbook and try again. Details: {ex.Message}");
         }
     }
+
+    private static bool TryGetWorksheetHeaderError(MemoryStream workbookStream, out string errorMessage)
+    {
+        errorMessage = string.Empty;
+
+        try
+        {
+            workbookStream.Position = 0;
+            using var archive = new ZipArchive(workbookStream, ZipArchiveMode.Read, leaveOpen: true);
+
+            var worksheetEntry = archive.Entries
+                .Where(entry => entry.FullName.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase) &&
+                                entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (worksheetEntry == null)
+            {
+                return false;
+            }
+
+            var sharedStrings = ReadSharedStrings(archive);
+
+            using var worksheetEntryStream = worksheetEntry.Open();
+            var sheetDocument = XDocument.Load(worksheetEntryStream);
+            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+
+            var allCells = sheetDocument.Descendants(ns + "c").ToList();
+            var lastCol = allCells
+                .Select(cell => GetColumnIndex((string?)cell.Attribute("r")))
+                .DefaultIfEmpty(0)
+                .Max();
+
+            if (lastCol == 0)
+            {
+                return false;
+            }
+
+            var headerRow = sheetDocument
+                .Descendants(ns + "row")
+                .FirstOrDefault(row => string.Equals((string?)row.Attribute("r"), "1", StringComparison.Ordinal));
+
+            var headersByColumn = new Dictionary<int, string>();
+            if (headerRow != null)
+            {
+                foreach (var cell in headerRow.Elements(ns + "c"))
+                {
+                    var columnIndex = GetColumnIndex((string?)cell.Attribute("r"));
+                    if (columnIndex == 0)
+                    {
+                        continue;
+                    }
+
+                    headersByColumn[columnIndex] = GetCellValue(cell, sharedStrings, ns).Trim();
+                }
+            }
+
+            var seenHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var col = 1; col <= lastCol; col++)
+            {
+                headersByColumn.TryGetValue(col, out var headerName);
+                if (string.IsNullOrWhiteSpace(headerName))
+                {
+                    errorMessage = $"Header row contains a blank column name at column {col}. Provide a name for each header column and retry the import.";
+                    return true;
+                }
+
+                if (!seenHeaders.Add(headerName))
+                {
+                    errorMessage = $"Header row contains duplicate column name '{headerName}'. Rename duplicate headers so each column name is unique.";
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            workbookStream.Position = 0;
+        }
+    }
+
+    private static Dictionary<int, string> ReadSharedStrings(ZipArchive archive)
+    {
+        var sharedStrings = new Dictionary<int, string>();
+        var sharedStringsEntry = archive.GetEntry("xl/sharedStrings.xml");
+        if (sharedStringsEntry == null)
+        {
+            return sharedStrings;
+        }
+
+        using var stream = sharedStringsEntry.Open();
+        var document = XDocument.Load(stream);
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+
+        var index = 0;
+        foreach (var sharedString in document.Descendants(ns + "si"))
+        {
+            sharedStrings[index++] = string.Concat(sharedString.Descendants(ns + "t").Select(text => text.Value));
+        }
+
+        return sharedStrings;
+    }
+
+    private static string GetCellValue(XElement cell, IReadOnlyDictionary<int, string> sharedStrings, XNamespace ns)
+    {
+        var cellType = (string?)cell.Attribute("t");
+        return cellType switch
+        {
+            "inlineStr" => string.Concat(cell.Descendants(ns + "t").Select(text => text.Value)),
+            "s" => int.TryParse(cell.Element(ns + "v")?.Value, out var index) && sharedStrings.TryGetValue(index, out var sharedValue)
+                ? sharedValue
+                : string.Empty,
+            _ => cell.Element(ns + "v")?.Value ?? string.Concat(cell.Descendants(ns + "t").Select(text => text.Value))
+        };
+    }
+
+    private static int GetColumnIndex(string? cellReference)
+    {
+        if (string.IsNullOrWhiteSpace(cellReference))
+        {
+            return 0;
+        }
+
+        var columnIndex = 0;
+        foreach (var ch in cellReference)
+        {
+            if (!char.IsLetter(ch))
+            {
+                break;
+            }
+
+            columnIndex = (columnIndex * 26) + (char.ToUpperInvariant(ch) - 'A' + 1);
+        }
+
+        return columnIndex;
+    }
 }
+

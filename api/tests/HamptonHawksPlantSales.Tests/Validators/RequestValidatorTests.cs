@@ -40,10 +40,11 @@ public class RequestValidatorTests
 
     [Theory]
     [InlineData(null)]
-    [InlineData(0)]
-    [InlineData(10)]
-    public void CreatePlantValidator_AcceptsNullOrNonNegativePrice(decimal? price)
+    [InlineData("0")]
+    [InlineData("10")]
+    public void CreatePlantValidator_AcceptsNullOrNonNegativePrice(string? priceStr)
     {
+        decimal? price = priceStr is null ? null : decimal.Parse(priceStr);
         var validator = new CreatePlantValidator();
 
         var result = validator.Validate(new CreatePlantRequest
