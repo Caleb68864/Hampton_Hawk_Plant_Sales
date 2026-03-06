@@ -1,0 +1,128 @@
+- generic [ref=e6]:
+  - generic [ref=e7]:
+    - link "← Back" [ref=e8] [cursor=pointer]:
+      - /url: /sellers/019cc4fb-e9e7-72e7-b1f6-3f76e9e249ca
+    - button "Print" [ref=e9]
+  - generic [ref=e10]:
+    - heading "Print Options" [level=2] [ref=e11]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - checkbox "Include Pre-Orders" [checked] [ref=e14]
+        - text: Include Pre-Orders
+      - generic [ref=e15]:
+        - checkbox "Include Walk-Ups" [checked] [ref=e16]
+        - text: Include Walk-Ups
+      - generic [ref=e17]:
+        - checkbox "Include Completed" [ref=e18]
+        - text: Include Completed
+      - generic [ref=e19]:
+        - checkbox "Include Student Pick List Summary" [ref=e20]
+        - text: Include Student Pick List Summary
+      - generic [ref=e21]:
+        - text: "Sort by:"
+        - combobox [ref=e22]:
+          - option "Customer Last Name" [selected]
+          - option "Order Number"
+    - paragraph [ref=e23]: Showing 2 of 2 orders for PW Summary Seller 20260306150929
+  - generic [ref=e24]:
+    - generic [ref=e25]:
+      - heading "Hampton Hawks Plant Sales" [level=1] [ref=e26]
+      - paragraph [ref=e27]: Seller Packet - PW Summary Seller 20260306150929
+      - generic [ref=e28]:
+        - generic [ref=e29]: "Customer: PW Summary Customer A 20260306150929"
+        - generic [ref=e30]: "Order #: ORD-00104"
+        - generic [ref=e31]: "Seller: PW Summary Seller 20260306150929"
+        - generic [ref=e32]: "Date: 3/6/2026, 3:09:29 PM"
+        - generic [ref=e33]:
+          - text: "Pickup Code:"
+          - generic [ref=e34]: 7XHQ2S
+    - table [ref=e35]:
+      - rowgroup [ref=e36]:
+        - row "Plant Name SKU Ordered Fulfilled Remaining" [ref=e37]:
+          - columnheader [ref=e38]
+          - columnheader "Plant Name" [ref=e39]
+          - columnheader "SKU" [ref=e40]
+          - columnheader "Ordered" [ref=e41]
+          - columnheader "Fulfilled" [ref=e42]
+          - columnheader "Remaining" [ref=e43]
+      - rowgroup [ref=e44]:
+        - row "PW Marigold Summary 20260306150929 PW-SUM-MAR-20260306150929 2 0 2" [ref=e45]:
+          - cell [ref=e46]
+          - cell "PW Marigold Summary 20260306150929" [ref=e48]
+          - cell "PW-SUM-MAR-20260306150929" [ref=e49]
+          - cell "2" [ref=e50]
+          - cell "0" [ref=e51]
+          - cell "2" [ref=e52]
+        - row "PW Daisy Summary 20260306150929 PW-SUM-DAISY-20260306150929 5 0 5" [ref=e53]:
+          - cell [ref=e54]
+          - cell "PW Daisy Summary 20260306150929" [ref=e56]
+          - cell "PW-SUM-DAISY-20260306150929" [ref=e57]
+          - cell "5" [ref=e58]
+          - cell "0" [ref=e59]
+          - cell "5" [ref=e60]
+        - row "PW Daisy Summary 20260306150929 PW-SUM-DAISY-20260306150929 5 0 5" [ref=e61]:
+          - cell [ref=e62]
+          - cell "PW Daisy Summary 20260306150929" [ref=e64]
+          - cell "PW-SUM-DAISY-20260306150929" [ref=e65]
+          - cell "5" [ref=e66]
+          - cell "0" [ref=e67]
+          - cell "5" [ref=e68]
+        - row "PW Marigold Summary 20260306150929 PW-SUM-MAR-20260306150929 2 0 2" [ref=e69]:
+          - cell [ref=e70]
+          - cell "PW Marigold Summary 20260306150929" [ref=e72]
+          - cell "PW-SUM-MAR-20260306150929" [ref=e73]
+          - cell "2" [ref=e74]
+          - cell "0" [ref=e75]
+          - cell "2" [ref=e76]
+      - rowgroup [ref=e77]:
+        - row "Total 14 0 14" [ref=e78]:
+          - cell [ref=e79]
+          - cell "Total" [ref=e80]
+          - cell "14" [ref=e81]
+          - cell "0" [ref=e82]
+          - cell "14" [ref=e83]
+    - paragraph [ref=e86]: "Notes:"
+  - generic [ref=e90]:
+    - generic [ref=e91]:
+      - heading "Hampton Hawks Plant Sales" [level=1] [ref=e92]
+      - paragraph [ref=e93]: Seller Packet - PW Summary Seller 20260306150929
+      - generic [ref=e94]:
+        - generic [ref=e95]: "Customer: PW Summary Customer B 20260306150929"
+        - generic [ref=e96]: "Order #: ORD-00105"
+        - generic [ref=e97]: "Seller: PW Summary Seller 20260306150929"
+        - generic [ref=e98]: "Date: 3/6/2026, 3:09:29 PM"
+        - generic [ref=e99]:
+          - text: "Pickup Code:"
+          - generic [ref=e100]: XT3RUS
+    - table [ref=e101]:
+      - rowgroup [ref=e102]:
+        - row "Plant Name SKU Ordered Fulfilled Remaining" [ref=e103]:
+          - columnheader [ref=e104]
+          - columnheader "Plant Name" [ref=e105]
+          - columnheader "SKU" [ref=e106]
+          - columnheader "Ordered" [ref=e107]
+          - columnheader "Fulfilled" [ref=e108]
+          - columnheader "Remaining" [ref=e109]
+      - rowgroup [ref=e110]:
+        - row "PW Daisy Summary 20260306150929 PW-SUM-DAISY-20260306150929 3 0 3" [ref=e111]:
+          - cell [ref=e112]
+          - cell "PW Daisy Summary 20260306150929" [ref=e114]
+          - cell "PW-SUM-DAISY-20260306150929" [ref=e115]
+          - cell "3" [ref=e116]
+          - cell "0" [ref=e117]
+          - cell "3" [ref=e118]
+        - row "PW Daisy Summary 20260306150929 PW-SUM-DAISY-20260306150929 3 0 3" [ref=e119]:
+          - cell [ref=e120]
+          - cell "PW Daisy Summary 20260306150929" [ref=e122]
+          - cell "PW-SUM-DAISY-20260306150929" [ref=e123]
+          - cell "3" [ref=e124]
+          - cell "0" [ref=e125]
+          - cell "3" [ref=e126]
+      - rowgroup [ref=e127]:
+        - row "Total 6 0 6" [ref=e128]:
+          - cell [ref=e129]
+          - cell "Total" [ref=e130]
+          - cell "6" [ref=e131]
+          - cell "0" [ref=e132]
+          - cell "6" [ref=e133]
+    - paragraph [ref=e136]: "Notes:"
