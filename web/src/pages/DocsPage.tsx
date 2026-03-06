@@ -56,7 +56,7 @@ function KioskModeSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Device-Local Kiosk Mode</h2>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 text-sm">
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
         <InfoCard title="Start It">
           Open <strong>Settings</strong>, go to <strong>This Device</strong>, choose a profile, and enter the admin PIN.
         </InfoCard>
@@ -76,16 +76,17 @@ function PickupStationSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Pickup Station Workflow</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
         <InfoCard title="1. Find Order">Search by customer name, pickup code, or order number from Pickup Station.</InfoCard>
         <InfoCard title="2. Scan Items">Keep focus in the scan box, then scan each plant barcode.</InfoCard>
-        <InfoCard title="3. Finish or Recover">Complete the order when all items are fulfilled, or use recovery tools with admin approval.</InfoCard>
+        <InfoCard title="3. Recover or Finish">Use Undo, Reset current order, Mark partial + reason, or Complete Order as needed.</InfoCard>
       </div>
-      <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
+      <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
         <li><span className="font-semibold text-green-700">Green:</span> matched and fulfilled successfully.</li>
         <li><span className="font-semibold text-amber-700">Amber:</span> duplicate or already-fulfilled warning.</li>
-        <li><span className="font-semibold text-red-700">Red:</span> wrong order or unknown barcode.</li>
+        <li><span className="font-semibold text-red-700">Red:</span> wrong order, unknown barcode, out-of-stock, or sale-closed block.</li>
       </ul>
+      <p className="text-sm text-gray-600">Need a paper copy? Use <strong>Print Order Sheet</strong>. Need a manual adjustment? <strong>Manual Fulfill</strong> is available only while the sale is open.</p>
     </div>
   );
 }
@@ -94,12 +95,12 @@ function LookupStationSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Lookup & Print Station Workflow</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
         <InfoCard title="Search">Use one search box for customer name, order number, or pickup code.</InfoCard>
         <InfoCard title="Print Order Sheet">Open the print preview in a new tab and hand the paperwork to the volunteer or customer.</InfoCard>
-        <InfoCard title="Print Seller Packet">Use this only when the order belongs to a seller and packet paperwork is needed.</InfoCard>
+        <InfoCard title="Print Seller Packet">Use this only when the row shows the seller-packet button.</InfoCard>
       </div>
-      <p className="text-sm text-gray-600">This station does not create orders, edit orders, or open imports, reports, or settings.</p>
+      <p className="text-sm text-gray-600">You can also browse by letter tabs or use the recent active orders list. This station does not create orders, edit orders, or open imports, reports, or settings.</p>
     </div>
   );
 }
@@ -108,25 +109,26 @@ function SaleClosedSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Sale Closed Mode</h2>
-      <p className="text-sm text-gray-600">Use when the fundraiser day is ended and new data changes must stop.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-        <InfoCard title="Locked While Closed">
+      <p className="text-sm text-gray-600">Use when the fundraiser day is ended and data-changing workflows need to stop.</p>
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+        <InfoCard title="Blocked While Closed">
           <ul className="list-disc list-inside space-y-1">
+            <li>Barcode scanning and pickup fulfillment</li>
+            <li>Manual fulfill from pickup</li>
             <li>New order creation</li>
-            <li>Order line modifications</li>
-            <li>Walk-up order creation</li>
-            <li>Imports</li>
+            <li>Order line modifications and imports</li>
           </ul>
         </InfoCard>
         <InfoCard title="Still Allowed">
           <ul className="list-disc list-inside space-y-1">
-            <li>Viewing orders and reports</li>
-            <li>Fulfillment on existing orders</li>
-            <li>Admin force complete and reset</li>
-            <li>Reopen sale with PIN</li>
+            <li>Viewing orders, docs, and reports</li>
+            <li>Printing paperwork</li>
+            <li>Checking station status</li>
+            <li>Reopening the sale with admin PIN + reason</li>
           </ul>
         </InfoCard>
       </div>
+      <p className="text-sm text-gray-600">If pickup work must continue, a lead needs to reopen the sale first.</p>
     </div>
   );
 }
@@ -135,13 +137,13 @@ function AdminOverrideSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Admin Override (PIN)</h2>
-      <p className="text-sm text-gray-600">PIN-protected actions are audit logged. Use clear, specific reasons when a reason is required.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <p className="text-sm text-gray-600">PIN-protected actions are audit logged. Use clear, specific reasons whenever the prompt asks for one.</p>
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
         <InfoCard title="Actions That Need PIN">
           <ul className="list-disc list-inside space-y-1">
             <li>Close or reopen sale</li>
             <li>Force-complete orders</li>
-            <li>Reset fulfillment</li>
+            <li>Reset current order</li>
             <li>Enable or disable kiosk mode</li>
           </ul>
         </InfoCard>
@@ -161,11 +163,11 @@ function CheatSheetsSection() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-800">Printable Counter Cheat Sheets</h2>
-      <p className="text-gray-600 text-sm">Open in a new tab and print one-page references for each station.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <p className="text-sm text-gray-600">Open in a new tab and print one-page references for each station.</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <CheatLink href="/print/cheatsheet/pickup" title="Pickup Station" desc="Kiosk startup, scanning, recovery, and completion" />
-        <CheatLink href="/print/cheatsheet/lookup" title="Lookup and Print" desc="Search, print order sheets, and print seller packets" />
-        <CheatLink href="/print/cheatsheet/admin" title="Admin Guide" desc="Sale controls, overrides, reset, inventory" />
+        <CheatLink href="/print/cheatsheet/lookup" title="Lookup and Print" desc="Search, browse recent orders, and print paperwork" />
+        <CheatLink href="/print/cheatsheet/admin" title="Admin Guide" desc="Sale controls, overrides, reset, and inventory actions" />
         <CheatLink href="/print/cheatsheet/end-of-day" title="End-of-Day" desc="Closeout flow and signoff checklist" />
         <CheatLink href="/print/cheatsheet/thermal-labels" title="Thermal Labels" desc="1x2 printer setup and calibration" />
       </div>
@@ -181,7 +183,7 @@ function TroubleshootingSection() {
         <InfoCard title="Print preview will not open">Allow pop-ups for the site, then try the print button again.</InfoCard>
         <InfoCard title="Scanner not reading">Click the scan input first. Most scanners act like keyboards and submit Enter.</InfoCard>
         <InfoCard title="No match found">Stay in the same station, double-check the customer name or pickup code, and search again.</InfoCard>
-        <InfoCard title="Sale Closed message">Admin must reopen in Settings with PIN + reason.</InfoCard>
+        <InfoCard title="Sale Closed message">A lead must reopen the sale in Settings with admin PIN + reason before pickup scanning can continue.</InfoCard>
         <InfoCard title="Need to leave kiosk mode">Use the Admin Unlock button in the kiosk header and enter the admin PIN.</InfoCard>
       </div>
     </div>

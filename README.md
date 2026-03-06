@@ -1,71 +1,304 @@
 # Hampton Hawks Plant Sales
 
-A full-stack web application for managing a school plant sale fundraiser. Handles the complete lifecycle: importing catalog/order data, managing inventory, processing walk-up sales, barcode scanning at pickup stations, and generating reports.
+Hampton Hawks Plant Sales is a full-stack fundraiser operations app for running a school plant sale from data import through pickup day. It combines a React frontend, an ASP.NET Core API, and PostgreSQL so staff and volunteers can manage plants, inventory, customers, sellers, orders, kiosk stations, printing, and closeout workflows from one system.
+
+The app is built around real event operations:
+- import plant catalog, inventory, and preorder data
+- monitor problem orders and inventory risk
+- run pickup and lookup/print stations
+- create walk-up orders with live stock protection
+- print order sheets, seller packets, labels, and station guides
+- lock volunteer devices into kiosk-safe workflows
+
+## Table of Contents
+
+- [System Overview](#system-overview)
+- [Current Routes](#current-routes)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Local Development](#local-development)
+- [Build Test and Tooling](#build-test-and-tooling)
+- [Configuration](#configuration)
+- [Operational Workflows](#operational-workflows)
+- [Kiosk Mode](#kiosk-mode)
+- [Sale Closed Behavior](#sale-closed-behavior)
+- [Admin-Protected Actions](#admin-protected-actions)
+- [Help and Print Surfaces](#help-and-print-surfaces)
+- [Repository Structure](#repository-structure)
+- [Troubleshooting](#troubleshooting)
+- [Maintainer Notes](#maintainer-notes)
+
+## System Overview
+
+The application supports the full operating cycle of a plant fundraiser.
+
+Core capabilities:
+- plant catalog management
+- inventory management and adjustments
+- customer and seller lookup
+- order import and manual order management
+- barcode-based pickup fulfillment
+- volunteer-safe kiosk mode for station devices
+- walk-up order creation with availability checks and admin overrides
+- printable operational paperwork and cheat sheets
+- dashboard and reporting views for supervisors
+
+## Current Routes
+
+### Main app routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Dashboard with metrics, low inventory, problem orders, and quick links |
+| `/settings` | Global sale controls and browser-local kiosk configuration |
+| `/plants` | Plant catalog list |
+| `/plants/:id` | Plant detail and edit view |
+| `/inventory` | Inventory management |
+| `/customers` | Customer list and lookup |
+| `/customers/:id` | Customer detail |
+| `/sellers` | Seller list and lookup |
+| `/sellers/:id` | Seller detail |
+| `/orders` | Order list |
+| `/orders/new` | New manual order |
+| `/orders/:id/edit` | Edit an order |
+| `/orders/:id` | Order detail |
+| `/station` | Station launcher |
+| `/pickup` | Pickup lookup station |
+| `/pickup/:orderId` | Pickup scan screen for a single order |
+| `/lookup-print` | Volunteer-safe lookup and print station |
+| `/walkup/new` | Walk-up order creation |
+| `/imports` | Imports and import history |
+| `/reports` | Reporting dashboard |
+| `/reports/leftover-inventory` | Leftover inventory report |
+| `/docs` | Volunteer Help Center |
+
+### Print routes
+
+| Route | Purpose |
+|---|---|
+| `/print/order/:orderId` | Printable customer order sheet |
+| `/print/orders` | Batch order print output |
+| `/print/seller/:sellerId` | Seller packet print view |
+| `/print/labels` | Plant label printing |
+| `/print/cheatsheet/pickup` | Pickup station one-page guide |
+| `/print/cheatsheet/lookup` | Lookup and print one-page guide |
+| `/print/cheatsheet/admin` | Admin actions guide |
+| `/print/cheatsheet/end-of-day` | End-of-day checklist |
+| `/print/cheatsheet/thermal-labels` | Thermal printer quick setup |
+
+## Architecture
+
+### Frontend
+
+The frontend lives in `web/` and uses:
+- React 19
+- TypeScript
+- Vite 7
+- Tailwind CSS 4
+- React Router 7
+- Zustand
+
+Important frontend pieces:
+- `AppLayout` provides the normal full-app shell.
+- `KioskLayout` replaces the normal shell when kiosk mode is active for the current browser.
+- `KioskRouteGuard` keeps kiosk sessions inside allowed routes.
+- `GlobalQuickFind` and `QuickFindOverlay` support fast navigation.
+- print routes sit outside the normal shell so print views stay focused.
+
+### Backend
+
+The backend lives in `api/` and uses:
+- ASP.NET Core 9
+- Entity Framework Core 9
+- PostgreSQL 16
+- FluentValidation
+- Serilog
+- Swagger/OpenAPI
+
+Project layout:
+- `api/src/HamptonHawksPlantSales.Api`
+- `api/src/HamptonHawksPlantSales.Core`
+- `api/src/HamptonHawksPlantSales.Infrastructure`
+- `api/tests/HamptonHawksPlantSales.Tests`
+
+Current API controllers:
+- `AdminActionsController`
+- `CustomersController`
+- `FulfillmentController`
+- `ImportController`
+- `InventoryController`
+- `OrdersController`
+- `PlantsController`
+- `ReportsController`
+- `SellersController`
+- `SettingsController`
+- `VersionController`
+- `WalkUpController`
+
+Operational backend behaviors:
+- EF Core migrations run automatically on startup.
+- Health checks are exposed at `/health`.
+- Swagger is enabled in Development.
+- admin-protected actions are enforced centrally through a filter.
+- JSON uses camelCase and string enums.
 
 ## Quick Start
 
-The fastest way to run everything is with Docker Compose:
+### Run the full stack with Docker Compose
 
 ```bash
 docker-compose up --build
 ```
 
-This starts three services:
+This starts:
 
-| Service    | URL                        |
-|------------|----------------------------|
-| Web UI     | http://localhost:3000       |
-| API        | http://localhost:8080       |
-| Swagger UI | http://localhost:8080/swagger |
-| PostgreSQL | localhost:5432              |
+| Service | URL / Port | Notes |
+|---|---|---|
+| Web UI | http://localhost:3000 | Served by nginx |
+| API | http://localhost:8080 | ASP.NET Core API |
+| Swagger | http://localhost:8080/swagger | Development only |
+| PostgreSQL | localhost:5432 | Database |
 
-The database is automatically created and migrations run on startup.
+Default local compose values:
+- database: `hampton_hawks_plant_sales`
+- username: `plantapp`
+- password: `plantapp`
+- admin PIN: `1234`
 
-## Portainer Stack (Git Deploy, 2 Containers)
+### Portainer deployment
 
-If you want Portainer to pull this repo and deploy only **one app container** (API) plus **one database container** (PostgreSQL), use `docker-compose.portainer.yml`.
+If you want Portainer to deploy only the API and PostgreSQL containers, use:
 
-### In Portainer
+- `docker-compose.portainer.yml`
 
-1. Go to **Stacks** -> **Add stack**
-2. Select **Repository**
-3. Set repository URL to this project
-4. Set **Compose path** to: `docker-compose.portainer.yml`
-5. (Optional) set a branch/tag
-6. Add/override environment variables in Portainer:
-   - `POSTGRES_PASSWORD` (required in real deployments)
-   - `POSTGRES_USER` (default: `plantapp`)
-   - `POSTGRES_DB` (default: `hampton_hawks_plant_sales`)
-   - `APP_ADMIN_PIN` (default: `1234`)
-   - `APP_PORT` (default: `8080`)
-   - `CORS_ALLOWED_ORIGINS` (default: `http://localhost:3000`)
-7. Click **Deploy the stack**
+Typical Portainer flow:
+1. Create a new stack from repository.
+2. Point it at this repo.
+3. Set the compose path to `docker-compose.portainer.yml`.
+4. Override production environment variables.
+5. Deploy the stack.
 
-After deployment:
-- API health check: `http://<host>:<APP_PORT>/health`
-- Swagger (Development only): `http://<host>:<APP_PORT>/swagger`
+Post-deploy checks:
+- health: `http://<host>:<APP_PORT>/health`
+- Swagger: `http://<host>:<APP_PORT>/swagger` when running in Development
 
-> Note: this 2-container stack runs the API + database only. If you also want the React web UI container, use `docker-compose.yml` instead.
+## Local Development
 
-## Environment Variables
+### Prerequisites
 
-### API (`api` service)
+- .NET 9 SDK
+- Node.js 22+ recommended
+- npm
+- Docker Desktop or PostgreSQL 16
 
-| Variable                              | Description                         | Default         |
-|---------------------------------------|-------------------------------------|-----------------|
-| `ConnectionStrings__Default`          | PostgreSQL connection string        | (required)      |
-| `APP_ADMIN_PIN`                       | 4-digit admin PIN for overrides     | `1234`          |
-| `INVENTORY_NEGATIVE_ADJUST_THRESHOLD` | Max negative inventory adjustment   | `10`            |
-| `ASPNETCORE_ENVIRONMENT`              | ASP.NET environment                 | `Production`    |
-| `ASPNETCORE_URLS`                     | API listen URL                      | `http://+:8080` |
-| `Cors__AllowedOrigins`                | Comma-separated CORS allowlist      | `http://localhost:3000` |
+### Run using Docker for the database and local app processes
 
+1. Start PostgreSQL:
 
-### CORS Allowed Origins
+```bash
+docker-compose up postgres -d
+```
 
-The API uses a strict origin allowlist from `Cors:AllowedOrigins` (no wildcard origins).
+2. Start the API:
 
-Configure in `appsettings*.json` as an array:
+```bash
+cd api
+dotnet run --project src/HamptonHawksPlantSales.Api
+```
+
+3. Start the web app in a second terminal:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Expected local URLs:
+- web: `http://localhost:3000`
+- api: `http://localhost:8080`
+
+### Run everything in containers
+
+```bash
+docker-compose up --build
+```
+
+## Build Test and Tooling
+
+### Frontend commands
+
+```bash
+cd web
+npm install
+npm run build
+npm run test
+npm run lint
+```
+
+Available scripts:
+- `npm run dev`
+- `npm run build`
+- `npm run lint`
+- `npm run preview`
+- `npm run test`
+- `npm run storybook`
+- `npm run build-storybook`
+- `npm run docs`
+
+### Backend tests
+
+Run the full .NET solution test suite from the repo root:
+
+```bash
+run-tests.bat
+```
+
+Or directly:
+
+```bash
+cd api
+dotnet test HamptonHawksPlantSales.sln
+```
+
+### Storybook
+
+```bash
+cd web
+npm run storybook
+```
+
+Storybook URL:
+- `http://localhost:6006`
+
+### TypeDoc
+
+```bash
+cd web
+npm run docs
+```
+
+Generated output goes to:
+- `web/docs-output/`
+
+## Configuration
+
+### API environment variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `ConnectionStrings__Default` | PostgreSQL connection string | required outside local defaults |
+| `APP_ADMIN_PIN` | Admin PIN for protected actions | `1234` |
+| `INVENTORY_NEGATIVE_ADJUST_THRESHOLD` | Negative adjustment threshold guard | `10` |
+| `ASPNETCORE_ENVIRONMENT` | ASP.NET environment | `Production` in Docker |
+| `ASPNETCORE_URLS` | API listen address | `http://+:8080` |
+| `Cors__AllowedOrigins` | Comma-separated CORS allowlist | `http://localhost:3000` |
+
+### CORS
+
+The API uses an explicit allowlist and does not use wildcard origins.
+
+Example `appsettings.json` structure:
 
 ```json
 {
@@ -78,117 +311,280 @@ Configure in `appsettings*.json` as an array:
 }
 ```
 
-Or via environment variable as a comma-separated list:
+Equivalent environment variable:
 
 ```bash
 Cors__AllowedOrigins=https://plantsales.hamptonhawks.org,https://plantsales-admin.hamptonhawks.org
 ```
 
-Any origin not explicitly listed is blocked by CORS policy.
+## Operational Workflows
 
-### Web (`web` service)
+### Import data
 
-The Vite dev server proxies `/api` requests to `http://localhost:8080`. In production the web container is a static nginx build.
+Use the **Imports** page to load fundraiser data.
 
-## Usage
+Current import surfaces:
+- plants import
+- inventory import
+- orders import
+- import history
+- issue review for skipped rows
 
-### Importing Data
+Supported import behavior currently exposed in the UI:
+- plants import from CSV template workflow
+- inventory import
+- orders import from CSV, XLSX, or supported order PDF input
+- duplicate order-number confirmation for some order import conflicts
+- label printing shortcut after successful plant import
 
-1. Navigate to **Imports** in the sidebar
-2. Upload CSV or Excel files for plants, inventory, or orders
-3. Use dry-run first (`?dryRun=true`) to validate rows before committing
-4. For plant re-imports, use SKU upsert (`?upsertBySku=true`, default) to update existing items without duplicates
-5. Review any import issues on the batch detail page
+### Monitor operations
 
-### Managing Orders
+Use **Dashboard** and **Reports** for live visibility.
 
-- **Pre-orders**: Created via import or manually through the Orders page
-- **Walk-up orders**: Created at the Walk-Up page for day-of customers
-- Walk-up orders are subject to inventory protection (available = on-hand minus pre-order commitments)
+Dashboard shows:
+- total orders
+- open orders
+- completed orders
+- customer count
+- seller count
+- sale progress
+- low inventory panel
+- problem orders panel
+- quick links to common actions
 
-### Pickup / Scanning
+Reports adds:
+- order status distribution
+- performance snapshot
+- critical inventory risk ranking
+- oldest problem orders
+- leftover inventory reporting entry point
 
-1. Go to the **Pickup** page
-2. Search by customer name, pickup code, or order number
-3. Scan each plant barcode -- the system matches it to order lines
-4. When all lines are fulfilled, click **Complete**
+### Run pickup
 
-### Printing
+Pickup is a two-step workflow.
 
-- **Order sheets**: Print an order summary for the customer (`/print/order/:orderId`)
-- **Seller packets**: Print a seller's complete order list (`/print/seller/:sellerId`)
-- **Cheat sheets**: Printable quick-reference guides for stations
-  - Pickup Station: `/print/cheatsheet/pickup`
-  - Lookup & Print: `/print/cheatsheet/lookup`
-  - Admin: `/print/cheatsheet/admin`
-  - End of Day: `/print/cheatsheet/end-of-day`
+1. `/pickup`
+- search by customer name
+- search by order number
+- search by pickup code
+- browse by A-Z tabs
 
-### Sale Closed (Admin)
+2. `/pickup/:orderId`
+- keep focus in the scan box and scan barcodes
+- view result banners and next-action guidance
+- undo last scan
+- reset current order
+- mark partial with reason
+- manually fulfill while the sale is open
+- print order sheet
+- complete or force-complete the order
 
-When the fundraiser ends, an admin can close the sale from **Settings**. This blocks new orders and modifications but still allows fulfillment scanning. The admin PIN is required. Closing/reopening is logged with a reason.
+Pickup feedback colors currently map to:
+- green: accepted fulfillment
+- amber: duplicate or already-fulfilled warning
+- red: wrong order, unknown barcode, out-of-stock, or sale-closed block
 
-Actions that always require the admin PIN:
-- Toggling SaleClosed
-- Force-completing an order with unfulfilled lines
-- Resetting an order back to Open
-- Exceeding available walk-up inventory
+### Run lookup and print
 
-## Development
+`/lookup-print` is the volunteer-safe paperwork station.
 
-### Prerequisites
+It supports:
+- searching by customer name
+- searching by order number
+- searching by pickup code
+- browsing by A-Z tabs
+- recent active order lists
+- printing order sheets
+- printing seller packets when available
 
-- .NET 9 SDK
-- Node.js 20+
-- PostgreSQL 16 (or use Docker)
+It intentionally does not expose:
+- order creation
+- order editing
+- imports
+- reports
+- settings
 
-### Running Locally
+### Create walk-up orders
 
-```bash
-# Start the database
-docker-compose up postgres -d
+`/walkup/new` supports same-day sales with stock protection.
 
-# API
-cd api/src/HamptonHawksPlantSales.Api
-dotnet run
+Capabilities:
+- search for an existing customer
+- create a customer inline
+- search plants by text or A-Z tabs
+- inspect current walk-up availability snapshot
+- prevent overcommitting stock by default
+- request admin override when a line exceeds availability
+- create the walk-up order and redirect to the order detail page
 
-# Web (separate terminal)
-cd web
-npm install
-npm run dev
+Walk-up safeguards:
+- availability comes from the API, not just local UI state
+- the UI adjusts visible availability for items already added to the in-progress order
+- over-limit lines require admin approval before submission
+
+### Print documents
+
+Printable outputs currently include:
+- customer order sheets
+- seller packets
+- batch order prints
+- plant labels
+- pickup cheat sheet
+- lookup and print cheat sheet
+- admin guide
+- end-of-day checklist
+- thermal label printer setup guide
+
+## Kiosk Mode
+
+Kiosk mode is browser-local. It affects only the current browser profile, not every device at the event.
+
+It is configured from **Settings** under **This Device**.
+
+Supported kiosk profiles:
+- `pickup`
+- `lookup-print`
+
+What kiosk mode does:
+- swaps the full app shell for the kiosk shell
+- hides the normal navigation
+- restricts the browser to approved station routes
+- shows an `Admin Unlock` button in the header
+- can request fullscreen on launch
+
+Current kiosk landing routes:
+- pickup kiosk: `/pickup`
+- lookup and print kiosk: `/lookup-print`
+
+## Sale Closed Behavior
+
+The current app behavior treats sale-closed mode as a hard stop for pickup scanning.
+
+When **Sale Closed** is enabled:
+- barcode scanning is disabled
+- pickup fulfillment is blocked
+- manual fulfill is blocked
+- new orders and modifications should not continue
+- printing and read-only lookup/reporting remain available
+
+To resume pickup work:
+1. Open **Settings**.
+2. Turn **Sale Closed** off.
+3. Enter the admin PIN and reason when prompted.
+
+## Admin-Protected Actions
+
+Protected actions currently include:
+- close sale
+- reopen sale
+- force-complete orders
+- reset current order
+- enable kiosk mode
+- disable kiosk mode
+- protected walk-up inventory overrides
+
+Use specific reasons for auditability.
+
+Good examples:
+- `Customer accepted substitution approved by lead`
+- `Wrong order scanned at station 2`
+- `Late pickup window approved`
+
+## Help and Print Surfaces
+
+The in-app help center is available at:
+- `http://localhost:3000/docs`
+
+Current guide sections:
+- kiosk mode
+- pickup station
+- lookup and print station
+- sale closed
+- admin override
+- cheat sheets
+- troubleshooting
+
+Printable guide links exposed there:
+- pickup station
+- lookup and print
+- admin actions
+- end-of-day checklist
+- thermal label setup
+
+## Repository Structure
+
+```text
+.
+|-- api/
+|   |-- src/
+|   |   |-- HamptonHawksPlantSales.Api/
+|   |   |-- HamptonHawksPlantSales.Core/
+|   |   `-- HamptonHawksPlantSales.Infrastructure/
+|   `-- tests/
+|       `-- HamptonHawksPlantSales.Tests/
+|-- web/
+|   |-- src/
+|   |-- public/
+|   `-- dist/                # generated on build
+|-- docs/                    # specs, plans, and test artifacts
+|-- test-results/            # local .NET test output
+|-- docker-compose.yml
+|-- docker-compose.portainer.yml
+|-- run-tests.bat
+`-- README.md
 ```
 
-### Swagger
+## Troubleshooting
 
-API documentation is available at `/swagger` when running in Development mode. All endpoints have XML doc summaries.
+### Web loads but API calls fail
 
-### Storybook
+Check:
+- API is running on port `8080`
+- CORS includes the current frontend origin
+- the database is healthy
 
-```bash
-cd web
-npm run storybook
-```
+### Print previews do not open
 
-Opens at http://localhost:6006 with stories for core components: ScanInput, StatusChip, OrderLinesTable, QuickFindOverlay, AzTabs, PrintLayout.
+Likely cause:
+- browser pop-up blocking
 
-### TypeDoc
+Fix:
+- allow pop-ups for the site
+- retry the print action
 
-```bash
-cd web
-npm run docs
-```
+### Pickup station cannot scan
 
-Generates TypeScript API documentation in `web/docs-output/`.
+Check:
+- the scan input has focus
+- the sale is not closed
+- the order is valid and not already complete
+- the scanner is acting as a keyboard wedge and sending Enter
 
-## Tech Stack
+### Walk-up item shows unavailable
 
-| Layer      | Technology                                |
-|------------|-------------------------------------------|
-| Frontend   | React 19, TypeScript, Tailwind CSS v4, Vite 7 |
-| State      | Zustand                                   |
-| Routing    | React Router v7                           |
-| Backend    | ASP.NET Core 9 (C#), Entity Framework Core |
-| Validation | FluentValidation                          |
-| Database   | PostgreSQL 16                             |
-| Logging    | Serilog                                   |
-| Docs       | Swagger/OpenAPI, Storybook, TypeDoc       |
-| Container  | Docker, Docker Compose                    |
+Possible reasons:
+- preorder commitments consumed the remaining stock
+- another operator changed availability
+- the line needs an admin override
+
+### Kiosk browser is stuck in station mode
+
+Use:
+- `Admin Unlock` in the kiosk header
+
+If needed:
+- verify the admin PIN
+- return to Settings after unlock
+
+## Maintainer Notes
+
+If you change station behavior, also review these files so documentation stays aligned:
+- `web/src/pages/DocsPage.tsx`
+- `web/src/pages/print/PrintCheatsheetPickup.tsx`
+- `web/src/pages/print/PrintCheatsheetLookup.tsx`
+- `web/src/pages/print/PrintCheatsheetAdmin.tsx`
+- `web/src/pages/print/PrintCheatsheetEndOfDay.tsx`
+- `web/src/routes/kioskRouteConfig.ts`
+
+This README is intended to describe the app as it exists now, not as originally planned. Update it alongside behavior changes so operators and developers can trust it.
+

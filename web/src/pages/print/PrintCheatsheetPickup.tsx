@@ -23,9 +23,8 @@ export function PrintCheatsheetPickup() {
         <Card className="col-span-5" title="Color Legend">
           <ul className="space-y-1">
             <li><span className="font-bold text-green-700">Green</span> - item matched and fulfilled.</li>
-            <li><span className="font-bold text-amber-700">Amber</span> - duplicate or over-scan warning.</li>
-            <li><span className="font-bold text-red-700">Red</span> - wrong order or unknown barcode.</li>
-            <li><span className="font-bold text-blue-700">Blue</span> - partially fulfilled line.</li>
+            <li><span className="font-bold text-amber-700">Amber</span> - duplicate or already-fulfilled warning.</li>
+            <li><span className="font-bold text-red-700">Red</span> - wrong order, unknown barcode, out-of-stock, or sale-closed block.</li>
           </ul>
         </Card>
 
@@ -42,13 +41,14 @@ export function PrintCheatsheetPickup() {
           <ul className="space-y-1 list-disc pl-4">
             <li><strong>Wrong scan:</strong> click <strong>Undo last scan</strong>.</li>
             <li><strong>Need paperwork:</strong> click <strong>Print Order Sheet</strong>.</li>
-            <li><strong>Missing items:</strong> use <strong>Force Complete</strong> only with admin approval.</li>
+            <li><strong>Reset the order:</strong> use <strong>Reset current order</strong> with admin approval.</li>
+            <li><strong>Missing items:</strong> use <strong>Force Complete</strong> or <strong>Mark partial + reason</strong> only with admin approval.</li>
             <li><strong>Need full app access:</strong> use <strong>Admin Unlock</strong> in the kiosk header.</li>
           </ul>
         </Card>
 
         <Card className="col-span-12 border-red-200 bg-red-50" title="Sale Closed Note">
-          <p>New orders and changes are blocked, but existing order fulfillment can still proceed. Ask the lead if the sale needs to be reopened.</p>
+          <p>Pickup scanning and manual fulfillment are blocked while the sale is closed. Ask a lead to reopen the sale before continuing station work.</p>
         </Card>
       </section>
 

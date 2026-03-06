@@ -3,7 +3,7 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 
 export function PrintCheatsheetEndOfDay() {
   return (
-    <PrintLayout backTo="/station">
+    <PrintLayout backTo="/docs">
       <header className="mb-4 rounded-xl border-2 border-hawk-200 bg-gradient-to-r from-hawk-50 to-gold-50 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-hawk-700">Hampton Hawks Plant Sales</p>
         <h1 className="text-2xl font-bold text-hawk-900">End-of-Day Counter Checklist</h1>
@@ -16,7 +16,7 @@ export function PrintCheatsheetEndOfDay() {
             <li>Orders page: filter Open + InProgress and resolve each one.</li>
             <li>Dashboard: check problem orders + low inventory panels.</li>
             <li>Inventory page: note zero/negative counts for reconciliation.</li>
-            <li>Settings: <strong>Close Sale</strong> (PIN + reason).</li>
+            <li>Settings: turn <strong>Sale Closed</strong> on (PIN + reason).</li>
             <li>Print final docs: dashboard snapshot, needed order sheets, seller packets.</li>
           </ol>
         </Card>
@@ -24,8 +24,8 @@ export function PrintCheatsheetEndOfDay() {
         <Card className="col-span-4" title="If Order Cannot Finish">
           <ul className="list-disc pl-4 space-y-1">
             <li>Try pickup scan completion first.</li>
-            <li>If unavailable items: Force Complete + reason.</li>
-            <li>If wrong scans: Reset + re-scan.</li>
+            <li>If items are missing: Force Complete or Mark partial + reason.</li>
+            <li>If wrong scans happened: Reset current order and re-scan.</li>
           </ul>
         </Card>
 

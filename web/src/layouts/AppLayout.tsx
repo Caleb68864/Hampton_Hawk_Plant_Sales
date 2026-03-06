@@ -28,12 +28,17 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-hawk-700 text-white shadow-md">
-        <div className="px-4 py-3 flex items-center justify-center gap-3">
-          <img src="/hawk-logo.png" alt="Hampton Hawks" className="h-10 w-10 rounded-full bg-white p-0.5" />
-          <h1 className="text-2xl font-bold">Hampton Hawks Plant Sales</h1>
+      <header className="border-b-4 border-gold-300 bg-gradient-to-r from-hawk-700 via-hawk-800 to-hawk-900 text-white shadow-md">
+        <div className="flex items-center justify-center gap-3 px-4 py-4">
+          <div className="rounded-full bg-white p-1 shadow-sm">
+            <img src="/hawk-logo.png" alt="Hampton Hawks" className="h-10 w-10 rounded-full" />
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold-200">Hampton Hawks</p>
+            <h1 className="text-2xl font-bold">Plant Sales</h1>
+          </div>
         </div>
-        <nav className="flex flex-wrap gap-1 px-4 pb-2">
+        <nav className="flex flex-wrap gap-1 border-t border-white/10 px-4 pb-3 pt-2">
           {navLinks.map((link) => (
             <NavLink
               key={link.to}
@@ -43,7 +48,7 @@ export function AppLayout() {
                 `px-3 py-1 rounded text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-white text-hawk-700'
-                    : 'text-hawk-100 hover:bg-hawk-600'
+                    : 'text-hawk-100 hover:bg-white/10'
                 }`
               }
             >

@@ -25,7 +25,7 @@ export function PrintCheatsheetLookup() {
             <li>Customer name</li>
             <li>Order number</li>
             <li>Pickup code</li>
-            <li>No extra filters needed</li>
+            <li>Letter tabs or recent active orders also work</li>
           </ul>
         </Card>
 
@@ -40,7 +40,7 @@ export function PrintCheatsheetLookup() {
 
         <Card className="col-span-6" title="Print Seller Packet">
           <ol className="list-decimal pl-4 space-y-1">
-            <li>Use only when the order shows a seller packet button.</li>
+            <li>Use only when the row shows a seller packet button.</li>
             <li>Click <strong>Print Seller Packet</strong>.</li>
             <li>The original station tab stays open while printing.</li>
             <li>Close the print tab to return to the station.</li>
