@@ -60,7 +60,7 @@ public class ImportService : IImportService
                 break;
             case ImportType.Orders:
                 var orderHandler = new OrderImportHandler(_db);
-                (imported, skippedCount, issues) = await orderHandler.HandleAsync(batch.Id, rows);
+                (imported, skippedCount, issues) = await orderHandler.HandleAsync(batch.Id, rows, options.ResolveDuplicateOrderNumbers);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type));
