@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 interface PrintLayoutProps {
   children: ReactNode;
   backTo?: string;
+  className?: string;
 }
 
-export function PrintLayout({ children, backTo }: PrintLayoutProps) {
+export function PrintLayout({ children, backTo, className }: PrintLayoutProps) {
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className={['max-w-4xl mx-auto p-6', className].filter(Boolean).join(' ')}>
       <div className="no-print mb-4 flex items-center gap-4">
         {backTo && (
           <a href={backTo} className="text-sm text-blue-600 hover:text-blue-700">

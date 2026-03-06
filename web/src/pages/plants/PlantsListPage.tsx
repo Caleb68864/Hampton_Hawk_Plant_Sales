@@ -66,7 +66,7 @@ export function PlantsListPage() {
 
   function openLabelsForPlantIds(plantIds: string[]) {
     if (plantIds.length === 0) return;
-    const query = new URLSearchParams({ ids: plantIds.join(',') });
+    const query = new URLSearchParams({ ids: plantIds.join(','), density: plantIds.length === 1 ? 'test' : 'sheet' });
     window.open(`/print/labels?${query.toString()}`, '_blank', 'noopener,noreferrer');
   }
 
@@ -151,7 +151,7 @@ export function PlantsListPage() {
                     </td>
                     <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
                       <a
-                        href={`/print/labels?ids=${plant.id}`}
+                        href={`/print/labels?ids=${plant.id}&density=test`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-hawk-700 hover:text-hawk-800"
@@ -177,4 +177,5 @@ export function PlantsListPage() {
     </div>
   );
 }
+
 
