@@ -37,8 +37,8 @@ function truncateLabel(text: string, maxLength = 36) {
   if (text.length <= maxLength) return text;
   const slice = text.slice(0, maxLength - 1);
   const lastSpace = slice.lastIndexOf(' ');
-  if (lastSpace > 16) return `${slice.slice(0, lastSpace)}…`;
-  return `${slice}…`;
+  if (lastSpace > 16) return `${slice.slice(0, lastSpace)}...`;
+  return `${slice}...`;
 }
 
 function PlantLabel({ plant }: { plant: Plant }) {
@@ -80,6 +80,7 @@ export function PrintPlantLabelsPage() {
 
   const density = (searchParams.get('density') as DensityMode | null) ?? 'test';
   const plantId = searchParams.get('plantId');
+  const idsCsv = searchParams.get('ids') ?? '';
   const skuCsv = searchParams.get('skus') ?? '';
   const barcodeCsv = searchParams.get('barcodes') ?? '';
 
@@ -97,14 +98,33 @@ export function PrintPlantLabelsPage() {
           return;
         }
 
+        const requestedIds = idsCsv
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        if (requestedIds.length > 0) {
+          const requestedPlants = await Promise.all(
+            requestedIds.map(async (requestedId) => {
+              try {
+                return await plantsApi.getById(requestedId);
+              } catch {
+                return null;
+              }
+            }),
+          );
+          setPlants(requestedPlants.filter((plant): plant is Plant => Boolean(plant)));
+          return;
+        }
+
         const requestedSkus = skuCsv
           .split(',')
-          .map((x) => x.trim().toLowerCase())
+          .map((value) => value.trim().toLowerCase())
           .filter(Boolean);
 
         const requestedBarcodes = barcodeCsv
           .split(',')
-          .map((x) => x.trim())
+          .map((value) => value.trim())
           .filter(Boolean);
 
         if (requestedSkus.length === 0 && requestedBarcodes.length === 0) {
@@ -114,15 +134,15 @@ export function PrintPlantLabelsPage() {
         }
 
         const inventory = await loadAllPlants();
-        const bySku = new Map(inventory.map((p) => [p.sku.toLowerCase(), p]));
-        const byBarcode = new Map(inventory.map((p) => [p.barcode, p]));
+        const bySku = new Map(inventory.map((plant) => [plant.sku.toLowerCase(), plant]));
+        const byBarcode = new Map(inventory.map((plant) => [plant.barcode, plant]));
 
         const matched = [
-          ...requestedSkus.map((sku) => bySku.get(sku)).filter((p): p is Plant => Boolean(p)),
-          ...requestedBarcodes.map((barcode) => byBarcode.get(barcode)).filter((p): p is Plant => Boolean(p)),
+          ...requestedSkus.map((sku) => bySku.get(sku)).filter((plant): plant is Plant => Boolean(plant)),
+          ...requestedBarcodes.map((barcode) => byBarcode.get(barcode)).filter((plant): plant is Plant => Boolean(plant)),
         ];
 
-        const deduped = Array.from(new Map(matched.map((p) => [p.id, p])).values());
+        const deduped = Array.from(new Map(matched.map((plant) => [plant.id, plant])).values());
         setPlants(deduped);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load labels');
@@ -132,7 +152,7 @@ export function PrintPlantLabelsPage() {
     }
 
     void load();
-  }, [plantId, skuCsv, barcodeCsv]);
+  }, [barcodeCsv, idsCsv, plantId, skuCsv]);
 
   const labelsToRender = useMemo(() => {
     if (plants.length === 0) return [];
@@ -152,11 +172,13 @@ export function PrintPlantLabelsPage() {
     setSearchParams(next, { replace: true });
   }
 
+  const backTo = plantId ? `/plants/${plantId}` : idsCsv ? '/plants' : '/imports';
+
   if (loading) return <LoadingSpinner message="Loading labels..." />;
   if (error) return <ErrorBanner message={error} />;
 
   return (
-    <PrintLayout backTo={plantId ? `/plants/${plantId}` : '/imports'}>
+    <PrintLayout backTo={backTo}>
       <div className="no-print mb-4 rounded-md border border-gray-300 bg-gray-50 p-3">
         <h1 className="text-lg font-semibold text-gray-800">Plant Labels (1&quot; x 2&quot;)</h1>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
@@ -177,7 +199,7 @@ export function PrintPlantLabelsPage() {
           ))}
         </div>
         <p className="mt-3 text-xs text-gray-600">
-          Calibration hints: use 100% scale, disable “Fit to page”, and verify top/left offsets with 1-up test before running a full batch.
+          Calibration hints: use 100% scale, disable "Fit to page", and verify top/left offsets with 1-up test before running a full batch.
         </p>
       </div>
 

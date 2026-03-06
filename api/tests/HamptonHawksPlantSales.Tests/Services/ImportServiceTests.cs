@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using ClosedXML.Excel;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -591,6 +592,11 @@ public class ImportServiceTests
         // Assert: issues tracked
         var issues = await db.ImportIssues.Where(i => i.ImportBatchId == result.BatchId).ToListAsync();
         issues.Should().HaveCount(2);
+        issues.Should().OnlyContain(i => !string.IsNullOrWhiteSpace(i.RawData));
+        foreach (var issue in issues)
+        {
+            using var parsed = JsonDocument.Parse(issue.RawData!);
+        }
 
         // Assert: batch totals
         var batch = await db.ImportBatches.FirstAsync(b => b.Id == result.BatchId);
@@ -635,6 +641,11 @@ public class ImportServiceTests
         // Assert: issues tracked
         var issues = await db.ImportIssues.Where(i => i.ImportBatchId == result.BatchId).ToListAsync();
         issues.Should().HaveCount(2);
+        issues.Should().OnlyContain(i => !string.IsNullOrWhiteSpace(i.RawData));
+        foreach (var issue in issues)
+        {
+            using var parsed = JsonDocument.Parse(issue.RawData!);
+        }
     }
 
     /// <summary>
@@ -698,3 +709,5 @@ public class ImportServiceTests
         throw new FileNotFoundException($"Could not locate {filename}");
     }
 }
+
+

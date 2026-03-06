@@ -1,97 +1,204 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
 import { sellersApi } from '@/api/sellers.js';
 import { plantsApi } from '@/api/plants.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import type { Customer } from '@/types/customer.js';
 import type { Seller } from '@/types/seller.js';
 import type { Plant } from '@/types/plant.js';
-import type { CreateOrderLineRequest } from '@/types/order.js';
+import type { CreateOrderLineRequest, Order, UpdateOrderRequest } from '@/types/order.js';
 
 interface LineItem {
+  lineId?: string;
   plantCatalogId: string;
   plantName: string;
   qtyOrdered: number;
+  qtyFulfilled: number;
   notes: string;
 }
 
 export function NewOrderPage() {
+  const { id } = useParams<{ id: string }>();
+  const isEditing = Boolean(id);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingOrder, setLoadingOrder] = useState(isEditing);
+  const [originalOrder, setOriginalOrder] = useState<Order | null>(null);
 
-  // Customer
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
 
-  // Seller
   const [sellerSearch, setSellerSearch] = useState('');
   const [sellerResults, setSellerResults] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
 
-  // Lines
   const [lines, setLines] = useState<LineItem[]>([]);
   const [plantSearch, setPlantSearch] = useState('');
   const [plantResults, setPlantResults] = useState<Plant[]>([]);
 
-  // Customer search
   useEffect(() => {
-    if (!customerSearch.trim() || selectedCustomer) { setCustomerResults([]); return; }
+    if (!isEditing || !id) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingOrder(true);
+    setError(null);
+
+    ordersApi
+      .getById(id)
+      .then(async (order) => {
+        const [customer, seller] = await Promise.all([
+          customersApi.getById(order.customerId),
+          order.sellerId ? sellersApi.getById(order.sellerId) : Promise.resolve(null),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setOriginalOrder(order);
+        setSelectedCustomer(customer);
+        setSelectedSeller(seller);
+        setLines(order.lines.map((line) => ({
+          lineId: line.id,
+          plantCatalogId: line.plantCatalogId,
+          plantName: line.plantName,
+          qtyOrdered: line.qtyOrdered,
+          qtyFulfilled: line.qtyFulfilled,
+          notes: line.notes ?? '',
+        })));
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load order');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingOrder(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isEditing]);
+
+  useEffect(() => {
+    if (!customerSearch.trim() || selectedCustomer) {
+      setCustomerResults([]);
+      return;
+    }
+
     const timer = setTimeout(async () => {
       try {
         const r = await customersApi.list({ search: customerSearch, pageSize: 5 });
         setCustomerResults(r.items);
-      } catch { /* ignore */ }
+      } catch {
+        setCustomerResults([]);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [customerSearch, selectedCustomer]);
 
-  // Seller search
   useEffect(() => {
-    if (!sellerSearch.trim() || selectedSeller) { setSellerResults([]); return; }
+    if (!sellerSearch.trim() || selectedSeller) {
+      setSellerResults([]);
+      return;
+    }
+
     const timer = setTimeout(async () => {
       try {
         const r = await sellersApi.list({ search: sellerSearch, pageSize: 5 });
         setSellerResults(r.items);
-      } catch { /* ignore */ }
+      } catch {
+        setSellerResults([]);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [sellerSearch, selectedSeller]);
 
-  // Plant search
   useEffect(() => {
-    if (!plantSearch.trim()) { setPlantResults([]); return; }
+    if (!plantSearch.trim()) {
+      setPlantResults([]);
+      return;
+    }
+
     const timer = setTimeout(async () => {
       try {
         const r = await plantsApi.list({ search: plantSearch, pageSize: 10, activeOnly: true });
         setPlantResults(r.items);
-      } catch { /* ignore */ }
+      } catch {
+        setPlantResults([]);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [plantSearch]);
 
   function addLine(plant: Plant) {
-    const existing = lines.find((l) => l.plantCatalogId === plant.id);
-    if (existing) {
-      setLines(lines.map((l) => l.plantCatalogId === plant.id ? { ...l, qtyOrdered: l.qtyOrdered + 1 } : l));
-    } else {
-      setLines([...lines, { plantCatalogId: plant.id, plantName: plant.name, qtyOrdered: 1, notes: '' }]);
-    }
+    setLines((prev) => {
+      const existing = prev.find((line) => line.plantCatalogId === plant.id);
+      if (existing) {
+        return prev.map((line) => (
+          line.plantCatalogId === plant.id
+            ? { ...line, qtyOrdered: line.qtyOrdered + 1 }
+            : line
+        ));
+      }
+
+      return [
+        ...prev,
+        {
+          plantCatalogId: plant.id,
+          plantName: plant.name,
+          qtyOrdered: 1,
+          qtyFulfilled: 0,
+          notes: '',
+        },
+      ];
+    });
+
     setPlantSearch('');
     setPlantResults([]);
   }
 
   function updateLineQty(idx: number, qty: number) {
-    setLines(lines.map((l, i) => i === idx ? { ...l, qtyOrdered: Math.max(1, qty) } : l));
+    setLines((prev) => prev.map((line, i) => {
+      if (i !== idx) {
+        return line;
+      }
+
+      const minimumQty = Math.max(1, line.qtyFulfilled);
+      return {
+        ...line,
+        qtyOrdered: Math.max(minimumQty, qty),
+      };
+    }));
   }
 
   function removeLine(idx: number) {
-    setLines(lines.filter((_, i) => i !== idx));
+    const line = lines[idx];
+    if (!line) {
+      return;
+    }
+
+    if (line.qtyFulfilled > 0) {
+      setError('Cannot remove a line that has already been fulfilled.');
+      return;
+    }
+
+    setLines((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleCreateCustomer() {
@@ -109,15 +216,74 @@ export function NewOrderPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedCustomer) { setError('Please select a customer'); return; }
-    if (lines.length === 0) { setError('Please add at least one line item'); return; }
+    if (!selectedCustomer) {
+      setError('Please select a customer');
+      return;
+    }
+    if (lines.length === 0) {
+      setError('Please add at least one line item');
+      return;
+    }
+
     setSaving(true);
     setError(null);
+
     try {
-      const orderLines: CreateOrderLineRequest[] = lines.map((l) => ({
-        plantCatalogId: l.plantCatalogId,
-        qtyOrdered: l.qtyOrdered,
-        notes: l.notes || null,
+      if (isEditing && id && originalOrder) {
+        const updateRequest: UpdateOrderRequest = {
+          customerId: selectedCustomer.id,
+          sellerId: selectedSeller?.id ?? null,
+          status: originalOrder.status,
+          isWalkUp: originalOrder.isWalkUp,
+          hasIssue: originalOrder.hasIssue,
+        };
+
+        await ordersApi.update(id, updateRequest);
+
+        const originalLinesById = new Map(originalOrder.lines.map((line) => [line.id, line]));
+        const retainedLineIds = new Set(lines.flatMap((line) => (line.lineId ? [line.lineId] : [])));
+
+        for (const originalLine of originalOrder.lines) {
+          if (!retainedLineIds.has(originalLine.id)) {
+            await ordersApi.deleteLine(id, originalLine.id);
+          }
+        }
+
+        for (const line of lines) {
+          if (!line.lineId) {
+            await ordersApi.addLine(id, {
+              plantCatalogId: line.plantCatalogId,
+              qtyOrdered: line.qtyOrdered,
+              notes: line.notes || null,
+            });
+            continue;
+          }
+
+          const originalLine = originalLinesById.get(line.lineId);
+          if (!originalLine) {
+            continue;
+          }
+
+          const notesChanged = (originalLine.notes ?? '') !== line.notes;
+          const quantityChanged = originalLine.qtyOrdered !== line.qtyOrdered;
+          if (!notesChanged && !quantityChanged) {
+            continue;
+          }
+
+          await ordersApi.updateLine(id, line.lineId, {
+            qtyOrdered: line.qtyOrdered,
+            notes: line.notes || null,
+          });
+        }
+
+        navigate(`/orders/${id}`, { replace: true });
+        return;
+      }
+
+      const orderLines: CreateOrderLineRequest[] = lines.map((line) => ({
+        plantCatalogId: line.plantCatalogId,
+        qtyOrdered: line.qtyOrdered,
+        notes: line.notes || null,
       }));
       const order = await ordersApi.create({
         customerId: selectedCustomer.id,
@@ -126,25 +292,28 @@ export function NewOrderPage() {
       });
       navigate(`/orders/${order.id}`, { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create order');
+      setError(e instanceof Error ? e.message : `Failed to ${isEditing ? 'save' : 'create'} order`);
     } finally {
       setSaving(false);
     }
   }
 
+  if (loadingOrder) {
+    return <LoadingSpinner message="Loading order..." />;
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">New Order</h1>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/orders')}>
-          Back to Orders
+        <h1 className="text-2xl font-bold text-gray-800">{isEditing ? 'Edit Order' : 'New Order'}</h1>
+        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(isEditing && id ? `/orders/${id}` : '/orders')}>
+          {isEditing ? 'Back to Order' : 'Back to Orders'}
         </button>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Customer Selection */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Customer *</h2>
           {selectedCustomer ? (
@@ -168,9 +337,9 @@ export function NewOrderPage() {
               />
               {customerResults.length > 0 && (
                 <div className="border border-gray-200 rounded-md divide-y">
-                  {customerResults.map((c) => (
-                    <button key={c.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setCustomerResults([]); }}>
-                      {c.displayName} {c.pickupCode && <span className="text-gray-400">({c.pickupCode})</span>}
+                  {customerResults.map((customer) => (
+                    <button key={customer.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setSelectedCustomer(customer); setCustomerSearch(''); setCustomerResults([]); }}>
+                      {customer.displayName} {customer.pickupCode && <span className="text-gray-400">({customer.pickupCode})</span>}
                     </button>
                   ))}
                 </div>
@@ -191,7 +360,9 @@ export function NewOrderPage() {
                       autoFocus
                     />
                     <button type="button" className="px-3 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700" onClick={handleCreateCustomer}>Create</button>
-                    <button type="button" className="px-3 py-2 text-sm text-gray-500" onClick={() => { setShowNewCustomer(false); setNewCustomerName(''); }}>Cancel</button>
+                    <button type="button" className="px-3 py-2 text-sm text-gray-500" onClick={() => { setShowNewCustomer(false); setNewCustomerName(''); }}>
+                      Cancel
+                    </button>
                   </>
                 )}
               </div>
@@ -199,7 +370,6 @@ export function NewOrderPage() {
           )}
         </div>
 
-        {/* Seller Selection */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Seller (optional)</h2>
           {selectedSeller ? (
@@ -220,9 +390,9 @@ export function NewOrderPage() {
               />
               {sellerResults.length > 0 && (
                 <div className="border border-gray-200 rounded-md divide-y">
-                  {sellerResults.map((s) => (
-                    <button key={s.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setSelectedSeller(s); setSellerSearch(''); setSellerResults([]); }}>
-                      {s.displayName} {s.grade && <span className="text-gray-400">(Grade {s.grade})</span>}
+                  {sellerResults.map((seller) => (
+                    <button key={seller.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setSelectedSeller(seller); setSellerSearch(''); setSellerResults([]); }}>
+                      {seller.displayName} {seller.grade && <span className="text-gray-400">(Grade {seller.grade})</span>}
                     </button>
                   ))}
                 </div>
@@ -231,7 +401,6 @@ export function NewOrderPage() {
           )}
         </div>
 
-        {/* Line Items */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Line Items *</h2>
 
@@ -245,10 +414,10 @@ export function NewOrderPage() {
             />
             {plantResults.length > 0 && (
               <div className="border border-gray-200 rounded-md divide-y max-h-48 overflow-y-auto">
-                {plantResults.map((p) => (
-                  <button key={p.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => addLine(p)}>
-                    <span>{p.name} {p.variant && <span className="text-gray-400">({p.variant})</span>}</span>
-                    <span className="text-gray-400">{p.sku} {p.price != null && `- $${p.price.toFixed(2)}`}</span>
+                {plantResults.map((plant) => (
+                  <button key={plant.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex justify-between" onClick={() => addLine(plant)}>
+                    <span>{plant.name} {plant.variant && <span className="text-gray-400">({plant.variant})</span>}</span>
+                    <span className="text-gray-400">{plant.sku} {plant.price != null && `- $${plant.price.toFixed(2)}`}</span>
                   </button>
                 ))}
               </div>
@@ -261,34 +430,41 @@ export function NewOrderPage() {
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plant</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Fulfilled</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                  <th className="px-4 py-2"></th>
+                  <th className="px-4 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {lines.map((line, idx) => (
-                  <tr key={line.plantCatalogId}>
+                  <tr key={line.lineId ?? `${line.plantCatalogId}-${idx}`}>
                     <td className="px-4 py-2 text-sm text-gray-900">{line.plantName}</td>
                     <td className="px-4 py-2 text-right">
                       <input
                         type="number"
-                        min="1"
+                        min={Math.max(1, line.qtyFulfilled)}
                         className="w-16 rounded border border-gray-300 px-2 py-1 text-sm text-right"
                         value={line.qtyOrdered}
                         onChange={(e) => updateLineQty(idx, parseInt(e.target.value, 10) || 1)}
                       />
                     </td>
+                    <td className="px-4 py-2 text-sm text-right text-gray-600">{line.qtyFulfilled}</td>
                     <td className="px-4 py-2">
                       <input
                         type="text"
                         className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                         placeholder="Notes"
                         value={line.notes}
-                        onChange={(e) => setLines(lines.map((l, i) => i === idx ? { ...l, notes: e.target.value } : l))}
+                        onChange={(e) => setLines((prev) => prev.map((item, itemIdx) => itemIdx === idx ? { ...item, notes: e.target.value } : item))}
                       />
                     </td>
-                    <td className="px-4 py-2">
-                      <button type="button" className="text-red-500 hover:text-red-700 text-sm" onClick={() => removeLine(idx)}>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 text-sm disabled:opacity-50"
+                        onClick={() => removeLine(idx)}
+                        disabled={line.qtyFulfilled > 0}
+                      >
                         Remove
                       </button>
                     </td>
@@ -307,7 +483,7 @@ export function NewOrderPage() {
             disabled={saving || !selectedCustomer || lines.length === 0}
             className="px-6 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50"
           >
-            {saving ? 'Creating...' : 'Create Order'}
+            {saving ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create Order')}
           </button>
         </div>
       </form>

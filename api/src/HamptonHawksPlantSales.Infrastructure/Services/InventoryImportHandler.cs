@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,7 @@ public class InventoryImportHandler
         {
             var row = rows[i];
             int rowNumber = i + 2;
-            var rawData = string.Join(",", row.Select(kv => $"{kv.Key}={kv.Value}"));
+            var rawData = JsonSerializer.Serialize(row);
 
             var sku = row.GetValueOrDefault("Sku")?.Trim() ?? "";
             var qtyStr = row.GetValueOrDefault("OnHandQty")?.Trim() ?? "";
@@ -103,3 +104,4 @@ public class InventoryImportHandler
         return (imported, skipped, issues);
     }
 }
+

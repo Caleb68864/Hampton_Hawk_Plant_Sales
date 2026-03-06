@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
@@ -108,7 +109,7 @@ public class OrderImportHandler
                             RowNumber = rowNum,
                             IssueType = "MissingCustomerName",
                             Message = "CustomerDisplayName is required when FirstName and LastName are both missing.",
-                            RawData = string.Join(",", firstRow.Select(kv => $"{kv.Key}={kv.Value}"))
+                            RawData = JsonSerializer.Serialize(firstRow)
                         });
                         skipped++;
                     }
@@ -183,7 +184,7 @@ public class OrderImportHandler
             var validLines = new List<(Guid plantId, int qty)>();
             foreach (var (row, rowNumber) in lines)
             {
-                var rawData = string.Join(",", row.Select(kv => $"{kv.Key}={kv.Value}"));
+                var rawData = JsonSerializer.Serialize(row);
                 var sku = row.GetValueOrDefault("Sku")?.Trim() ?? "";
                 var qtyStr = row.GetValueOrDefault("QtyOrdered")?.Trim() ?? "1";
 
@@ -284,3 +285,4 @@ public class OrderImportHandler
         return candidate;
     }
 }
+

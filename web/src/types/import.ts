@@ -7,20 +7,17 @@ export interface ImportBatch {
   totalRows: number;
   importedCount: number;
   skippedCount: number;
-  issues: ImportIssue[];
   createdAt: string;
 }
 
 export interface ImportIssue {
   id: string;
-  importBatchId: string;
   rowNumber: number;
   issueType: string;
   barcode: string | null;
   sku: string | null;
   message: string;
-  rawData: Record<string, unknown>;
-  createdAt: string;
+  rawData?: string | null;
 }
 
 export interface ImportResult {
@@ -28,5 +25,6 @@ export interface ImportResult {
   totalRows: number;
   importedCount: number;
   skippedCount: number;
-  issues: ImportIssue[];
+  issueCount: number;
+  dryRun: boolean;
 }

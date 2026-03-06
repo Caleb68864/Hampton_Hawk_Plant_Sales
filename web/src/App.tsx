@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AudioFeedbackProvider } from '@/components/shared/AudioFeedback.js';
 import { AppLayout } from '@/layouts/AppLayout.js';
 import { DocsPage } from '@/pages/DocsPage.js';
+import { NotFoundPage } from '@/pages/NotFoundPage.js';
 import { PrintOrderPage } from '@/pages/print/PrintOrderPage.js';
 import { PrintOrdersBatchPage } from '@/pages/print/PrintOrdersBatchPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
@@ -36,7 +37,6 @@ function App() {
     <AudioFeedbackProvider>
       <BrowserRouter>
         <Routes>
-          {/* Main app routes wrapped in layout */}
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -49,6 +49,7 @@ function App() {
             <Route path="sellers/:id" element={<SellerDetailPage />} />
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/new" element={<NewOrderPage />} />
+            <Route path="orders/:id/edit" element={<NewOrderPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="station" element={<StationHomePage />} />
             <Route path="pickup" element={<PickupLookupPage />} />
@@ -60,7 +61,6 @@ function App() {
             <Route path="docs" element={<DocsPage />} />
           </Route>
 
-          {/* Print routes -- no layout wrapper */}
           <Route path="print/order/:orderId" element={<PrintOrderPage />} />
           <Route path="print/orders" element={<PrintOrdersBatchPage />} />
           <Route path="print/seller/:sellerId" element={<PrintSellerPacketPage />} />
@@ -70,6 +70,7 @@ function App() {
           <Route path="print/cheatsheet/end-of-day" element={<PrintCheatsheetEndOfDay />} />
           <Route path="print/cheatsheet/thermal-labels" element={<PrintCheatsheetThermal />} />
           <Route path="print/labels" element={<PrintPlantLabelsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </AudioFeedbackProvider>

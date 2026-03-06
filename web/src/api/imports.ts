@@ -1,9 +1,13 @@
 import { get, postForm } from './client.js';
-import type { ImportBatch, ImportResult } from '@/types/import.js';
-import type { PagedResult } from '@/types/api.js';
+import type { ImportBatch, ImportIssue, ImportResult } from '@/types/import.js';
+import type { PagedResult, PaginationParams } from '@/types/api.js';
 
 export const importsApi = {
-  list: () => get<PagedResult<ImportBatch>>('/import'),
+  list: (params?: PaginationParams) =>
+    get<PagedResult<ImportBatch>>('/import/batches', params as Record<string, unknown>),
+
+  getIssues: (batchId: string, params?: PaginationParams & { search?: string }) =>
+    get<PagedResult<ImportIssue>>(`/import/batches/${batchId}/issues`, params as Record<string, unknown>),
 
   importPlants: (file: File) => {
     const fd = new FormData();

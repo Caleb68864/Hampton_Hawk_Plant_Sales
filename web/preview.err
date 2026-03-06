@@ -1,0 +1,129 @@
+[2m9:39:02 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:02 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:02 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:02 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:16 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:16 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:16 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:39:16 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:40:54 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:40:54 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:40:54 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:40:54 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:26 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:26 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:26 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:26 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:27 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:27 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:27 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:27 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/dashboard-metrics[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/low-inventory[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reports/problem-orders[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2m9:41:28 AM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/settings[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+^C^C

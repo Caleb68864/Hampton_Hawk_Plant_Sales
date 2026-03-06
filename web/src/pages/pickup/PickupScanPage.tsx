@@ -196,7 +196,7 @@ export function PickupScanPage() {
       const auth = await openPinModal();
       if (auth) {
         try {
-          await ordersApi.complete(orderId, auth.pin, auth.reason);
+          await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
           await refreshOrder();
         } catch {
           // error shown via networkError
@@ -474,3 +474,4 @@ export function PickupScanPage() {
     </div>
   );
 }
+

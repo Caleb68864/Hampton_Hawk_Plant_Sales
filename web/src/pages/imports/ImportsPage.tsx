@@ -5,7 +5,7 @@ import { ImportResultsSummary } from '@/components/imports/ImportResultsSummary.
 import { ImportIssuesTable } from '@/components/imports/ImportIssuesTable.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
-import type { ImportResult, ImportBatch } from '@/types/import.js';
+import type { ImportBatch, ImportIssue, ImportResult } from '@/types/import.js';
 
 type Tab = 'import' | 'history';
 
@@ -69,20 +69,37 @@ async function extractCsvColumnValues(file: File, columnName: string) {
 
 function ImportSection({ title, hint, type, accept, allowedExtensions, promptText, onUpload, templateLinks }: ImportSectionProps) {
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [issues, setIssues] = useState<ImportIssue[]>([]);
+  const [loadingIssues, setLoadingIssues] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skuPreview, setSkuPreview] = useState<string[]>([]);
 
   async function handleUpload(file: File) {
     setError(null);
     setResult(null);
+    setIssues([]);
     setSkuPreview([]);
+
     try {
       if (type === 'plants') {
         const skuValues = await extractCsvColumnValues(file, 'sku');
         setSkuPreview(skuValues);
       }
-      const r = await onUpload(file);
-      setResult(r);
+
+      const uploadResult = await onUpload(file);
+      setResult(uploadResult);
+
+      if (uploadResult.skippedCount > 0 && uploadResult.batchId) {
+        setLoadingIssues(true);
+        try {
+          const issueResult = await importsApi.getIssues(uploadResult.batchId, { page: 1, pageSize: 200 });
+          setIssues(issueResult.items);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Import completed, but issue details could not be loaded.');
+        } finally {
+          setLoadingIssues(false);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
     }
@@ -114,9 +131,8 @@ function ImportSection({ title, hint, type, accept, allowedExtensions, promptTex
             importedCount={result.importedCount}
             skippedCount={result.skippedCount}
           />
-          {result.skippedCount > 0 && result.issues.length > 0 && (
-            <ImportIssuesTable issues={result.issues} />
-          )}
+          {loadingIssues && <LoadingSpinner message="Loading import issues..." />}
+          {!loadingIssues && issues.length > 0 && <ImportIssuesTable issues={issues} />}
           {type === 'plants' && result.importedCount > 0 && skuPreview.length > 0 && (
             <div className="rounded-md border border-blue-200 bg-blue-50 p-3 flex items-center justify-between gap-3">
               <div>
@@ -145,16 +161,25 @@ export function ImportsPage() {
   const [tab, setTab] = useState<Tab>('import');
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<ImportBatch | null>(null);
+  const [selectedBatchIssues, setSelectedBatchIssues] = useState<ImportIssue[]>([]);
+  const [loadingBatchIssues, setLoadingBatchIssues] = useState(false);
 
   useEffect(() => {
-    if (tab === 'history') {
-      setLoadingHistory(true);
-      importsApi.list()
-        .then((r) => setBatches(r.items))
-        .catch(() => {})
-        .finally(() => setLoadingHistory(false));
+    if (tab !== 'history') {
+      return;
     }
+
+    setLoadingHistory(true);
+    setHistoryError(null);
+    setSelectedBatch(null);
+    setSelectedBatchIssues([]);
+
+    importsApi.list({ page: 1, pageSize: 100 })
+      .then((response) => setBatches(response.items))
+      .catch((e) => setHistoryError(e instanceof Error ? e.message : 'Failed to load import history'))
+      .finally(() => setLoadingHistory(false));
   }, [tab]);
 
   async function importOrdersWithDuplicateConfirmation(file: File) {
@@ -178,6 +203,22 @@ export function ImportsPage() {
       }
 
       return importsApi.importOrders(file, true);
+    }
+  }
+
+  async function openBatchIssues(batch: ImportBatch) {
+    setSelectedBatch(batch);
+    setSelectedBatchIssues([]);
+    setLoadingBatchIssues(true);
+    setHistoryError(null);
+
+    try {
+      const response = await importsApi.getIssues(batch.id, { page: 1, pageSize: 200 });
+      setSelectedBatchIssues(response.items);
+    } catch (e) {
+      setHistoryError(e instanceof Error ? e.message : 'Failed to load import issues');
+    } finally {
+      setLoadingBatchIssues(false);
     }
   }
 
@@ -209,6 +250,8 @@ export function ImportsPage() {
           Import History
         </button>
       </div>
+
+      {historyError && <ErrorBanner message={historyError} onDismiss={() => setHistoryError(null)} />}
 
       {tab === 'import' && (
         <div className="space-y-6">
@@ -246,7 +289,7 @@ export function ImportsPage() {
         <div className="space-y-4">
           {loadingHistory && <LoadingSpinner message="Loading import history..." />}
 
-          {!loadingHistory && batches.length === 0 && (
+          {!loadingHistory && batches.length === 0 && !selectedBatch && (
             <p className="text-sm text-gray-500 text-center py-8">No import history found.</p>
           )}
 
@@ -261,30 +304,30 @@ export function ImportsPage() {
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Imported</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Skipped</th>
-                    <th className="px-4 py-2"></th>
+                    <th className="px-4 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {batches.map((b) => (
-                    <tr key={b.id}>
-                      <td className="px-4 py-2 text-sm text-gray-600">{new Date(b.createdAt).toLocaleString()}</td>
+                  {batches.map((batch) => (
+                    <tr key={batch.id}>
+                      <td className="px-4 py-2 text-sm text-gray-600">{new Date(batch.createdAt).toLocaleString()}</td>
                       <td className="px-4 py-2 text-sm">
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          {b.type}
+                          {batch.type}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-900 font-mono">{b.filename}</td>
-                      <td className="px-4 py-2 text-sm text-gray-600 text-right">{b.totalRows}</td>
-                      <td className="px-4 py-2 text-sm text-green-600 text-right">{b.importedCount}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 font-mono">{batch.filename}</td>
+                      <td className="px-4 py-2 text-sm text-gray-600 text-right">{batch.totalRows}</td>
+                      <td className="px-4 py-2 text-sm text-green-600 text-right">{batch.importedCount}</td>
                       <td className="px-4 py-2 text-sm text-right">
-                        <span className={b.skippedCount > 0 ? 'text-amber-600' : 'text-gray-600'}>{b.skippedCount}</span>
+                        <span className={batch.skippedCount > 0 ? 'text-amber-600' : 'text-gray-600'}>{batch.skippedCount}</span>
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        {b.skippedCount > 0 && (
+                        {batch.skippedCount > 0 && (
                           <button
                             type="button"
                             className="text-blue-600 hover:text-blue-700 text-sm"
-                            onClick={() => setSelectedBatch(b)}
+                            onClick={() => openBatchIssues(batch)}
                           >
                             View Issues
                           </button>
@@ -303,7 +346,10 @@ export function ImportsPage() {
                 <button
                   type="button"
                   className="text-sm text-gray-500 hover:text-gray-700"
-                  onClick={() => setSelectedBatch(null)}
+                  onClick={() => {
+                    setSelectedBatch(null);
+                    setSelectedBatchIssues([]);
+                  }}
                 >
                   Back to History
                 </button>
@@ -317,8 +363,12 @@ export function ImportsPage() {
                 importedCount={selectedBatch.importedCount}
                 skippedCount={selectedBatch.skippedCount}
               />
-              {selectedBatch.issues.length > 0 && (
-                <ImportIssuesTable issues={selectedBatch.issues} />
+              {loadingBatchIssues && <LoadingSpinner message="Loading import issues..." />}
+              {!loadingBatchIssues && selectedBatchIssues.length > 0 && (
+                <ImportIssuesTable issues={selectedBatchIssues} />
+              )}
+              {!loadingBatchIssues && selectedBatch.skippedCount > 0 && selectedBatchIssues.length === 0 && (
+                <p className="text-sm text-gray-500">No issues were returned for this batch.</p>
               )}
             </div>
           )}

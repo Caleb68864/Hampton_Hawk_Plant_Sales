@@ -35,6 +35,14 @@ export interface CreateOrderRequest {
   lines: CreateOrderLineRequest[];
 }
 
+export interface UpdateOrderRequest {
+  customerId: string;
+  sellerId: string | null;
+  status: OrderStatus;
+  isWalkUp: boolean;
+  hasIssue: boolean;
+}
+
 export interface CreateOrderLineRequest {
   plantCatalogId: string;
   qtyOrdered: number;

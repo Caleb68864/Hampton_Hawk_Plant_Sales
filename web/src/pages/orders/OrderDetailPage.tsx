@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
+import { fulfillmentApi } from '@/api/fulfillment.js';
 import { OrderLinesTable } from '@/components/OrderLinesTable.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
@@ -8,6 +9,8 @@ import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { useAdminAuth } from '@/hooks/useAdminAuth.js';
 import type { Order } from '@/types/order.js';
+
+const ADMIN_OPERATOR = 'Order Detail Admin';
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +38,8 @@ export function OrderDetailPage() {
     setActionLoading(true);
     setError(null);
     try {
-      const updated = await ordersApi.complete(id!, auth.pin, auth.reason);
+      await fulfillmentApi.forceComplete(id!, auth.pin, auth.reason, ADMIN_OPERATOR);
+      const updated = await ordersApi.getById(id!);
       setOrder(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to complete order');
@@ -50,7 +54,8 @@ export function OrderDetailPage() {
     setActionLoading(true);
     setError(null);
     try {
-      const updated = await ordersApi.reset(id!, auth.pin, auth.reason);
+      await fulfillmentApi.reset(id!, auth.pin, auth.reason, ADMIN_OPERATOR);
+      const updated = await ordersApi.getById(id!);
       setOrder(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to reset order');
@@ -92,7 +97,6 @@ export function OrderDetailPage() {
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      {/* Order Header */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
@@ -121,7 +125,6 @@ export function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Overall fulfillment progress */}
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-medium text-gray-700">Fulfillment Progress</p>
@@ -136,7 +139,6 @@ export function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Order Lines */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b bg-gray-50">
           <h2 className="text-lg font-semibold text-gray-800">Line Items ({order.lines.length})</h2>
@@ -144,7 +146,6 @@ export function OrderDetailPage() {
         <OrderLinesTable lines={order.lines} showFulfillment />
       </div>
 
-      {/* Actions */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Actions</h2>
         <div className="flex flex-wrap gap-3">
@@ -182,7 +183,6 @@ export function OrderDetailPage() {
           </button>
         </div>
 
-        {/* Admin Actions */}
         <div className="mt-4 pt-4 border-t">
           <p className="text-xs font-medium text-gray-500 uppercase mb-2">Admin Actions</p>
           <div className="flex flex-wrap gap-3">
