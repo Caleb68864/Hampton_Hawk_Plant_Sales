@@ -40,13 +40,13 @@ echo.
 echo   Local:
 echo     Web:      http://localhost:3000
 echo     Swagger:  http://localhost:8080/swagger
-if defined HOST_IP (
-    echo.
-    echo   LAN (other devices on your network):
-    echo     Web:      http://!HOST_IP!:3000
-    echo     Swagger:  http://!HOST_IP!:8080/swagger
-)
 echo.
+if not defined HOST_IP goto :skip_lan
+echo   LAN (other devices on your network^):
+echo     Web:      http://!HOST_IP!:3000
+echo     Swagger:  http://!HOST_IP!:8080/swagger
+echo.
+:skip_lan
 echo ============================================
 echo.
 
