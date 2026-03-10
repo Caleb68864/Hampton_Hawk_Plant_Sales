@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Change to the directory where this script lives
+cd /d "%~dp0"
+
 :: Check for admin rights (needed for firewall rules)
 net session >nul 2>&1
 if %errorlevel% neq 0 (
@@ -24,12 +27,13 @@ echo [OK] Firewall rules added for ports 3000 and 8080.
 echo.
 
 :start_docker
-:: --- Get host IP ---
+:: --- Get host IP (skip link-local 169.254.x.x and loopback) ---
 set "HOST_IP="
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address" ^| findstr /v "WSL vEthernet"') do (
     if not defined HOST_IP (
         set "RAW=%%a"
-        for /f "tokens=*" %%b in ("!RAW!") do set "HOST_IP=%%b"
+        for /f "tokens=*" %%b in ("!RAW!") do set "CANDIDATE=%%b"
+        echo !CANDIDATE! | findstr /b "169.254. 127." >nul || set "HOST_IP=!CANDIDATE!"
     )
 )
 
