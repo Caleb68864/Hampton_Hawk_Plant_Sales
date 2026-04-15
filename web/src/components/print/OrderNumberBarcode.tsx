@@ -3,9 +3,10 @@ import JsBarcode from 'jsbarcode';
 
 interface OrderNumberBarcodeProps {
   value: string;
+  variant?: 'card' | 'bare';
 }
 
-export function OrderNumberBarcode({ value }: OrderNumberBarcodeProps) {
+export function OrderNumberBarcode({ value, variant = 'card' }: OrderNumberBarcodeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [renderError, setRenderError] = useState(false);
 
@@ -17,8 +18,8 @@ export function OrderNumberBarcode({ value }: OrderNumberBarcodeProps) {
     try {
       JsBarcode(svgRef.current, value, {
         format: 'CODE128',
-        width: 1.8,
-        height: 48,
+        width: variant === 'bare' ? 1.8 : 1.8,
+        height: variant === 'bare' ? 48 : 48,
         displayValue: false,
         margin: 0,
         background: '#ffffff',
@@ -28,7 +29,20 @@ export function OrderNumberBarcode({ value }: OrderNumberBarcodeProps) {
     } catch {
       setRenderError(true);
     }
-  }, [value]);
+  }, [value, variant]);
+
+  if (variant === 'bare') {
+    return (
+      <div className="order-barcode-bare" aria-label={`Order barcode ${value}`}>
+        {renderError ? (
+          <div className="text-[10px] text-red-600">Barcode render error for {value}</div>
+        ) : (
+          <svg ref={svgRef} className="order-barcode-bare-svg" role="img" aria-label={`Order barcode ${value}`} preserveAspectRatio="none" />
+        )}
+        <p className="order-barcode-bare-caption">{value}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto mt-3 w-full max-w-[320px] rounded-lg border border-gray-300 bg-white px-4 py-3 text-center print:mt-2 print:max-w-[280px] print:px-3 print:py-2">

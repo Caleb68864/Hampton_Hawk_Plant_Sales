@@ -176,6 +176,13 @@ export function OrderDetailPage() {
           </button>
           <button
             type="button"
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700"
+            onClick={() => window.open(`/print/order-barcodes/${order.id}?count=10`, '_blank')}
+          >
+            Print Barcode Stickers (Roll)
+          </button>
+          <button
+            type="button"
             className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700"
             onClick={() => navigate(`/orders/${order.id}/edit`)}
           >

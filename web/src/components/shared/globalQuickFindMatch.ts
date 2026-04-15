@@ -26,11 +26,16 @@ export type BestMatchDecision =
   | { type: 'none' };
 
 export function normalizeScanInput(value: string) {
-  return value
+  const base = value
     .replace(/[\r\n\t]/g, '')
     .trim()
     .replace(/^\*+|\*+$/g, '')
     .replace(/#+$/g, '');
+  if (/^0+\d/.test(base)) {
+    const stripped = base.replace(/^0+/, '');
+    return stripped.length > 0 ? stripped : '0';
+  }
+  return base;
 }
 
 export function normalizeKey(value: string) {

@@ -14,5 +14,6 @@ public class ImportBatchConfiguration : IEntityTypeConfiguration<ImportBatch>
         builder.Property(e => e.Type)
             .HasConversion<string>()
             .HasColumnType("text");
+        builder.Property(e => e.SourceFormat).HasMaxLength(64);
     }
 }

@@ -2,16 +2,13 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
-using ClosedXML.Excel;
-using CsvHelper;
-using CsvHelper.Configuration;
-using ValidationException = FluentValidation.ValidationException;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
+using HamptonHawksPlantSales.Infrastructure.Services.ImportAdapters;
+using HamptonHawksPlantSales.Infrastructure.Services.ImportReading;
 using Microsoft.EntityFrameworkCore;
 
 namespace HamptonHawksPlantSales.Infrastructure.Services;
@@ -19,24 +16,99 @@ namespace HamptonHawksPlantSales.Infrastructure.Services;
 public class ImportService : IImportService
 {
     private readonly AppDbContext _db;
+    private readonly FormatAdapterRegistry _registry;
+    private readonly ExcelRowReader _excelReader;
+    private readonly CsvRowReader _csvReader;
 
-    public ImportService(AppDbContext db)
+    public ImportService(
+        AppDbContext db,
+        FormatAdapterRegistry registry,
+        ExcelRowReader excelReader,
+        CsvRowReader csvReader)
     {
         _db = db;
+        _registry = registry;
+        _excelReader = excelReader;
+        _csvReader = csvReader;
+    }
+
+    /// <summary>
+    /// Test/convenience constructor that wires default readers and the default adapter registry.
+    /// </summary>
+    public ImportService(AppDbContext db)
+        : this(db, FormatAdapterRegistry.CreateDefault(), new ExcelRowReader(), new CsvRowReader())
+    {
     }
 
     public async Task<ImportResultResponse> ImportAsync(ImportType type, string filename, Stream fileStream, ImportOptions? options = null)
     {
         options ??= new ImportOptions();
-        var rows = ReadRows(type, filename, fileStream);
+
+        var ext = Path.GetExtension(filename).ToLowerInvariant();
+
+        IReadOnlyList<string> headers;
+        List<Dictionary<string, string>> rawRows;
+        IImportFormatAdapter? adapter = null;
+        string? sourceFormat = null;
+        bool isPdf = false;
+
+        switch (ext)
+        {
+            case ".csv":
+                (headers, rawRows) = _csvReader.Read(fileStream);
+                break;
+            case ".xlsx":
+                (headers, rawRows) = _excelReader.Read(fileStream);
+                break;
+            case ".pdf" when type == ImportType.Orders:
+                headers = Array.Empty<string>();
+                rawRows = ReadOrdersPdf(fileStream);
+                sourceFormat = "OrdersPdf";
+                isPdf = true;
+                break;
+            case ".pdf":
+                throw new ArgumentException("PDF import is supported for orders only.");
+            default:
+                throw new ArgumentException($"Unsupported file type '{ext}'. Supported: .csv, .xlsx{(type == ImportType.Orders ? ", .pdf" : "")}");
+        }
+
+        // Resolve adapter for non-PDF uploads.
+        List<Dictionary<string, string>> canonicalRows;
+        ImportIssue? unknownFormatIssue = null;
+
+        if (isPdf)
+        {
+            canonicalRows = rawRows;
+        }
+        else
+        {
+            adapter = _registry.Resolve(type, headers);
+            if (adapter == null)
+            {
+                canonicalRows = new List<Dictionary<string, string>>();
+                var detected = string.Join(", ", headers);
+                unknownFormatIssue = new ImportIssue
+                {
+                    RowNumber = 0,
+                    IssueType = "UnknownFormat",
+                    Message = $"No adapter matched. Detected headers: [{detected}]"
+                };
+            }
+            else
+            {
+                sourceFormat = adapter.Name;
+                canonicalRows = rawRows.Select(adapter.Map).ToList();
+            }
+        }
 
         var batch = new ImportBatch
         {
             Type = type,
             Filename = filename,
-            TotalRows = rows.Count,
+            TotalRows = rawRows.Count,
             ImportedCount = 0,
-            SkippedCount = 0
+            SkippedCount = 0,
+            SourceFormat = sourceFormat
         };
         if (!options.DryRun)
         {
@@ -44,31 +116,39 @@ public class ImportService : IImportService
             await _db.SaveChangesAsync();
         }
 
-        int imported;
-        int skippedCount;
-        List<ImportIssue> issues;
+        int imported = 0;
+        int skippedCount = 0;
+        List<ImportIssue> issues = new();
 
-        switch (type)
+        if (unknownFormatIssue != null)
         {
-            case ImportType.Plants:
-                var plantHandler = new PlantImportHandler(_db);
-                (imported, skippedCount, issues) = await plantHandler.HandleAsync(batch.Id, rows, options.UpsertPlantsBySku);
-                break;
-            case ImportType.Inventory:
-                var invHandler = new InventoryImportHandler(_db);
-                (imported, skippedCount, issues) = await invHandler.HandleAsync(batch.Id, rows);
-                break;
-            case ImportType.Orders:
-                var orderHandler = new OrderImportHandler(_db);
-                (imported, skippedCount, issues) = await orderHandler.HandleAsync(batch.Id, rows, options.ResolveDuplicateOrderNumbers);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(type));
+            unknownFormatIssue.ImportBatchId = batch.Id;
+            issues.Add(unknownFormatIssue);
+            skippedCount = rawRows.Count;
+        }
+        else
+        {
+            switch (type)
+            {
+                case ImportType.Plants:
+                    var plantHandler = new PlantImportHandler(_db);
+                    (imported, skippedCount, issues) = await plantHandler.HandleAsync(batch.Id, canonicalRows, options.UpsertPlantsBySku);
+                    break;
+                case ImportType.Inventory:
+                    var invHandler = new InventoryImportHandler(_db);
+                    (imported, skippedCount, issues) = await invHandler.HandleAsync(batch.Id, canonicalRows);
+                    break;
+                case ImportType.Orders:
+                    var orderHandler = new OrderImportHandler(_db);
+                    (imported, skippedCount, issues) = await orderHandler.HandleAsync(batch.Id, canonicalRows, options.ResolveDuplicateOrderNumbers);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
+            }
         }
 
         if (!options.DryRun)
         {
-            // Save issues
             if (issues.Count > 0)
             {
                 _db.ImportIssues.AddRange(issues);
@@ -90,7 +170,8 @@ public class ImportService : IImportService
             ImportedCount = imported,
             SkippedCount = skippedCount,
             IssueCount = issues.Count,
-            DryRun = options.DryRun
+            DryRun = options.DryRun,
+            SourceFormat = sourceFormat
         };
     }
 
@@ -113,7 +194,8 @@ public class ImportService : IImportService
                 TotalRows = b.TotalRows,
                 ImportedCount = b.ImportedCount,
                 SkippedCount = b.SkippedCount,
-                CreatedAt = b.CreatedAt
+                CreatedAt = b.CreatedAt,
+                SourceFormat = b.SourceFormat
             })
             .ToListAsync();
 
@@ -168,18 +250,7 @@ public class ImportService : IImportService
         };
     }
 
-    private static List<Dictionary<string, string>> ReadRows(ImportType type, string filename, Stream fileStream)
-    {
-        var ext = Path.GetExtension(filename).ToLowerInvariant();
-        return ext switch
-        {
-            ".csv" => ReadCsv(fileStream),
-            ".xlsx" => ReadXlsx(fileStream),
-            ".pdf" when type == ImportType.Orders => ReadOrdersPdf(fileStream),
-            ".pdf" => throw new ArgumentException("PDF import is supported for orders only."),
-            _ => throw new ArgumentException($"Unsupported file type '{ext}'. Supported: .csv, .xlsx{(type == ImportType.Orders ? ", .pdf" : "")}")
-        };
-    }
+    // ── PDF order import (unchanged behavior) ──
 
     private static List<Dictionary<string, string>> ReadOrdersPdf(Stream stream)
     {
@@ -220,23 +291,13 @@ public class ImportService : IImportService
         {
             var start = match.Index + match.Length;
             var end = content.IndexOf("endstream", start, StringComparison.Ordinal);
-            if (end < 0)
-            {
-                continue;
-            }
-
+            if (end < 0) continue;
             var raw = new byte[end - start];
             Array.Copy(pdfBytes, start, raw, 0, raw.Length);
-
             var decoded = TryInflate(raw);
-            if (decoded == null)
-            {
-                continue;
-            }
-
+            if (decoded == null) continue;
             text.AppendLine(decoded);
         }
-
         return text.ToString();
     }
 
@@ -261,7 +322,6 @@ public class ImportService : IImportService
         var tokens = new List<PdfToken>();
         double x = 0;
         double y = 0;
-
         var tmRegex = new Regex(@"1\s+0\s+0\s+1\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+Tm", RegexOptions.Compiled);
         var tjRegex = new Regex(@"\((?<text>(?:\\.|[^\\)])*)\)Tj", RegexOptions.Compiled);
 
@@ -276,17 +336,9 @@ public class ImportService : IImportService
             }
 
             var tj = tjRegex.Match(line);
-            if (!tj.Success)
-            {
-                continue;
-            }
-
+            if (!tj.Success) continue;
             var text = UnescapePdfString(tj.Groups["text"].Value).Trim();
-            if (text.Length == 0)
-            {
-                continue;
-            }
-
+            if (text.Length == 0) continue;
             tokens.Add(new PdfToken(x, y, text));
         }
 
@@ -295,31 +347,20 @@ public class ImportService : IImportService
 
     private static string UnescapePdfString(string value)
     {
-        return value
-            .Replace("\\(", "(")
-            .Replace("\\)", ")")
-            .Replace("\\\\", "\\");
+        return value.Replace("\\(", "(").Replace("\\)", ")").Replace("\\\\", "\\");
     }
 
     private static string FindValueAfterLabel(List<PdfToken> tokens, string label)
     {
         var index = tokens.FindIndex(t => t.Text.Equals(label, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-        {
-            return string.Empty;
-        }
+        if (index < 0) return string.Empty;
 
         for (var i = index + 1; i < tokens.Count; i++)
         {
             var candidate = tokens[i].Text.Trim();
-            if (candidate.Length == 0 || candidate.EndsWith(':'))
-            {
-                continue;
-            }
-
+            if (candidate.Length == 0 || candidate.EndsWith(':')) continue;
             return candidate;
         }
-
         return string.Empty;
     }
 
@@ -332,16 +373,10 @@ public class ImportService : IImportService
     private static string BuildOrderNumber(string customer, string orderDate, string request)
     {
         var tidMatch = Regex.Match(request, @"TID:\s*([A-Za-z0-9\-_]+)");
-        if (tidMatch.Success)
-        {
-            return $"PDF-{tidMatch.Groups[1].Value}";
-        }
+        if (tidMatch.Success) return $"PDF-{tidMatch.Groups[1].Value}";
 
         var customerPart = Regex.Replace(customer, @"[^A-Za-z0-9]+", string.Empty);
-        if (customerPart.Length > 12)
-        {
-            customerPart = customerPart[..12];
-        }
+        if (customerPart.Length > 12) customerPart = customerPart[..12];
 
         var datePart = DateTime.TryParse(orderDate, out var parsed)
             ? parsed.ToString("yyyyMMdd", CultureInfo.InvariantCulture)
@@ -363,25 +398,15 @@ public class ImportService : IImportService
             var cols = row.OrderBy(t => t.X).ToList();
             var hasHeader = cols.Any(c => c.Text.Equals("Num", StringComparison.OrdinalIgnoreCase)) &&
                             cols.Any(c => c.Text.Equals("Quantity", StringComparison.OrdinalIgnoreCase));
-            if (hasHeader)
-            {
-                continue;
-            }
+            if (hasHeader) continue;
 
             var sku = cols.Where(c => c.X < 130).Select(c => c.Text).FirstOrDefault(t => Regex.IsMatch(t, @"^\d+$")) ?? string.Empty;
             var name = cols.FirstOrDefault(c => c.X >= 130 && c.X < 350)?.Text ?? string.Empty;
             var qtyText = cols.FirstOrDefault(c => c.X >= 350 && c.X < 450)?.Text ?? string.Empty;
 
-            if (string.IsNullOrWhiteSpace(sku) || !int.TryParse(qtyText, out var qty))
-            {
-                continue;
-            }
-
+            if (string.IsNullOrWhiteSpace(sku) || !int.TryParse(qtyText, out var qty)) continue;
             if (name.Contains("Handling Fee", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("Total", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+                name.Contains("Total", StringComparison.OrdinalIgnoreCase)) continue;
 
             rows.Add((sku, qty));
         }
@@ -390,250 +415,4 @@ public class ImportService : IImportService
     }
 
     private sealed record PdfToken(double X, double Y, string Text);
-
-    private static List<Dictionary<string, string>> ReadCsv(Stream stream)
-    {
-        var rows = new List<Dictionary<string, string>>();
-        using var reader = new StreamReader(stream);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            HeaderValidated = null,
-            MissingFieldFound = null,
-            TrimOptions = TrimOptions.Trim
-        });
-
-        csv.Read();
-        csv.ReadHeader();
-        var headers = csv.HeaderRecord ?? Array.Empty<string>();
-
-        while (csv.Read())
-        {
-            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var header in headers)
-            {
-                dict[header] = csv.GetField(header) ?? "";
-            }
-            rows.Add(dict);
-        }
-
-        return rows;
-    }
-
-    private static List<Dictionary<string, string>> ReadXlsx(Stream stream)
-    {
-        var rows = new List<Dictionary<string, string>>();
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
-        buffer.Position = 0;
-
-        try
-        {
-            using var workbook = new XLWorkbook(buffer);
-            if (workbook.Worksheets.Count == 0)
-            {
-                throw new ValidationException("The uploaded Excel file does not contain any worksheets. Add a worksheet with a header row and try again.");
-            }
-
-            var worksheet = workbook.Worksheets.First();
-
-            var headerRow = worksheet.Row(1);
-            var lastCol = worksheet.LastColumnUsed()?.ColumnNumber() ?? 0;
-            if (lastCol == 0)
-            {
-                throw new ValidationException("The first worksheet is missing a header row. Add column headers in row 1 and try again.");
-            }
-
-            var headers = new List<string>();
-            var seenHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (int col = 1; col <= lastCol; col++)
-            {
-                var headerName = headerRow.Cell(col).GetString().Trim();
-                if (string.IsNullOrWhiteSpace(headerName))
-                {
-                    throw new ValidationException($"Header row contains a blank column name at column {col}. Provide a name for each header column and retry the import.");
-                }
-
-                if (!seenHeaders.Add(headerName))
-                {
-                    throw new ValidationException($"Header row contains duplicate column name '{headerName}'. Rename duplicate headers so each column name is unique.");
-                }
-
-                headers.Add(headerName);
-            }
-
-            var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 0;
-            for (int rowNum = 2; rowNum <= lastRow; rowNum++)
-            {
-                var row = worksheet.Row(rowNum);
-                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                bool hasData = false;
-                for (int col = 0; col < headers.Count; col++)
-                {
-                    var val = row.Cell(col + 1).GetString().Trim();
-                    dict[headers[col]] = val;
-                    if (!string.IsNullOrWhiteSpace(val))
-                        hasData = true;
-                }
-                if (hasData)
-                    rows.Add(dict);
-            }
-
-            return rows;
-        }
-        catch (ValidationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            if (TryGetWorksheetHeaderError(buffer, out var headerError))
-            {
-                throw new ValidationException(headerError);
-            }
-
-            throw new ValidationException($"The uploaded Excel file is malformed or unreadable. Please re-save the file as a valid .xlsx workbook and try again. Details: {ex.Message}");
-        }
-    }
-
-    private static bool TryGetWorksheetHeaderError(MemoryStream workbookStream, out string errorMessage)
-    {
-        errorMessage = string.Empty;
-
-        try
-        {
-            workbookStream.Position = 0;
-            using var archive = new ZipArchive(workbookStream, ZipArchiveMode.Read, leaveOpen: true);
-
-            var worksheetEntry = archive.Entries
-                .Where(entry => entry.FullName.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase) &&
-                                entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-
-            if (worksheetEntry == null)
-            {
-                return false;
-            }
-
-            var sharedStrings = ReadSharedStrings(archive);
-
-            using var worksheetEntryStream = worksheetEntry.Open();
-            var sheetDocument = XDocument.Load(worksheetEntryStream);
-            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-            var allCells = sheetDocument.Descendants(ns + "c").ToList();
-            var lastCol = allCells
-                .Select(cell => GetColumnIndex((string?)cell.Attribute("r")))
-                .DefaultIfEmpty(0)
-                .Max();
-
-            if (lastCol == 0)
-            {
-                return false;
-            }
-
-            var headerRow = sheetDocument
-                .Descendants(ns + "row")
-                .FirstOrDefault(row => string.Equals((string?)row.Attribute("r"), "1", StringComparison.Ordinal));
-
-            var headersByColumn = new Dictionary<int, string>();
-            if (headerRow != null)
-            {
-                foreach (var cell in headerRow.Elements(ns + "c"))
-                {
-                    var columnIndex = GetColumnIndex((string?)cell.Attribute("r"));
-                    if (columnIndex == 0)
-                    {
-                        continue;
-                    }
-
-                    headersByColumn[columnIndex] = GetCellValue(cell, sharedStrings, ns).Trim();
-                }
-            }
-
-            var seenHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (var col = 1; col <= lastCol; col++)
-            {
-                headersByColumn.TryGetValue(col, out var headerName);
-                if (string.IsNullOrWhiteSpace(headerName))
-                {
-                    errorMessage = $"Header row contains a blank column name at column {col}. Provide a name for each header column and retry the import.";
-                    return true;
-                }
-
-                if (!seenHeaders.Add(headerName))
-                {
-                    errorMessage = $"Header row contains duplicate column name '{headerName}'. Rename duplicate headers so each column name is unique.";
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch
-        {
-            return false;
-        }
-        finally
-        {
-            workbookStream.Position = 0;
-        }
-    }
-
-    private static Dictionary<int, string> ReadSharedStrings(ZipArchive archive)
-    {
-        var sharedStrings = new Dictionary<int, string>();
-        var sharedStringsEntry = archive.GetEntry("xl/sharedStrings.xml");
-        if (sharedStringsEntry == null)
-        {
-            return sharedStrings;
-        }
-
-        using var stream = sharedStringsEntry.Open();
-        var document = XDocument.Load(stream);
-        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-        var index = 0;
-        foreach (var sharedString in document.Descendants(ns + "si"))
-        {
-            sharedStrings[index++] = string.Concat(sharedString.Descendants(ns + "t").Select(text => text.Value));
-        }
-
-        return sharedStrings;
-    }
-
-    private static string GetCellValue(XElement cell, IReadOnlyDictionary<int, string> sharedStrings, XNamespace ns)
-    {
-        var cellType = (string?)cell.Attribute("t");
-        return cellType switch
-        {
-            "inlineStr" => string.Concat(cell.Descendants(ns + "t").Select(text => text.Value)),
-            "s" => int.TryParse(cell.Element(ns + "v")?.Value, out var index) && sharedStrings.TryGetValue(index, out var sharedValue)
-                ? sharedValue
-                : string.Empty,
-            _ => cell.Element(ns + "v")?.Value ?? string.Concat(cell.Descendants(ns + "t").Select(text => text.Value))
-        };
-    }
-
-    private static int GetColumnIndex(string? cellReference)
-    {
-        if (string.IsNullOrWhiteSpace(cellReference))
-        {
-            return 0;
-        }
-
-        var columnIndex = 0;
-        foreach (var ch in cellReference)
-        {
-            if (!char.IsLetter(ch))
-            {
-                break;
-            }
-
-            columnIndex = (columnIndex * 26) + (char.ToUpperInvariant(ch) - 'A' + 1);
-        }
-
-        return columnIndex;
-    }
 }
-

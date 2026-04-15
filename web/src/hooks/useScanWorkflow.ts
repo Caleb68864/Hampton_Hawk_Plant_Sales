@@ -5,6 +5,7 @@ import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
 import type { ScanHistoryEntry } from '@/components/pickup/ScanHistoryList.js';
 import { getScanDisplayFields, getScanResultMessage } from '@/components/pickup/scanFeedbackText.js';
+import { normalizeScannedBarcode } from '@/utils/barcode.js';
 
 interface ScanWorkflowState {
   currentOrder: Order | null;
@@ -58,9 +59,11 @@ export function useScanWorkflow(orderId: string | undefined) {
   const scan = useCallback(
     async (barcode: string): Promise<ScanResponse | null> => {
       if (!orderId) return null;
+      const normalized = normalizeScannedBarcode(barcode);
+      const lookupBarcode = normalized || barcode;
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
-        const result = await fulfillmentApi.scan(orderId, { barcode });
+        const result = await fulfillmentApi.scan(orderId, { barcode: lookupBarcode });
         const { plantName } = getScanDisplayFields(result);
         const entry: ScanHistoryEntry = {
           barcode,

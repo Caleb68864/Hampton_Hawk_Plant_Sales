@@ -9,6 +9,7 @@ public class ImportBatch : EventEntity
     public int TotalRows { get; set; }
     public int ImportedCount { get; set; }
     public int SkippedCount { get; set; }
+    public string? SourceFormat { get; set; }
 
     public ICollection<ImportIssue> Issues { get; set; } = new List<ImportIssue>();
 }

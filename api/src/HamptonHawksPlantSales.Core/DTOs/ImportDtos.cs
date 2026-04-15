@@ -8,6 +8,7 @@ public class ImportResultResponse
     public int SkippedCount { get; set; }
     public int IssueCount { get; set; }
     public bool DryRun { get; set; }
+    public string? SourceFormat { get; set; }
 }
 
 public class ImportOptions
@@ -26,6 +27,7 @@ public class ImportBatchResponse
     public int ImportedCount { get; set; }
     public int SkippedCount { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public string? SourceFormat { get; set; }
 }
 
 public class ImportIssueResponse

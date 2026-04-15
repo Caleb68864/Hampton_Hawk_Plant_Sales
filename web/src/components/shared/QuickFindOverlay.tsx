@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcuts.js';
+import { normalizeScannedBarcode } from '@/utils/barcode.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import { plantsApi } from '@/api/plants.js';
@@ -51,11 +52,14 @@ export function QuickFindOverlay() {
 
     const timer = setTimeout(async () => {
       setLoading(true);
+      const trimmed = query.trim();
+      const looksLikeBarcode = /^0*\d+$/.test(trimmed);
+      const plantSearch = looksLikeBarcode ? normalizeScannedBarcode(trimmed) : query;
       try {
         const [custResult, orderResult, plantResult, sellerResult] = await Promise.allSettled([
           customersApi.list({ search: query, pageSize: 5 }),
           ordersApi.list({ search: query, pageSize: 5 }),
-          plantsApi.list({ search: query, pageSize: 5 }),
+          plantsApi.list({ search: plantSearch, pageSize: 5 }),
           sellersApi.list({ search: query, pageSize: 5 }),
         ]);
         setResults({

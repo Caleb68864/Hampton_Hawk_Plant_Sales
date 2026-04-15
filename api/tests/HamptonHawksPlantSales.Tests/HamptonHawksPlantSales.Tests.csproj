@@ -22,6 +22,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Fixtures\Import\*.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\HamptonHawksPlantSales.Api\HamptonHawksPlantSales.Api.csproj" />
     <ProjectReference Include="..\..\src\HamptonHawksPlantSales.Core\HamptonHawksPlantSales.Core.csproj" />
     <ProjectReference Include="..\..\src\HamptonHawksPlantSales.Infrastructure\HamptonHawksPlantSales.Infrastructure.csproj" />

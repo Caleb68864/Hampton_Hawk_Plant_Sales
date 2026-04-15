@@ -4,6 +4,7 @@ import { plantsApi } from '@/api/plants.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
+import { PlantLabel } from '@/components/print/PlantLabel.js';
 import type { Plant } from '@/types/plant.js';
 
 type DensityMode = 'test' | 'sheet' | 'roll';
@@ -28,55 +29,6 @@ function parseCsvValues(value: string) {
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean);
-}
-
-function BarcodeSvg({ value }: { value: string }) {
-  const bars = Array.from(value || '0').flatMap((char, index) => {
-    const seed = char.charCodeAt(0) + index * 17;
-    return [1, 2, 3, 2, 1, 3].map((multiplier, patternIndex) => ({
-      width: ((seed >> patternIndex) & 1 ? 2 : 1) * multiplier,
-      dark: patternIndex % 2 === 0,
-      key: `${char}-${index}-${patternIndex}`,
-    }));
-  });
-
-  const totalWidth = bars.reduce((sum, bar) => sum + bar.width, 0) || 1;
-  let offset = 0;
-
-  return (
-    <svg viewBox={`0 0 ${totalWidth} 32`} className="h-8 w-full" preserveAspectRatio="none" aria-label={`Barcode ${value}`}>
-      {bars.map((bar) => {
-        const x = offset;
-        offset += bar.width;
-        if (!bar.dark) return null;
-        return <rect key={bar.key} x={x} y={0} width={bar.width} height={32} fill="black" />;
-      })}
-    </svg>
-  );
-}
-
-function truncateLabel(text: string, maxLength = 36) {
-  if (text.length <= maxLength) return text;
-  const slice = text.slice(0, maxLength - 1);
-  const lastSpace = slice.lastIndexOf(' ');
-  if (lastSpace > 16) return `${slice.slice(0, lastSpace)}...`;
-  return `${slice}...`;
-}
-
-function PlantLabel({ plant }: { plant: Plant }) {
-  return (
-    <div
-      className="flex h-[1in] w-[2in] flex-col justify-between overflow-hidden rounded-sm border border-black bg-white p-1.5"
-      style={{ width: '2in', height: '1in' }}
-    >
-      <BarcodeSvg value={plant.barcode || plant.sku} />
-      <p className="text-[9px] font-medium leading-tight tracking-tight">{truncateLabel(plant.name)}</p>
-      <div className="flex items-end justify-between gap-2">
-        <p className="text-[18px] font-bold leading-none tracking-tight">{plant.sku}</p>
-        <p className="text-[8px] font-mono text-gray-700">{plant.barcode}</p>
-      </div>
-    </div>
-  );
 }
 
 async function loadAllPlants() {

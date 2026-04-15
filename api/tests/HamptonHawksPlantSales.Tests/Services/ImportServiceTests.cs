@@ -222,10 +222,14 @@ public class ImportServiceTests
     {
         using var db = MockDbContextFactory.Create();
         var service = new ImportService(db);
+        // Headers present in row 1 but with a blank cell between non-blank cells.
         using var stream = CreateWorkbookStream(ws =>
         {
+            ws.Cell(1, 1).Value = "Sku";
+            // column 2 intentionally blank
+            ws.Cell(1, 3).Value = "Barcode";
             ws.Cell(2, 1).Value = "SKU-1";
-            ws.Cell(2, 2).Value = "Fern";
+            ws.Cell(2, 3).Value = "BC-1";
         });
 
         var ex = await Assert.ThrowsAsync<ValidationException>(() => service.ImportAsync(ImportType.Plants, "plants.xlsx", stream));

@@ -1,3 +1,11 @@
 **/bin/
 **/obj/
 web/node_modules/
+
+# Root-level source data files (never commit customer/season data)
+/R1 Sales Offerings.xlsx
+/2026 Orders for Importing.xlsx
+/Sales by Product with flat totals.xlsx
+
+# Crash artifacts
+*.stackdump
