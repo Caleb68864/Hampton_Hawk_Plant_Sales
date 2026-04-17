@@ -7,8 +7,9 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import type { Order } from '@/types/order.js';
 
-const DEFAULT_COUNT = 10;
+const DEFAULT_COUNT = 1;
 const MAX_COUNT_PER_ORDER = 200;
+const ORDERS_PAGE_SIZE = 200;
 
 function parseCount(value: string | null): number {
   if (!value) return DEFAULT_COUNT;
@@ -38,11 +39,11 @@ export function PrintOrderBarcodesBulkPage() {
           const results = await Promise.all(ids.map((id) => ordersApi.getById(id)));
           if (!cancelled) setOrders(results);
         } else if (status) {
-          const first = await ordersApi.list({ page: 1, pageSize: 500, status });
+          const first = await ordersApi.list({ page: 1, pageSize: ORDERS_PAGE_SIZE, status });
           const all = [...first.items];
-          const totalPages = Math.ceil(first.totalCount / 500);
+          const totalPages = Math.max(first.totalPages, Math.ceil(first.totalCount / ORDERS_PAGE_SIZE));
           for (let p = 2; p <= totalPages; p++) {
-            const next = await ordersApi.list({ page: p, pageSize: 500, status });
+            const next = await ordersApi.list({ page: p, pageSize: ORDERS_PAGE_SIZE, status });
             all.push(...next.items);
           }
           if (!cancelled) setOrders(all);
