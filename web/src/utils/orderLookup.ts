@@ -15,11 +15,19 @@ export interface ScannerAutoSubmitCandidate {
 }
 
 export function normalizeOrderLookupValue(value: string): string {
-  return value
+  const cleaned = value
     .replace(CONTROL_CHARACTERS, '')
     .trim()
     .replace(/\s+/g, '')
     .toUpperCase();
+
+  // Order barcodes encode as "OR" + 10-digit zero-padded order number. Strip the prefix and
+  // leading zeros so a scanned "OR0000001001" resolves the same way a typed "1001" would.
+  const barcodeMatch = /^OR(\d{1,10})$/.exec(cleaned);
+  if (barcodeMatch) {
+    return barcodeMatch[1].replace(/^0+/, '') || '0';
+  }
+  return cleaned;
 }
 
 export function looksLikeOrderNumberLookup(value: string): boolean {
@@ -32,7 +40,11 @@ export function isExactOrderNumberMatch(orderNumber: string, submittedValue: str
 }
 
 export function findExactOrderNumberMatches(submittedValue: string, orders: Order[]): Order[] {
-  return orders.filter((order) => isExactOrderNumberMatch(order.orderNumber, submittedValue));
+  const normalizedSubmitted = normalizeOrderLookupValue(submittedValue);
+  return orders.filter((order) =>
+    normalizeOrderLookupValue(order.orderNumber) === normalizedSubmitted ||
+    (order.barcode != null && normalizeOrderLookupValue(order.barcode) === normalizedSubmitted),
+  );
 }
 
 export function shouldAutoSubmitScannerValue(candidate: ScannerAutoSubmitCandidate): boolean {

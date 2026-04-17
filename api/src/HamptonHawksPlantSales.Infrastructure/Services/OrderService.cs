@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -52,6 +53,7 @@ public class OrderService : IOrderService
             var term = search.Trim().ToLower();
             query = query.Where(o =>
                 o.OrderNumber.ToLower().Contains(term) ||
+                (o.Barcode != null && o.Barcode.ToLower().Contains(term)) ||
                 o.Customer.DisplayName.ToLower().Contains(term) ||
                 o.Customer.PickupCode.ToLower().Contains(term));
         }
@@ -88,13 +90,15 @@ public class OrderService : IOrderService
 
     public async Task<OrderResponse> CreateAsync(CreateOrderRequest request)
     {
+        var orderNumber = string.IsNullOrWhiteSpace(request.OrderNumber)
+            ? await GenerateOrderNumber()
+            : request.OrderNumber;
         var order = new Order
         {
             CustomerId = request.CustomerId,
             SellerId = request.SellerId,
-            OrderNumber = string.IsNullOrWhiteSpace(request.OrderNumber)
-                ? await GenerateOrderNumber()
-                : request.OrderNumber,
+            OrderNumber = orderNumber,
+            Barcode = BuildOrderBarcode(orderNumber),
             IsWalkUp = request.IsWalkUp
         };
 
@@ -264,8 +268,64 @@ public class OrderService : IOrderService
 
     private async Task<string> GenerateOrderNumber()
     {
-        var count = await _db.Orders.CountAsync();
-        return $"ORD-{count + 1:D5}";
+        // Plain integer sequence. Look at max numeric OrderNumber in use and increment.
+        var existing = await _db.Orders
+            .IgnoreQueryFilters()
+            .Select(o => o.OrderNumber)
+            .ToListAsync();
+        var maxInt = existing
+            .Select(n => int.TryParse(n, out var i) ? i : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+        return (maxInt + 1).ToString();
+    }
+
+    public static string BuildOrderBarcode(string orderNumber)
+    {
+        var digits = Regex.Replace(orderNumber ?? string.Empty, "\\D", string.Empty);
+        if (digits.Length == 0)
+        {
+            // Fallback: hash-based numeric so arbitrary test/imported numbers still produce a stable 10-digit tail.
+            var hash = (uint)(orderNumber ?? string.Empty).GetHashCode();
+            digits = hash.ToString();
+        }
+        if (digits.Length > 10) digits = digits[^10..];
+        return "OR" + digits.PadLeft(10, '0');
+    }
+
+    public async Task<int> RegenerateAllBarcodesAsync()
+    {
+        var orders = await _db.Orders.IgnoreQueryFilters().ToListAsync();
+        var updated = 0;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var o in orders)
+        {
+            var candidate = BuildOrderBarcode(o.OrderNumber);
+            var finalBarcode = candidate;
+            var suffix = 2;
+            while (!seen.Add(finalBarcode))
+            {
+                finalBarcode = candidate + "-" + suffix++;
+            }
+            if (o.Barcode != finalBarcode)
+            {
+                o.Barcode = finalBarcode;
+                updated++;
+            }
+        }
+        await _db.SaveChangesAsync();
+        return updated;
+    }
+
+    public async Task<int> DeleteAllOrdersAsync()
+    {
+        // Hard delete all orders and their dependents. Used only from the admin danger-zone action.
+        using var tx = await _db.Database.BeginTransactionAsync();
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"FulfillmentEvents\"");
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"OrderLines\"");
+        var count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Orders\"");
+        await tx.CommitAsync();
+        return count;
     }
 
     private static OrderResponse MapToResponse(Order o, bool includeLines) => new()
@@ -274,6 +334,7 @@ public class OrderService : IOrderService
         CustomerId = o.CustomerId,
         SellerId = o.SellerId,
         OrderNumber = o.OrderNumber,
+        Barcode = o.Barcode,
         Status = o.Status,
         IsWalkUp = o.IsWalkUp,
         HasIssue = o.HasIssue,

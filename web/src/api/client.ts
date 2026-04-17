@@ -50,6 +50,10 @@ export async function del<T = void>(url: string): Promise<T> {
   return unwrap<T>(await apiClient.delete<ApiResponse<T>>(url));
 }
 
+export async function delWithHeaders<T = void>(url: string, headers: Record<string, string>): Promise<T> {
+  return unwrap<T>(await apiClient.delete<ApiResponse<T>>(url, { headers }));
+}
+
 export async function postForm<T>(url: string, formData: FormData, params?: Record<string, unknown>): Promise<T> {
   return unwrap<T>(
     await apiClient.post<ApiResponse<T>>(url, formData, {

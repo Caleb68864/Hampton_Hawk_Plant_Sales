@@ -45,12 +45,15 @@ public class OrderImportHandler
             .GroupBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var usedOrderNumbers = new HashSet<string>(
-            await _db.Orders
-                .Where(o => o.DeletedAt == null)
-                .Select(o => o.OrderNumber)
-                .ToListAsync(),
-            StringComparer.OrdinalIgnoreCase);
+        var existingNumbers = await _db.Orders
+            .Where(o => o.DeletedAt == null)
+            .Select(o => o.OrderNumber)
+            .ToListAsync();
+        var usedOrderNumbers = new HashSet<string>(existingNumbers, StringComparer.OrdinalIgnoreCase);
+        var maxExistingInt = existingNumbers
+            .Select(n => int.TryParse(n, out var i) ? i : 0)
+            .DefaultIfEmpty(0)
+            .Max();
 
         // Group rows by OrderNumber
         var grouped = new List<(string orderNumber, List<(Dictionary<string, string> row, int rowNumber)> lines)>();
@@ -63,7 +66,7 @@ public class OrderImportHandler
 
             if (string.IsNullOrWhiteSpace(orderNumber))
             {
-                orderNumber = $"IMP-{DateTimeOffset.UtcNow:yyyyMMdd}-{++orderNumberCounter:D4}";
+                orderNumber = (maxExistingInt + (++orderNumberCounter)).ToString();
             }
 
             var existing = grouped.Find(g => g.orderNumber.Equals(orderNumber, StringComparison.OrdinalIgnoreCase));
@@ -233,6 +236,7 @@ public class OrderImportHandler
                     CustomerId = customer.Id,
                     SellerId = seller?.Id,
                     OrderNumber = resolvedOrderNumber,
+                    Barcode = OrderService.BuildOrderBarcode(resolvedOrderNumber),
                     Status = OrderStatus.Open,
                     IsWalkUp = isWalkUp
                 };

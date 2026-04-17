@@ -38,6 +38,7 @@ public static class TestDataBuilder
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             OrderNumber = $"ORD-{Guid.NewGuid().ToString()[..5]}",
+            Barcode = null,
             Status = status,
             IsWalkUp = isWalkUp,
             CreatedAt = DateTimeOffset.UtcNow,

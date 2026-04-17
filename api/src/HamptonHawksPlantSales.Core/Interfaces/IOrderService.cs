@@ -10,6 +10,8 @@ public interface IOrderService
     Task<OrderResponse> CreateAsync(CreateOrderRequest request);
     Task<OrderResponse> UpdateAsync(Guid id, UpdateOrderRequest request);
     Task<bool> DeleteAsync(Guid id);
+    Task<int> DeleteAllOrdersAsync();
+    Task<int> RegenerateAllBarcodesAsync();
     Task<OrderLineResponse> AddLineAsync(Guid orderId, CreateOrderLineRequest request, string? adminPin = null, string? adminReason = null);
     Task<OrderLineResponse> UpdateLineAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request);
     Task<bool> DeleteLineAsync(Guid orderId, Guid lineId);

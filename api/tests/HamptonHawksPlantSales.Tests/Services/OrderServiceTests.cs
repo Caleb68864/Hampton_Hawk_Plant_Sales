@@ -471,7 +471,8 @@ public class OrderServiceTests
             IsWalkUp = false
         });
 
-        result.OrderNumber.Should().StartWith("ORD-");
+        result.OrderNumber.Should().MatchRegex("^\\d+$");
+        result.Barcode.Should().MatchRegex("^OR\\d{10}$");
     }
 
     [Fact]

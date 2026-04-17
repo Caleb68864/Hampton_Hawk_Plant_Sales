@@ -1,4 +1,5 @@
-import { get, post, put, del } from './client.js';
+import { get, post, put, del, delWithHeaders, postWithHeaders } from './client.js';
+import { buildAdminHeaders } from './adminHeaders.js';
 import type { Order, CreateOrderRequest, OrderLine, CreateOrderLineRequest, UpdateOrderRequest } from '@/types/order.js';
 import type { PagedResult, PaginationParams } from '@/types/api.js';
 import type { FulfillmentEvent } from '@/types/fulfillment.js';
@@ -39,4 +40,10 @@ export const ordersApi = {
 
   getEvents: (orderId: string) =>
     get<FulfillmentEvent[]>(`/orders/${orderId}/events`),
+
+  deleteAll: (pin: string, reason: string) =>
+    delWithHeaders<number>('/orders/all', buildAdminHeaders(pin, reason)),
+
+  regenerateBarcodes: (pin: string, reason: string) =>
+    postWithHeaders<number>('/orders/regenerate-barcodes', {}, buildAdminHeaders(pin, reason)),
 };

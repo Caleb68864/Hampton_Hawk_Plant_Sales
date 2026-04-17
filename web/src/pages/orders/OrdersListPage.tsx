@@ -261,6 +261,7 @@ export function OrdersListPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -284,6 +285,16 @@ export function OrdersListPage() {
                     <td className="px-4 py-3 text-sm"><StatusChip status={o.status} hasIssue={o.hasIssue} /></td>
                     <td className="px-4 py-3 text-sm text-gray-600">{o.isWalkUp ? 'Walk-Up' : 'Pre-Order'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        title="Print barcode roll for this order"
+                        onClick={() => window.open(`/print/order-barcodes/${o.id}?count=10`, '_blank')}
+                      >
+                        Print barcodes
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

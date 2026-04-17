@@ -161,7 +161,7 @@ export function PrintOrderBarcodeRollPage() {
       <div className="order-barcode-roll-preview">
         {labels.map((i) => (
           <div key={i} className="order-barcode-roll-item">
-            <OrderNumberBarcode value={order.orderNumber} variant="bare" />
+            <OrderNumberBarcode value={order.barcode ?? order.orderNumber} variant="bare" />
           </div>
         ))}
       </div>

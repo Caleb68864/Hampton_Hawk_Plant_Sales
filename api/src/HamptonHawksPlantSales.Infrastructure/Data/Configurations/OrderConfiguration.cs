@@ -11,8 +11,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasQueryFilter(e => e.DeletedAt == null);
 
         builder.Property(e => e.OrderNumber).HasColumnType("text").IsRequired();
+        builder.Property(e => e.Barcode).HasColumnType("text");
 
         builder.HasIndex(e => e.OrderNumber).IsUnique();
+        builder.HasIndex(e => e.Barcode)
+            .IsUnique()
+            .HasFilter("\"Barcode\" IS NOT NULL AND \"DeletedAt\" IS NULL");
         builder.HasIndex(e => e.CustomerId);
         builder.HasIndex(e => e.SellerId);
 

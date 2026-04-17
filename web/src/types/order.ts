@@ -20,6 +20,7 @@ export interface Order {
   sellerId: string | null;
   sellerDisplayName: string | null;
   orderNumber: string;
+  barcode?: string | null;
   status: OrderStatus;
   isWalkUp: boolean;
   hasIssue: boolean;

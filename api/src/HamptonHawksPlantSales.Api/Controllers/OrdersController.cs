@@ -1,4 +1,5 @@
 using FluentValidation;
+using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -117,6 +118,31 @@ public class OrdersController : ControllerBase
         if (!result)
             return NotFound(ApiResponse<bool>.Fail("Order not found."));
         return Ok(ApiResponse<bool>.Ok(true));
+    }
+
+    /// <summary>
+    /// Hard-deletes ALL orders, order lines, and fulfillment events. Admin PIN required.
+    /// Used to wipe the orders table before a fresh import.
+    /// </summary>
+    [HttpDelete("all")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<int>), 200)]
+    public async Task<IActionResult> DeleteAll()
+    {
+        var count = await _orderService.DeleteAllOrdersAsync();
+        return Ok(ApiResponse<int>.Ok(count));
+    }
+
+    /// <summary>
+    /// Regenerates the Barcode column for every existing order from its OrderNumber. Admin PIN required.
+    /// </summary>
+    [HttpPost("regenerate-barcodes")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<int>), 200)]
+    public async Task<IActionResult> RegenerateBarcodes()
+    {
+        var count = await _orderService.RegenerateAllBarcodesAsync();
+        return Ok(ApiResponse<int>.Ok(count));
     }
 
     /// <summary>
