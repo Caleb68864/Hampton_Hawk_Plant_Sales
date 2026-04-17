@@ -24,6 +24,7 @@ import { PrintCheatsheetLookup } from '@/pages/print/PrintCheatsheetLookup.js';
 import { PrintCheatsheetPickup } from '@/pages/print/PrintCheatsheetPickup.js';
 import { PrintCheatsheetThermal } from '@/pages/print/PrintCheatsheetThermal.js';
 import { PrintOrderBarcodeRollPage } from '@/pages/print/PrintOrderBarcodeRollPage.js';
+import { PrintOrderBarcodesBulkPage } from '@/pages/print/PrintOrderBarcodesBulkPage.js';
 import { PrintOrderPage } from '@/pages/print/PrintOrderPage.js';
 import { PrintOrdersBatchPage } from '@/pages/print/PrintOrdersBatchPage.js';
 import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
@@ -76,6 +77,7 @@ function App() {
 
             <Route path="print/order/:orderId" element={<PrintOrderPage />} />
             <Route path="print/order-barcodes/:orderId" element={<PrintOrderBarcodeRollPage />} />
+            <Route path="print/order-barcodes" element={<PrintOrderBarcodesBulkPage />} />
             <Route path="print/orders" element={<PrintOrdersBatchPage />} />
             <Route path="print/seller/:sellerId" element={<PrintSellerPacketPage />} />
             <Route path="print/cheatsheet/pickup" element={<PrintCheatsheetPickup />} />

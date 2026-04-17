@@ -228,6 +228,25 @@ export function OrdersListPage() {
           >
             {printingOpen ? 'Preparing…' : 'Print Open Orders'}
           </button>
+
+          <button
+            type="button"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={selectedOrderIds.length === 0}
+            title="Print 10 barcode labels per selected order"
+            onClick={() => window.open(`/print/order-barcodes?ids=${selectedOrderIds.join(',')}`, '_blank')}
+          >
+            Print Barcodes (Selected)
+          </button>
+
+          <button
+            type="button"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            title="Print 10 barcode labels for every open order"
+            onClick={() => window.open('/print/order-barcodes?status=Open', '_blank')}
+          >
+            Print Barcodes (All Open)
+          </button>
         </div>
       </div>
 
