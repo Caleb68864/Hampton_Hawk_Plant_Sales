@@ -18,6 +18,7 @@ export function PlantsListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
+  const [loadingAll, setLoadingAll] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const fetchPlants = useCallback(async () => {
@@ -70,6 +71,28 @@ export function PlantsListPage() {
     window.open(`/print/labels?${query.toString()}`, '_blank', 'noopener,noreferrer');
   }
 
+  async function handlePrintAllPlants() {
+    setLoadingAll(true);
+    setError(null);
+    try {
+      const all: Plant[] = [];
+      let current = 1;
+      let pages = 1;
+      do {
+        const result = await plantsApi.list({ page: current, pageSize: 200, search: search || undefined });
+        all.push(...result.items);
+        pages = result.totalPages;
+        current += 1;
+      } while (current <= pages);
+      const ids = all.map((p) => p.id);
+      openLabelsForPlantIds(ids);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load plants for printing');
+    } finally {
+      setLoadingAll(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -89,6 +112,15 @@ export function PlantsListPage() {
             onClick={() => openLabelsForPlantIds(plants.map((plant) => plant.id))}
           >
             Print This Page
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 text-sm font-medium text-white bg-hawk-700 rounded-md hover:bg-hawk-800 disabled:opacity-50"
+            disabled={loadingAll}
+            title={search ? 'Prints every plant matching the current search, one label each' : 'Prints every plant in the catalog, one label each'}
+            onClick={handlePrintAllPlants}
+          >
+            {loadingAll ? 'Loading all…' : `Print All Plants${search ? ' (search)' : ''}`}
           </button>
           <button
             type="button"
