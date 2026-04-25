@@ -2,7 +2,8 @@
 date: 2026-04-25
 topic: "Frontend polish: high-frequency joy moments for sale-day volunteers"
 author: Caleb Bennett
-status: draft
+status: evaluated
+evaluated_date: 2026-04-25
 tags:
   - design
   - frontend-polish
@@ -127,8 +128,104 @@ None. This is a pure presentational layer. No new API calls, no new state. Each 
   - `[MECHANICAL]` Lighthouse Performance score on `/station` drops by no more than 3 points compared to pre-polish baseline.
   - `[MECHANICAL]` `npm run build` succeeds with no new TypeScript errors and no new eslint regressions.
 
+## Commander's Intent
+**Desired End State:** Six new shared React/TypeScript components ship under `web/src/components/`: `TouchButton`, `SectionHeading`, `ScanSuccessFlash`, `OrderCompleteCelebration`, `BotanicalEmptyState`, `BrandedStationGreeting`. Fraunces and Manrope are bundled via `@fontsource/*` so kiosks work offline. `web/src/styles/joy.css` carries the depth shadows and paper-grain utility. `StationHomePage`, `PickupLookupPage`, and `PickupScanPage` opt in to the new vocabulary. `WalkUpRegisterPage` (from Walk-up SS-03), `OrdersListPage` (from Quick Wins SS-04), and the new report pages (Quick Wins SS-06) reference the same components so the whole product feels coherent.
+
+**Purpose:** Sale-day volunteers run the kiosks under pressure. The current UI is functional but generic. Polishing the high-frequency moments -- start of shift, every scan, every Complete Order, every empty state -- raises perceived quality without adding workflow steps. The design aesthetic stays inside the existing Hampton Hawks purple+gold palette so nothing about the brand changes; only the typography, spacing, depth, and animation layer changes.
+
+**Constraints (MUST):**
+- MUST stay inside the existing `--color-hawk-*` and `--color-gold-*` CSS variables defined in `web/src/index.css`. No new palette.
+- MUST self-host fonts via `@fontsource/fraunces` and `@fontsource/manrope`. Kiosks may be offline at sale time.
+- MUST satisfy `prefers-reduced-motion`: all bloom/confetti/stamp animations have a static fallback.
+- MUST keep min-hit-target ≥56x56 CSS px on every primary action button (touchscreen POS).
+- MUST not regress Lighthouse Performance on `/station` by more than 3 points.
+- MUST be additive: every page is opt-in. No existing page breaks if a component is deleted or renamed.
+- All new components MUST be TypeScript with explicit prop types and exported via the existing `web/src/components/` convention.
+
+**Constraints (MUST NOT):**
+- MUST NOT add a new color palette, replace the existing one, or invert to dark mode.
+- MUST NOT pull in a new CSS framework, a CSS-in-JS library, or Storybook.
+- MUST NOT replace the existing Tailwind v4 setup or @theme tokens.
+- MUST NOT introduce new functional behavior beyond what Quick Wins SS-02 already specifies (this is a presentation layer).
+- MUST NOT add an icon library; use inline SVGs.
+- MUST NOT add CDN-loaded fonts in production.
+
+**Freedoms (the implementing agent MAY):**
+- MAY pick the exact bundling approach for `@fontsource/*` (entry-import vs. CSS-import) consistent with Vite's recommended pattern.
+- MAY choose any compositor-friendly animation API (CSS keyframes, Motion library, Framer Motion); prefer CSS-only for the Lighthouse budget.
+- MAY adjust copy on empty states, success flashes, and stamps to match the existing project tone.
+- MAY tweak shadow/radius values within the spirit of the demo (`docs/plans/joy-pass-demo.html`) -- pixel-perfect match is not required; the *feel* must match.
+- MAY add internal helper components not listed (e.g., `JoyConfettiBurst`) if the implementation benefits.
+
+## Execution Guidance
+**Observe (signals):**
+- `npm run build` succeeds with no new TypeScript or eslint regressions.
+- Lighthouse Performance/Accessibility/Best-Practices on `/station` and `/pickup` after the polish pass.
+- `prefers-reduced-motion: reduce` honored (test via DevTools emulation).
+- No new console warnings on any kiosk page.
+
+**Orient (codebase conventions):**
+- Tailwind v4 with `@theme` tokens in `web/src/index.css`. New tokens (shadows, radii, font families) belong there.
+- Components live in `web/src/components/` organized by feature folder (`shared/`, `pickup/`, `orders/`, etc.).
+- Existing `KioskLayout.tsx` and `AppLayout.tsx` already use the brand palette; opt-in pages drop in new components, do not edit layouts.
+- TypeScript: explicit prop types; no `any`.
+- All animations should run on `transform` and `opacity` only.
+
+**Escalate when:**
+- A new external npm dependency beyond `@fontsource/fraunces` and `@fontsource/manrope` is required.
+- Lighthouse Performance score drops more than 3 points on any kiosk page.
+- An existing page breaks when the polish components are introduced.
+- An animation library is needed (Motion, Framer Motion) -- escalate before adding.
+- The aesthetic in `joy-pass-demo.html` cannot be reasonably matched without departing from constraints.
+
+**Shortcuts (apply without deliberation):**
+- `TouchButton` variants come straight from the demo's `.btn-primary`, `.btn-gold`, `.btn-ghost`, `.btn-danger` classes -- translate to a single component with a `variant` prop.
+- `SectionHeading` uses Fraunces `font-variation-settings: 'opsz' 144, 'SOFT' 80, 'wght' 500`.
+- `ScanSuccessFlash` clones the demo's `.checkbloom` keyframes (`pop` + `ring`).
+- `OrderCompleteCelebration` clones the demo's `.stamp` keyframes and the 8-piece confetti staggered animation-delays.
+- `BotanicalEmptyState` clones the demo's `.empty .seed` glyph (CSS-only, no SVG).
+- Self-host fonts with `@fontsource/fraunces/variable.css` and `@fontsource/manrope/variable.css` imported once at app entry.
+
+## Decision Authority
+**Agent decides autonomously:**
+- Component file layout, internal helper extraction, prop names.
+- Exact shadow / radius / animation-duration values (within demo spirit).
+- Test file placement and unit-test structure (if added).
+- Inline SVG vs. CSS-only glyph for any specific decoration.
+- TypeScript prop typing details.
+
+**Agent recommends, human approves:**
+- Whether to use Motion library (recommend NO; CSS keyframes are sufficient).
+- Specific copy on empty states and celebration messages (recommend matching the demo verbatim).
+- Whether to adopt `@fontsource/*` package versioning beyond what's on the latest stable.
+
+**Human decides:**
+- Whether to roll out polish to all pages at once vs. opt-in incrementally.
+- Whether the touchscreen tap test (the `[HUMAN REVIEW]` criterion) is acceptable on the production mini-PC.
+- Whether dark mode is ever desired (out of scope for this pass).
+
+## War-Game Results
+**Most likely failure -- offline kiosk gets unstyled fonts.**
+A kiosk without internet renders default browser serif/sans until cached fonts arrive. With self-hosted `@fontsource/*`, fonts ship inside the build, so cold-start on a never-connected kiosk works. Acceptance: verify by running the prod build, disconnecting the network, hard-reloading -- Fraunces and Manrope still render.
+
+**Scale stress -- animation jank on the production mini-PC.**
+The mini-PC runs the API, Postgres, and the web server. Browser tab is on a separate host (the kiosk PC). Rendering the polish should be irrelevant to the host's load. On the kiosk side, the animations are GPU-cheap (transform + opacity). Worst-case: a low-end kiosk drops a few frames in the confetti; the celebration completes anyway. Acceptable.
+
+**Dependency disruption -- @fontsource breaking changes.**
+Pin the version. Run `npm audit` quarterly. No exotic dependencies added.
+
+**6-month maintenance assessment.**
+A new contributor reading the polish spec + the demo HTML can rebuild any component without context. The visual vocabulary is small (six components + a stylesheet). Component names match what they do. The demo is the canonical reference; maintainers can iterate against it.
+
+## Evaluation Metadata
+- Evaluated: 2026-04-25
+- Cynefin Domain: Complicated (known patterns: typography upgrade, animation choreography, accessible component design)
+- Critical Gaps Found: 0
+- Important Gaps Found: 0
+- Suggestions: 0
+- Framework layers added: Commander's Intent, Execution Guidance, Decision Authority, War-Game Results
+
 ## Next Steps
-- [ ] User opens `docs/plans/joy-pass-demo.html` in a browser to confirm the aesthetic direction
-- [ ] Resolve open questions (font hosting in particular)
-- [ ] Forge into a small spec via `/forge docs/plans/2026-04-25-frontend-polish-joy-pass.md`
+- [ ] Auto-chain: `/forge` -> `/forge-prep` -> `/forge-red-team`
+- [ ] Resolve open questions (font hosting confirmed -- self-host)
 - [ ] Ship as the trailing PR after Quick Wins SS-02 lands so the `TouchButton` API is canonical
