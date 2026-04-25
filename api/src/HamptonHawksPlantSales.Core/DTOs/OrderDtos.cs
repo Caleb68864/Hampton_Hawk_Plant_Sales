@@ -65,3 +65,40 @@ public class OrderLineResponse
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+// ===== Bulk Operation DTOs =====
+
+/// <summary>
+/// Request to bulk complete multiple orders at once.
+/// </summary>
+public class BulkCompleteOrdersRequest
+{
+    public List<Guid> OrderIds { get; set; } = new();
+}
+
+/// <summary>
+/// Request to bulk set status on multiple orders at once.
+/// </summary>
+public class BulkSetOrderStatusRequest
+{
+    public List<Guid> OrderIds { get; set; } = new();
+    public OrderStatus TargetStatus { get; set; }
+}
+
+/// <summary>
+/// Result of a bulk operation containing per-order outcomes.
+/// </summary>
+public class BulkOperationResult
+{
+    public List<BulkOrderOutcome> Outcomes { get; set; } = new();
+}
+
+/// <summary>
+/// Outcome for a single order in a bulk operation.
+/// </summary>
+public class BulkOrderOutcome
+{
+    public Guid OrderId { get; set; }
+    public string Outcome { get; set; } = string.Empty; // Completed, Skipped, StatusChanged
+    public string? Reason { get; set; }
+}
