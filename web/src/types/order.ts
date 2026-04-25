@@ -49,3 +49,25 @@ export interface CreateOrderLineRequest {
   qtyOrdered: number;
   notes?: string | null;
 }
+
+// Bulk operation types
+export type BulkOutcome = 'Completed' | 'Skipped' | 'StatusChanged';
+
+export interface BulkOrderOutcome {
+  orderId: string;
+  outcome: BulkOutcome;
+  reason?: string;
+}
+
+export interface BulkOperationResult {
+  outcomes: BulkOrderOutcome[];
+}
+
+export interface BulkCompleteRequest {
+  orderIds: string[];
+}
+
+export interface BulkSetStatusRequest {
+  orderIds: string[];
+  targetStatus: OrderStatus;
+}
