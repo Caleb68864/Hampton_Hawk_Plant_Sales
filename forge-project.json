@@ -1,9 +1,17 @@
 {
-  "build_command": "cd api && dotnet build HamptonHawksPlantSales.sln --no-restore -v quiet",
-  "test_command": "cd api && dotnet test HamptonHawksPlantSales.sln --no-build -v quiet",
-  "verification_strategy": "build+test",
+  "build_command": "cd api \u0026\u0026 dotnet build HamptonHawksPlantSales.sln --no-restore -v quiet",
+  "test_command": "cd api \u0026\u0026 dotnet test HamptonHawksPlantSales.sln --no-build -v quiet",
+  "verification_strategy": "build\u002Btest",
   "claude_md_path": "CLAUDE.md",
   "review_enabled": true,
   "review_max_compliance_loops": 3,
-  "review_max_quality_loops": 2
+  "review_max_quality_loops": 2,
+  "vault_path": "vault",
+  "chronicler": {
+    "enabled": true,
+    "auto_archive": true,
+    "auto_digest": false,
+    "monthly_budget_usd": 5,
+    "model": "haiku"
+  }
 }
