@@ -14,6 +14,8 @@
     "test": "node --test --experimental-strip-types src/api/client.test.ts src/api/orders.test.ts src/api/errorMessage.test.ts src/components/shared/globalQuickFindMatch.test.ts src/components/shared/globalQuickFindFallback.test.ts src/components/pickup/scanFeedbackText.test.ts src/utils/errorMessaging.test.ts src/utils/barcode.test.ts src/pages/print/studentPickListSummary.test.ts src/utils/orderLookup.test.ts"
   },
   "dependencies": {
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/manrope": "^5.2.8",
     "@tailwindcss/vite": "^4.2.1",
     "axios": "^1.13.6",
     "jsbarcode": "^3.12.3",
@@ -42,4 +44,3 @@
     "vite": "^7.3.1"
   }
 }
-
