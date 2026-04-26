@@ -1,8 +1,10 @@
 {
   "task_id": "ss03-bulk-request-dtos",
   "phase_id": 3,
-  "artifact_paths": ["api/src/HamptonHawksPlantSales.Core/DTOs/OrderDtos.cs"],
-  "verification_command": "grep -q \"BulkCompleteOrdersRequest\" api/src/HamptonHawksPlantSales.Core/DTOs/OrderDtos.cs || (echo \"FAIL: BulkCompleteOrdersRequest missing\" && exit 1)",
-  "status": "needs-verifier",
+  "artifact_paths": [
+    "api/src/HamptonHawksPlantSales.Core/DTOs/OrderDtos.cs"
+  ],
+  "verification_command_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "timestamp": "2026-04-26T04:49:18.853Z",
   "worker_id": "implementer-ss03"
 }

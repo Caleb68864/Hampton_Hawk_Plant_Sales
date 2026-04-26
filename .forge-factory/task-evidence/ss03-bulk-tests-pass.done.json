@@ -1,8 +1,11 @@
 {
   "task_id": "ss03-bulk-tests-pass",
   "phase_id": 3,
-  "artifact_paths": ["api/tests/HamptonHawksPlantSales.Tests/Orders/BulkCompleteTests.cs", "api/tests/HamptonHawksPlantSales.Tests/Orders/BulkSetStatusTests.cs"],
-  "verification_command": "cd api && dotnet test HamptonHawksPlantSales.sln --no-build -v quiet --filter \"BulkCompleteTests|BulkSetStatusTests\" || (echo \"FAIL: bulk tests failed\" && exit 1)",
-  "status": "needs-verifier",
+  "artifact_paths": [
+    "api/tests/HamptonHawksPlantSales.Tests/Orders/BulkCompleteTests.cs",
+    "api/tests/HamptonHawksPlantSales.Tests/Orders/BulkSetStatusTests.cs"
+  ],
+  "verification_command_sha256": "14f4d9c3bcfba2d4f25340ea850f8dc8c3625aa13eb36ffcfc247a3ff6f4bee6",
+  "timestamp": "2026-04-26T04:49:22.441Z",
   "worker_id": "implementer-ss03"
 }

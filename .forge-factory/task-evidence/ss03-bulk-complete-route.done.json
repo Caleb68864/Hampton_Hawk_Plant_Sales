@@ -1,8 +1,10 @@
 {
   "task_id": "ss03-bulk-complete-route",
   "phase_id": 3,
-  "artifact_paths": ["api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs"],
-  "verification_command": "grep -q \"bulk-complete\" api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs || (echo \"FAIL: bulk-complete route missing\" && exit 1)",
-  "status": "needs-verifier",
+  "artifact_paths": [
+    "api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs"
+  ],
+  "verification_command_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "timestamp": "2026-04-26T04:49:18.813Z",
   "worker_id": "implementer-ss03"
 }
