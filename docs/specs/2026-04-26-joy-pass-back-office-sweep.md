@@ -1,10 +1,3 @@
----
-sub_spec_id: SS-01
-phase: run
-depends_on: []
-master_spec: "self"
----
-
 # Joy Pass — Back-Office Sweep
 
 ## Meta
@@ -114,8 +107,6 @@ depends_on: []
   - For each in-scope page: `grep -q "JoyPageShell" <page>` should exit 0
   - `cd web && npm run build`
   - `git diff --name-only HEAD~1 HEAD | grep -vE "^(web/src/components/shared/JoyPageShell\.tsx|web/src/pages/(DashboardPage|customers/CustomersListPage|customers/CustomerDetailPage|plants/PlantsListPage|plants/PlantDetailPage|sellers/SellersListPage|sellers/SellerDetailPage|inventory/InventoryPage|imports/ImportsPage|orders/NewOrderPage|orders/OrderDetailPage|walkup/WalkUpNewOrderPage|reports/LeftoverInventoryPage)\.tsx)$"` — must produce NO output
-
----
 
 ## Edge Cases
 
