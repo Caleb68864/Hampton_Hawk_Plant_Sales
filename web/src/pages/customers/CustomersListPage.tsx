@@ -11,7 +11,10 @@ import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useRecentItems } from '@/hooks/useRecentItems.js';
 import { ordersApi } from '@/api/orders.js';
-import { buildPrintCustomerPickListPath } from '@/utils/printRoutes.js';
+import {
+  buildPrintCustomerPickListPath,
+  buildPrintCustomersBatchPath,
+} from '@/utils/printRoutes.js';
 import { openPrintWindow } from '@/utils/printWindow.js';
 import type { Customer } from '@/types/customer.js';
 
@@ -25,6 +28,8 @@ export function CustomersListPage() {
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
+  const [printingAll, setPrintingAll] = useState(false);
   const { recentItems, addRecent } = useRecentItems('recent-customers');
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +41,14 @@ export function CustomersListPage() {
       const result = await customersApi.list({ page, pageSize, search: searchParam });
       setCustomers(result.items);
       setTotalPages(result.totalPages);
+      // Drop selections that are no longer visible on this page
+      setSelectedCustomerIds((prev) => {
+        const next = new Set<string>();
+        for (const c of result.items) {
+          if (prev.has(c.id)) next.add(c.id);
+        }
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load customers');
     } finally {
@@ -93,6 +106,64 @@ export function CustomersListPage() {
     setPage(1);
   }
 
+  function toggleCustomerSelection(customerId: string) {
+    setSelectedCustomerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(customerId)) {
+        next.delete(customerId);
+      } else {
+        next.add(customerId);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAllOnPage() {
+    setSelectedCustomerIds((prev) => {
+      const allSelected = customers.length > 0 && customers.every((c) => prev.has(c.id));
+      if (allSelected) {
+        const next = new Set(prev);
+        for (const c of customers) next.delete(c.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const c of customers) next.add(c.id);
+      return next;
+    });
+  }
+
+  function handlePrintSelected() {
+    if (selectedCustomerIds.size === 0) return;
+    if (
+      !openPrintWindow(buildPrintCustomersBatchPath(Array.from(selectedCustomerIds), '/customers'))
+    ) {
+      setError('Allow pop-ups for this site so the print preview can open.');
+    }
+  }
+
+  async function handlePrintAll() {
+    setPrintingAll(true);
+    setError(null);
+    try {
+      const result = await customersApi.list({ page: 1, pageSize: 500 });
+      const ids = result.items.map((c) => c.id);
+      if (ids.length === 0) {
+        setError('No customers found to print.');
+        return;
+      }
+      if (!openPrintWindow(buildPrintCustomersBatchPath(ids, '/customers'))) {
+        setError('Allow pop-ups for this site so the print preview can open.');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load customers for printing');
+    } finally {
+      setPrintingAll(false);
+    }
+  }
+
+  const allOnPageSelected =
+    customers.length > 0 && customers.every((c) => selectedCustomerIds.has(c.id));
+
   return (
     <JoyPageShell
       title="Customers"
@@ -134,6 +205,26 @@ export function CustomersListPage() {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white p-2">
+        <TouchButton
+          variant="gold"
+          disabled={selectedCustomerIds.size === 0}
+          onClick={handlePrintSelected}
+        >
+          Print Selected Pick Lists ({selectedCustomerIds.size})
+        </TouchButton>
+        <TouchButton
+          variant="ghost"
+          disabled={printingAll}
+          onClick={handlePrintAll}
+        >
+          {printingAll ? 'Preparing...' : 'Print All Pick Lists'}
+        </TouchButton>
+        <p className="text-xs text-gray-500">
+          One compact sheet per customer; respects current selection.
+        </p>
+      </div>
+
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {loading ? (
@@ -146,6 +237,15 @@ export function CustomersListPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all customers on this page"
+                      checked={allOnPageSelected}
+                      onChange={toggleSelectAllOnPage}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup Code</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
@@ -160,6 +260,14 @@ export function CustomersListPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => navigateToCustomer(c)}
                   >
+                    <td className="px-4 py-3 text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select customer ${c.displayName}`}
+                        checked={selectedCustomerIds.has(c.id)}
+                        onChange={() => toggleCustomerSelection(c.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{c.displayName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">{c.pickupCode}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{c.phone ?? '--'}</td>
