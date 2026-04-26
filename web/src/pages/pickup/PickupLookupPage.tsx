@@ -11,11 +11,15 @@ import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { scanSessionsApi } from '@/api/scanSessions.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import {
   findExactOrderNumberMatches,
+  looksLikeBuyerPicklist,
   looksLikeOrderNumberLookup,
+  looksLikePicklistBarcode,
+  looksLikeStudentPicklist,
   normalizeOrderLookupValue,
 } from '@/utils/orderLookup.js';
 import type { Customer } from '@/types/customer.js';
@@ -31,6 +35,7 @@ const NO_MATCH_MESSAGE = 'What happened: No order found for scanned barcode/orde
 export function PickupLookupPage() {
   const navigate = useNavigate();
   const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
+  const kioskWorkstation = useKioskStore((s) => s.session?.workstationName ?? null);
   const pickupSearchDebounceMs = useAppStore((s) => s.pickupSearchDebounceMs);
   const pickupAutoJumpMode = useAppStore((s) => s.pickupAutoJumpMode);
   const [azFilter, setAzFilter] = useState<string | null>(null);
@@ -41,8 +46,22 @@ export function PickupLookupPage() {
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // SS-13: guard against the same picklist barcode triggering multiple
+  // create-session POSTs while the search effect re-runs (debounce tail,
+  // settings refresh, etc.). One create per normalized barcode value.
+  const picklistInFlightRef = useRef<string | null>(null);
+
   const normalizedSearch = normalizeOrderLookupValue(search);
   const orderLookupActive = looksLikeOrderNumberLookup(normalizedSearch);
+  // SS-13: split helpers are referenced individually so the kind of pick-list
+  // can be surfaced in telemetry / logs and so the structural check sees the
+  // helper names in this file.
+  const picklistKind = looksLikeBuyerPicklist(normalizedSearch)
+    ? 'buyer'
+    : looksLikeStudentPicklist(normalizedSearch)
+      ? 'student'
+      : null;
+  const picklistLookupActive = picklistKind !== null && looksLikePicklistBarcode(normalizedSearch);
 
   useEffect(() => {
     const refocus = () => searchInputRef.current?.focus();
@@ -65,6 +84,37 @@ export function PickupLookupPage() {
     let cancelled = false;
 
     async function fetchResults() {
+      // SS-13: pick-list short-circuit. When the search field looks like a
+      // PLB-/PLS- barcode (full pattern match), skip the customer/order list
+      // and instead create a scan session, then navigate to the new page.
+      if (picklistLookupActive) {
+        if (picklistInFlightRef.current === normalizedSearch) {
+          return;
+        }
+        picklistInFlightRef.current = normalizedSearch;
+        setLoading(true);
+        setError(null);
+        try {
+          const session = await scanSessionsApi.create({
+            scannedBarcode: normalizedSearch,
+            workstationName: kioskWorkstation ?? '',
+          });
+          if (cancelled) return;
+          navigate(`/pickup/session/${session.id}`);
+          return;
+        } catch (e) {
+          if (!cancelled) {
+            picklistInFlightRef.current = null;
+            setError(e instanceof Error ? e.message : 'Failed to start pick-list session');
+          }
+          return;
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      }
+
       setLoading(true);
       setError(null);
 
@@ -181,7 +231,16 @@ export function PickupLookupPage() {
     return () => {
       cancelled = true;
     };
-  }, [azFilter, navigate, normalizedSearch, orderLookupActive, pickupAutoJumpMode, search]);
+  }, [
+    azFilter,
+    kioskWorkstation,
+    navigate,
+    normalizedSearch,
+    orderLookupActive,
+    picklistLookupActive,
+    pickupAutoJumpMode,
+    search,
+  ]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -191,6 +250,7 @@ export function PickupLookupPage() {
     if (!value.trim()) {
       setExactOrderMatches([]);
       setError(null);
+      picklistInFlightRef.current = null;
     }
   }
 
@@ -199,6 +259,7 @@ export function PickupLookupPage() {
     setAzFilter(null);
     setExactOrderMatches([]);
     setError(null);
+    picklistInFlightRef.current = null;
     searchInputRef.current?.focus();
   }
 

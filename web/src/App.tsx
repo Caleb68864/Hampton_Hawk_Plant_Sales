@@ -16,6 +16,7 @@ import { OrderDetailPage } from '@/pages/orders/OrderDetailPage.js';
 import { NewOrderPage } from '@/pages/orders/NewOrderPage.js';
 import { PickupLookupPage } from '@/pages/pickup/PickupLookupPage.js';
 import { PickupScanPage } from '@/pages/pickup/PickupScanPage.js';
+import { PickupScanSessionPage } from '@/pages/pickup/PickupScanSessionPage.js';
 import { PlantsListPage } from '@/pages/plants/PlantsListPage.js';
 import { PlantDetailPage } from '@/pages/plants/PlantDetailPage.js';
 import { PrintCheatsheetAdmin } from '@/pages/print/PrintCheatsheetAdmin.js';
@@ -70,6 +71,7 @@ function App() {
               <Route path="orders/:id" element={<OrderDetailPage />} />
               <Route path="station" element={<StationHomePage />} />
               <Route path="pickup" element={<PickupLookupPage />} />
+              <Route path="pickup/session/:id" element={<PickupScanSessionPage />} />
               <Route path="pickup/:orderId" element={<PickupScanPage />} />
               <Route path="lookup-print" element={<LookupPrintStationPage />} />
               <Route path="walkup/new" element={<WalkUpNewOrderPage />} />
