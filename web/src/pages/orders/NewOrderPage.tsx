@@ -6,6 +6,8 @@ import { sellersApi } from '@/api/sellers.js';
 import { plantsApi } from '@/api/plants.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { Customer } from '@/types/customer.js';
 import type { Seller } from '@/types/seller.js';
 import type { Plant } from '@/types/plant.js';
@@ -303,14 +305,15 @@ export function NewOrderPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">{isEditing ? 'Edit Order' : 'New Order'}</h1>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(isEditing && id ? `/orders/${id}` : '/orders')}>
+    <JoyPageShell
+      title={isEditing ? 'Edit Order' : 'New Order'}
+      eyebrow={isEditing ? 'Order' : 'Create'}
+      actions={
+        <TouchButton variant="ghost" onClick={() => navigate(isEditing && id ? `/orders/${id}` : '/orders')}>
           {isEditing ? 'Back to Order' : 'Back to Orders'}
-        </button>
-      </div>
-
+        </TouchButton>
+      }
+    >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -478,15 +481,15 @@ export function NewOrderPage() {
         </div>
 
         <div className="flex justify-end">
-          <button
+          <TouchButton
             type="submit"
+            variant="primary"
             disabled={saving || !selectedCustomer || lines.length === 0}
-            className="px-6 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50"
           >
             {saving ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create Order')}
-          </button>
+          </TouchButton>
         </div>
       </form>
-    </div>
+    </JoyPageShell>
   );
 }

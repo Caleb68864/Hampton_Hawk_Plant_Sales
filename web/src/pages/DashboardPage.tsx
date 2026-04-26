@@ -4,6 +4,7 @@ import { reportsApi } from '@/api/reports.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import type { DashboardMetrics, LowInventoryItem, ProblemOrder } from '@/types/reports.js';
 
 export function DashboardPage() {
@@ -37,9 +38,8 @@ export function DashboardPage() {
     : 0;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-
+    <JoyPageShell title="Dashboard" eyebrow="Overview" maxWidth="wide">
+      <div className="space-y-6">
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {/* Metrics Cards */}
@@ -128,7 +128,8 @@ export function DashboardPage() {
           <QuickLink to="/settings" label="Settings" />
         </div>
       </div>
-    </div>
+      </div>
+    </JoyPageShell>
   );
 }
 

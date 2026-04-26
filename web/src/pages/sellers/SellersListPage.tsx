@@ -6,7 +6,9 @@ import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { AzTabs } from '@/components/shared/AzTabs.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useRecentItems } from '@/hooks/useRecentItems.js';
 import type { Seller } from '@/types/seller.js';
 
@@ -69,18 +71,15 @@ export function SellersListPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Sellers</h1>
-        <button
-          type="button"
-          className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700"
-          onClick={() => navigate('/sellers/new')}
-        >
+    <JoyPageShell
+      title="Sellers"
+      eyebrow="Directory"
+      actions={
+        <TouchButton variant="primary" onClick={() => navigate('/sellers/new')}>
           New Seller
-        </button>
-      </div>
-
+        </TouchButton>
+      }
+    >
       <AzTabs selected={letterFilter} onSelect={handleLetterSelect} />
 
       <div ref={searchRef}>
@@ -110,7 +109,7 @@ export function SellersListPage() {
       {loading ? (
         <LoadingSpinner />
       ) : sellers.length === 0 ? (
-        <EmptyState title="No sellers found" description={search || letterFilter ? 'Try a different search or letter.' : 'Create your first seller to get started.'} />
+        <BotanicalEmptyState title="No sellers found" description={search || letterFilter ? 'Try a different search or letter.' : 'Create your first seller to get started.'} />
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -147,6 +146,6 @@ export function SellersListPage() {
           />
         </>
       )}
-    </div>
+    </JoyPageShell>
   );
 }

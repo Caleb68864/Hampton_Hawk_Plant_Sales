@@ -6,6 +6,8 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { Seller, CreateSellerRequest } from '@/types/seller.js';
 import type { Order } from '@/types/order.js';
 
@@ -99,14 +101,15 @@ export function SellerDetailPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">{isNew ? 'New Seller' : `Edit: ${seller?.displayName ?? ''}`}</h1>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/sellers')}>
+    <JoyPageShell
+      title={isNew ? 'New Seller' : `Edit: ${seller?.displayName ?? ''}`}
+      eyebrow={isNew ? 'Create' : 'Seller'}
+      actions={
+        <TouchButton variant="ghost" onClick={() => navigate('/sellers')}>
           Back to Sellers
-        </button>
-      </div>
-
+        </TouchButton>
+      }
+    >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       <form onSubmit={handleSave} className="space-y-4 bg-white rounded-lg border border-gray-200 p-6">
@@ -145,9 +148,9 @@ export function SellerDetailPage() {
               </button>
             )}
           </div>
-          <button type="submit" disabled={saving} className="px-6 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50">
+          <TouchButton type="submit" variant="primary" disabled={saving}>
             {saving ? 'Saving...' : isNew ? 'Create Seller' : 'Save Changes'}
-          </button>
+          </TouchButton>
         </div>
       </form>
 
@@ -177,6 +180,6 @@ export function SellerDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
-    </div>
+    </JoyPageShell>
   );
 }

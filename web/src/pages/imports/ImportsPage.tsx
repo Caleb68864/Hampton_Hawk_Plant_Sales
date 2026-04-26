@@ -5,6 +5,8 @@ import { ImportResultsSummary } from '@/components/imports/ImportResultsSummary.
 import { ImportIssuesTable } from '@/components/imports/ImportIssuesTable.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { ImportBatch, ImportIssue, ImportResult } from '@/types/import.js';
 
 type Tab = 'import' | 'history';
@@ -223,9 +225,7 @@ export function ImportsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-800">Imports</h1>
-
+    <JoyPageShell title="Imports" eyebrow="Data" maxWidth="wide">
       <div className="flex gap-2 border-b border-gray-200">
         <button
           type="button"
@@ -324,13 +324,12 @@ export function ImportsPage() {
                       </td>
                       <td className="px-4 py-2 text-sm">
                         {batch.skippedCount > 0 && (
-                          <button
-                            type="button"
-                            className="text-blue-600 hover:text-blue-700 text-sm"
+                          <TouchButton
+                            variant="ghost"
                             onClick={() => openBatchIssues(batch)}
                           >
                             View Issues
-                          </button>
+                          </TouchButton>
                         )}
                       </td>
                     </tr>
@@ -374,6 +373,6 @@ export function ImportsPage() {
           )}
         </div>
       )}
-    </div>
+    </JoyPageShell>
   );
 }
