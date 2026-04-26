@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { HorizontalBarRow } from '@/components/reports/HorizontalBarRow.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
@@ -42,6 +43,10 @@ export function TopMoversPage() {
   }, [limit, refreshTick]);
 
   const sortedRows = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+  const maxQty = useMemo(
+    () => Math.max(1, ...rows.map((r) => r.qtyOrdered)),
+    [rows],
+  );
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -113,16 +118,35 @@ export function TopMoversPage() {
             <table className="min-w-full divide-y divide-gray-200 text-sm tabular-nums">
               <thead className="bg-gray-50">
                 <tr>
-                  {COLUMNS.map((col) => (
-                    <SortableHeader
-                      key={col.key as string}
-                      label={col.label}
-                      align={col.align ?? 'left'}
-                      active={sortKey === col.key}
-                      direction={sortDir}
-                      onClick={() => handleSort(col.key)}
-                    />
-                  ))}
+                  <SortableHeader
+                    label="Plant Name"
+                    align="left"
+                    active={sortKey === 'plantName'}
+                    direction={sortDir}
+                    onClick={() => handleSort('plantName')}
+                  />
+                  <SortableHeader
+                    label="Qty Ordered"
+                    align="right"
+                    active={sortKey === 'qtyOrdered'}
+                    direction={sortDir}
+                    onClick={() => handleSort('qtyOrdered')}
+                  />
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600">Visual</th>
+                  <SortableHeader
+                    label="Qty Fulfilled"
+                    align="right"
+                    active={sortKey === 'qtyFulfilled'}
+                    direction={sortDir}
+                    onClick={() => handleSort('qtyFulfilled')}
+                  />
+                  <SortableHeader
+                    label="Order Count"
+                    align="right"
+                    active={sortKey === 'orderCount'}
+                    direction={sortDir}
+                    onClick={() => handleSort('orderCount')}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -137,6 +161,14 @@ export function TopMoversPage() {
                       </Link>
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-gray-900">{row.qtyOrdered.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-left">
+                      <HorizontalBarRow
+                        value={row.qtyOrdered}
+                        max={maxQty}
+                        color="bg-gold-500"
+                        ariaLabel={`${row.plantName}: ${row.qtyOrdered} of ${maxQty} ordered`}
+                      />
+                    </td>
                     <td className="px-3 py-2 text-right font-semibold text-emerald-700">{row.qtyFulfilled.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right text-gray-700">{row.orderCount.toLocaleString()}</td>
                   </tr>

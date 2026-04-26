@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { Donut } from '@/components/reports/Donut.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
@@ -117,19 +118,21 @@ export function WalkupVsPreorderPage() {
       ) : (
         <>
           <section className="rounded-2xl border border-gold-300 bg-gradient-to-br from-gold-50 to-white p-6 joy-shadow-plum">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-hawk-700">Walk-up share</p>
-            <p
-              className="mt-1 text-5xl text-hawk-900"
-              style={{
-                fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
-                fontVariationSettings: "'opsz' 144, 'wght' 600",
-              }}
-            >
-              {ratioPct}%
-            </p>
-            <p className="mt-1 text-sm text-hawk-700">
-              of {totalOrders.toLocaleString()} non-draft orders were walk-up.
-            </p>
+            <div className="flex flex-col items-center gap-2">
+              <Donut
+                segments={[
+                  { label: 'WalkUp', value: data.walkUp.orderCount, color: '#d4a021' },
+                  { label: 'Preorder', value: data.preorder.orderCount, color: '#7a3d93' },
+                ]}
+                size={180}
+                strokeWidth={22}
+                centerLabel="WalkUp Share"
+                centerValue={`${(data.walkUpRatio * 100).toFixed(1)}%`}
+              />
+              <p className="text-sm text-hawk-700">
+                of {totalOrders.toLocaleString()} non-draft orders were walk-up.
+              </p>
+            </div>
           </section>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

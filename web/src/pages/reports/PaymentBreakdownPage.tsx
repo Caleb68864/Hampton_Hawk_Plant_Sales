@@ -1,13 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { Donut } from '@/components/reports/Donut.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { PaymentBreakdownRow } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+
+// Six-color palette pulled from the existing hawk/gold ranges so the donut
+// stays inside the brand without introducing new tokens.
+const PALETTE = [
+  '#7a3d93', // hawk-700
+  '#d4a021', // gold-600
+  '#9b66b3', // hawk-500
+  '#e6b94a', // gold-500
+  '#5a2d6f', // hawk-800
+  '#b88a1a', // gold-700
+];
 
 type SortKey = keyof PaymentBreakdownRow;
 type SortDir = 'asc' | 'desc';
@@ -40,6 +53,12 @@ export function PaymentBreakdownPage() {
   }, [from, to, refreshTick]);
 
   const sortedRows = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+
+  const allRevenueZero = useMemo(() => rows.every((r) => r.revenue === 0), [rows]);
+  const donutMode: 'revenue' | 'orders' = allRevenueZero ? 'orders' : 'revenue';
+  const donutTotal = useMemo(() => {
+    return rows.reduce((sum, r) => sum + (donutMode === 'revenue' ? r.revenue : r.orderCount), 0);
+  }, [rows, donutMode]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -103,6 +122,29 @@ export function PaymentBreakdownPage() {
       </section>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {!loading && rows.length > 0 && (
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+          <SectionHeading level={3} eyebrow="Distribution">
+            Revenue by Method
+          </SectionHeading>
+          <div className="mt-4 flex justify-center">
+            <Donut
+              segments={rows.map((m, i) => ({
+                label: m.method,
+                value: donutMode === 'revenue' ? m.revenue : m.orderCount,
+                color: PALETTE[i % PALETTE.length] as string,
+              }))}
+              centerLabel={donutMode === 'revenue' ? 'Total' : 'Orders'}
+              centerValue={
+                donutMode === 'revenue'
+                  ? formatCurrency(donutTotal)
+                  : donutTotal.toLocaleString()
+              }
+            />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
         {loading ? (

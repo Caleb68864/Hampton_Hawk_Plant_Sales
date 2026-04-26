@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { StackedBar } from '@/components/reports/StackedBar.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { StatusFunnelBucket } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+
+const STATUS_COLORS: Record<string, string> = {
+  Open: 'bg-hawk-500',
+  InProgress: 'bg-gold-500',
+  Complete: 'bg-green-500',
+  Cancelled: 'bg-red-500',
+};
 
 type SortKey = keyof StatusFunnelBucket;
 type SortDir = 'asc' | 'desc';
@@ -84,6 +93,23 @@ export function StatusFunnelPage() {
       </section>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {!loading && rows.length > 0 && (
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+          <SectionHeading level={3} eyebrow="Distribution">
+            Order Status
+          </SectionHeading>
+          <div className="mt-4">
+            <StackedBar
+              segments={rows.map((b) => ({
+                label: formatStatus(b.status),
+                value: b.count,
+                color: STATUS_COLORS[b.status] || 'bg-hawk-400',
+              }))}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
         {loading ? (

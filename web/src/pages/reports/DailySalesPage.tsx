@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { Sparkline } from '@/components/reports/Sparkline.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { DailySalesDay } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
@@ -51,6 +53,19 @@ export function DailySalesPage() {
   }, [from, to, refreshTick]);
 
   const sortedRows = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+
+  // Sparklines always read days in chronological order regardless of table sort.
+  const chronologicalDays = useMemo(
+    () => [...rows].sort((a, b) => a.date.localeCompare(b.date)),
+    [rows],
+  );
+  const revenuePoints = useMemo(() => chronologicalDays.map((d) => d.revenue), [chronologicalDays]);
+  const itemPoints = useMemo(() => chronologicalDays.map((d) => d.itemCount), [chronologicalDays]);
+  const orderPoints = useMemo(() => chronologicalDays.map((d) => d.orderCount), [chronologicalDays]);
+  const allRevenueZero = revenuePoints.every((v) => v === 0);
+  const leftPoints = allRevenueZero ? itemPoints : revenuePoints;
+  const leftLabel = allRevenueZero ? 'Items' : 'Revenue';
+  const leftStroke = allRevenueZero ? 'var(--color-hawk-700)' : 'var(--color-gold-600)';
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -112,6 +127,39 @@ export function DailySalesPage() {
       </section>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {!loading && chronologicalDays.length > 0 && (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+            <SectionHeading level={3} eyebrow="Trend">
+              {leftLabel}
+            </SectionHeading>
+            <div className="mt-3">
+              <Sparkline
+                points={leftPoints}
+                width={400}
+                height={64}
+                stroke={leftStroke}
+                ariaLabel={`${leftLabel} trend over ${chronologicalDays.length} days`}
+              />
+            </div>
+          </section>
+          <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+            <SectionHeading level={3} eyebrow="Trend">
+              Orders
+            </SectionHeading>
+            <div className="mt-3">
+              <Sparkline
+                points={orderPoints}
+                width={400}
+                height={64}
+                stroke="var(--color-hawk-700)"
+                ariaLabel={`Orders trend over ${chronologicalDays.length} days`}
+              />
+            </div>
+          </section>
+        </div>
+      )}
 
       <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
         {loading ? (

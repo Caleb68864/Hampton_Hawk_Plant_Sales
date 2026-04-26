@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
+import { AgingBarChart } from '@/components/reports/AgingBarChart.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { OutstandingAgingBucket } from '@/types/reports.js';
 
@@ -55,6 +57,17 @@ export function OutstandingAgingPage() {
       </section>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {!loading && buckets.length > 0 && (
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+          <SectionHeading level={3} eyebrow="Buckets">
+            Order Age
+          </SectionHeading>
+          <div className="mt-4">
+            <AgingBarChart buckets={buckets} />
+          </div>
+        </section>
+      )}
 
       {oldest && oldest.count > 0 && (
         <section
