@@ -1,5 +1,13 @@
 import { get } from './client.js';
-import type { DashboardMetrics, LowInventoryItem, ProblemOrder, SellerOrderSummary } from '@/types/reports.js';
+import type {
+  DashboardMetrics,
+  LowInventoryItem,
+  ProblemOrder,
+  SalesByCustomerRow,
+  SalesByPlantRow,
+  SalesBySellerRow,
+  SellerOrderSummary,
+} from '@/types/reports.js';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return (value && typeof value === 'object') ? value as Record<string, unknown> : {};
@@ -59,6 +67,55 @@ function normalizeProblemOrders(items: unknown): ProblemOrder[] {
   });
 }
 
+function normalizeSalesBySeller(items: unknown): SalesBySellerRow[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((raw) => {
+    const r = asRecord(raw);
+    return {
+      sellerId: asString(r.sellerId ?? r.SellerId),
+      sellerDisplayName: asString(r.sellerDisplayName ?? r.SellerDisplayName),
+      orderCount: asNumber(r.orderCount ?? r.OrderCount),
+      itemsOrdered: asNumber(r.itemsOrdered ?? r.ItemsOrdered),
+      itemsFulfilled: asNumber(r.itemsFulfilled ?? r.ItemsFulfilled),
+      revenueOrdered: asNumber(r.revenueOrdered ?? r.RevenueOrdered),
+      revenueFulfilled: asNumber(r.revenueFulfilled ?? r.RevenueFulfilled),
+    };
+  });
+}
+
+function normalizeSalesByCustomer(items: unknown): SalesByCustomerRow[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((raw) => {
+    const r = asRecord(raw);
+    return {
+      customerId: asString(r.customerId ?? r.CustomerId),
+      customerDisplayName: asString(r.customerDisplayName ?? r.CustomerDisplayName),
+      orderCount: asNumber(r.orderCount ?? r.OrderCount),
+      itemsOrdered: asNumber(r.itemsOrdered ?? r.ItemsOrdered),
+      itemsFulfilled: asNumber(r.itemsFulfilled ?? r.ItemsFulfilled),
+      revenueOrdered: asNumber(r.revenueOrdered ?? r.RevenueOrdered),
+      revenueFulfilled: asNumber(r.revenueFulfilled ?? r.RevenueFulfilled),
+    };
+  });
+}
+
+function normalizeSalesByPlant(items: unknown): SalesByPlantRow[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((raw) => {
+    const r = asRecord(raw);
+    return {
+      plantCatalogId: asString(r.plantCatalogId ?? r.PlantCatalogId),
+      plantName: asString(r.plantName ?? r.PlantName),
+      plantSku: asString(r.plantSku ?? r.PlantSku),
+      orderCount: asNumber(r.orderCount ?? r.OrderCount),
+      itemsOrdered: asNumber(r.itemsOrdered ?? r.ItemsOrdered),
+      itemsFulfilled: asNumber(r.itemsFulfilled ?? r.ItemsFulfilled),
+      revenueOrdered: asNumber(r.revenueOrdered ?? r.RevenueOrdered),
+      revenueFulfilled: asNumber(r.revenueFulfilled ?? r.RevenueFulfilled),
+    };
+  });
+}
+
 function normalizeSellerOrders(items: unknown): SellerOrderSummary[] {
   if (!Array.isArray(items)) return [];
   return items.map((raw) => {
@@ -84,4 +141,10 @@ export const reportsApi = {
   problemOrders: async () => normalizeProblemOrders(await get<unknown>('/reports/problem-orders')),
 
   sellerOrders: async (sellerId: string) => normalizeSellerOrders(await get<unknown>(`/reports/seller/${sellerId}/orders`)),
+
+  salesBySeller: async () => normalizeSalesBySeller(await get<unknown>('/reports/sales-by-seller')),
+
+  salesByCustomer: async () => normalizeSalesByCustomer(await get<unknown>('/reports/sales-by-customer')),
+
+  salesByPlant: async () => normalizeSalesByPlant(await get<unknown>('/reports/sales-by-plant')),
 };

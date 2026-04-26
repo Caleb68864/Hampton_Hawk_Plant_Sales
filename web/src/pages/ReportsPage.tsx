@@ -153,6 +153,33 @@ export function ReportsPage() {
         </section>
       </div>
 
+      <section className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-gray-800">Sales Breakdowns</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Link
+            to="/reports/sales-by-seller"
+            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+          >
+            <p className="text-sm font-semibold text-gray-900">Sales by Seller</p>
+            <p className="mt-1 text-xs text-gray-600">Per-seller order count, units, and revenue (ordered vs fulfilled).</p>
+          </Link>
+          <Link
+            to="/reports/sales-by-customer"
+            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+          >
+            <p className="text-sm font-semibold text-gray-900">Sales by Customer</p>
+            <p className="mt-1 text-xs text-gray-600">Per-customer order totals and revenue breakdown.</p>
+          </Link>
+          <Link
+            to="/reports/sales-by-plant"
+            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+          >
+            <p className="text-sm font-semibold text-gray-900">Sales by Plant</p>
+            <p className="mt-1 text-xs text-gray-600">Per-plant units sold and revenue (ordered vs fulfilled).</p>
+          </Link>
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-gray-200 bg-white p-6">
           <div className="mb-3 flex items-center justify-between">

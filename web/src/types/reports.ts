@@ -39,3 +39,34 @@ export interface SellerOrderSummary {
   totalItemsFulfilled: number;
   createdAt: string;
 }
+
+export interface SalesBySellerRow {
+  sellerId: string;
+  sellerDisplayName: string;
+  orderCount: number;
+  itemsOrdered: number;
+  itemsFulfilled: number;
+  revenueOrdered: number;
+  revenueFulfilled: number;
+}
+
+export interface SalesByCustomerRow {
+  customerId: string;
+  customerDisplayName: string;
+  orderCount: number;
+  itemsOrdered: number;
+  itemsFulfilled: number;
+  revenueOrdered: number;
+  revenueFulfilled: number;
+}
+
+export interface SalesByPlantRow {
+  plantCatalogId: string;
+  plantName: string;
+  plantSku: string;
+  orderCount: number;
+  itemsOrdered: number;
+  itemsFulfilled: number;
+  revenueOrdered: number;
+  revenueFulfilled: number;
+}

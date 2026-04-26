@@ -31,6 +31,9 @@ import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
 import { ReportsPage } from '@/pages/ReportsPage.js';
 import { LeftoverInventoryPage } from '@/pages/reports/LeftoverInventoryPage.js';
+import { SalesByCustomerPage } from '@/pages/reports/SalesByCustomerPage.js';
+import { SalesByPlantPage } from '@/pages/reports/SalesByPlantPage.js';
+import { SalesBySellerPage } from '@/pages/reports/SalesBySellerPage.js';
 import { SellersListPage } from '@/pages/sellers/SellersListPage.js';
 import { SellerDetailPage } from '@/pages/sellers/SellerDetailPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
@@ -72,6 +75,9 @@ function App() {
               <Route path="imports" element={<ImportsPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="reports/leftover-inventory" element={<LeftoverInventoryPage />} />
+              <Route path="reports/sales-by-seller" element={<SalesBySellerPage />} />
+              <Route path="reports/sales-by-customer" element={<SalesByCustomerPage />} />
+              <Route path="reports/sales-by-plant" element={<SalesByPlantPage />} />
               <Route path="docs" element={<DocsPage />} />
             </Route>
 
