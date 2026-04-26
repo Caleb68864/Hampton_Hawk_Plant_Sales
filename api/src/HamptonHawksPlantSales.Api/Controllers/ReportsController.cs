@@ -67,4 +67,42 @@ public class ReportsController : ControllerBase
         var result = await _reportService.GetSellerOrdersAsync(sellerId);
         return Ok(ApiResponse<List<SellerOrderSummaryResponse>>.Ok(result));
     }
+
+    // ── SS-04: Sales aggregate reports ──
+
+    /// <summary>
+    /// Gets aggregated sales totals grouped by seller.
+    /// </summary>
+    /// <response code="200">List of per-seller sales totals.</response>
+    [HttpGet("sales-by-seller")]
+    [ProducesResponseType(typeof(ApiResponse<List<SalesBySellerRow>>), 200)]
+    public async Task<IActionResult> GetSalesBySeller()
+    {
+        var result = await _reportService.GetSalesBySellerAsync();
+        return Ok(ApiResponse<List<SalesBySellerRow>>.Ok(result));
+    }
+
+    /// <summary>
+    /// Gets aggregated sales totals grouped by customer.
+    /// </summary>
+    /// <response code="200">List of per-customer sales totals.</response>
+    [HttpGet("sales-by-customer")]
+    [ProducesResponseType(typeof(ApiResponse<List<SalesByCustomerRow>>), 200)]
+    public async Task<IActionResult> GetSalesByCustomer()
+    {
+        var result = await _reportService.GetSalesByCustomerAsync();
+        return Ok(ApiResponse<List<SalesByCustomerRow>>.Ok(result));
+    }
+
+    /// <summary>
+    /// Gets aggregated sales totals grouped by plant catalog item.
+    /// </summary>
+    /// <response code="200">List of per-plant sales totals.</response>
+    [HttpGet("sales-by-plant")]
+    [ProducesResponseType(typeof(ApiResponse<List<SalesByPlantRow>>), 200)]
+    public async Task<IActionResult> GetSalesByPlant()
+    {
+        var result = await _reportService.GetSalesByPlantAsync();
+        return Ok(ApiResponse<List<SalesByPlantRow>>.Ok(result));
+    }
 }

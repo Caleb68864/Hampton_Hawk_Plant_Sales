@@ -117,13 +117,98 @@ public class ReportService : IReportService
             .ToListAsync();
     }
 
-    // SS-04 placeholders so the solution builds while SS-04 implements full logic.
-    public Task<List<SalesBySellerRow>> GetSalesBySellerAsync()
-        => throw new NotImplementedException("SS-04 will implement GetSalesBySellerAsync.");
+    // ── SS-04: Sales aggregate reports ──
+    //
+    // Soft-delete behavior: AppDbContext applies a global query filter on Order,
+    // OrderLine, PlantCatalog, Seller, and Customer (DeletedAt == null), so
+    // deleted records are automatically excluded from these queries -- including
+    // through navigation properties (e.g. ol.Order, ol.PlantCatalog).
+    //
+    // Empty/zero-revenue rows are preserved by starting from the parent
+    // (Sellers/Customers/PlantCatalogs) and projecting subquery aggregates;
+    // a parent with no orders yields OrderCount=0 and Revenue=0 rather than
+    // being filtered out (LEFT-JOIN-equivalent semantics).
+    //
+    // Revenue is computed as Qty * (PlantCatalog.Price ?? 0). Lines for a plant
+    // with NULL price contribute 0 revenue rather than producing a NULL total.
 
-    public Task<List<SalesByCustomerRow>> GetSalesByCustomerAsync()
-        => throw new NotImplementedException("SS-04 will implement GetSalesByCustomerAsync.");
+    public async Task<List<SalesBySellerRow>> GetSalesBySellerAsync()
+    {
+        return await _db.Sellers
+            .OrderBy(s => s.DisplayName)
+            .Select(s => new SalesBySellerRow
+            {
+                SellerId = s.Id,
+                SellerDisplayName = s.DisplayName,
+                OrderCount = _db.Orders.Count(o => o.SellerId == s.Id),
+                ItemsOrdered = _db.OrderLines
+                    .Where(ol => ol.Order.SellerId == s.Id)
+                    .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
+                ItemsFulfilled = _db.OrderLines
+                    .Where(ol => ol.Order.SellerId == s.Id)
+                    .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
+                RevenueOrdered = _db.OrderLines
+                    .Where(ol => ol.Order.SellerId == s.Id)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
+                RevenueFulfilled = _db.OrderLines
+                    .Where(ol => ol.Order.SellerId == s.Id)
+                    .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
+            })
+            .ToListAsync();
+    }
 
-    public Task<List<SalesByPlantRow>> GetSalesByPlantAsync()
-        => throw new NotImplementedException("SS-04 will implement GetSalesByPlantAsync.");
+    public async Task<List<SalesByCustomerRow>> GetSalesByCustomerAsync()
+    {
+        return await _db.Customers
+            .OrderBy(c => c.DisplayName)
+            .Select(c => new SalesByCustomerRow
+            {
+                CustomerId = c.Id,
+                CustomerDisplayName = c.DisplayName,
+                OrderCount = _db.Orders.Count(o => o.CustomerId == c.Id),
+                ItemsOrdered = _db.OrderLines
+                    .Where(ol => ol.Order.CustomerId == c.Id)
+                    .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
+                ItemsFulfilled = _db.OrderLines
+                    .Where(ol => ol.Order.CustomerId == c.Id)
+                    .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
+                RevenueOrdered = _db.OrderLines
+                    .Where(ol => ol.Order.CustomerId == c.Id)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
+                RevenueFulfilled = _db.OrderLines
+                    .Where(ol => ol.Order.CustomerId == c.Id)
+                    .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<SalesByPlantRow>> GetSalesByPlantAsync()
+    {
+        return await _db.PlantCatalogs
+            .OrderBy(p => p.Name)
+            .Select(p => new SalesByPlantRow
+            {
+                PlantCatalogId = p.Id,
+                PlantName = p.Name,
+                PlantSku = p.Sku,
+                OrderCount = _db.OrderLines
+                    .Where(ol => ol.PlantCatalogId == p.Id)
+                    .Select(ol => ol.OrderId)
+                    .Distinct()
+                    .Count(),
+                ItemsOrdered = _db.OrderLines
+                    .Where(ol => ol.PlantCatalogId == p.Id)
+                    .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
+                ItemsFulfilled = _db.OrderLines
+                    .Where(ol => ol.PlantCatalogId == p.Id)
+                    .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
+                RevenueOrdered = _db.OrderLines
+                    .Where(ol => ol.PlantCatalogId == p.Id)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (p.Price ?? 0m))) ?? 0m,
+                RevenueFulfilled = _db.OrderLines
+                    .Where(ol => ol.PlantCatalogId == p.Id)
+                    .Sum(ol => (decimal?)(ol.QtyFulfilled * (p.Price ?? 0m))) ?? 0m
+            })
+            .ToListAsync();
+    }
 }
