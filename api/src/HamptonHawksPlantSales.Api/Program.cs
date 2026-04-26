@@ -85,6 +85,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFulfillmentService, FulfillmentService>();
 builder.Services.AddScoped<IInventoryProtectionService, InventoryProtectionService>();
 builder.Services.AddScoped<IWalkUpService, WalkUpService>();
+builder.Services.AddScoped<IWalkUpRegisterService, WalkUpRegisterService>();
 builder.Services.AddScoped<AdminPinActionFilter>();
 
 // Controllers + JSON serialization
