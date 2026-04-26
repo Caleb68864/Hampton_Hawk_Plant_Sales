@@ -114,10 +114,12 @@ export function KioskLayout() {
         </div>
       )}
 
-      <main className="mx-auto max-w-6xl space-y-4 p-6">
-        {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
-        {fullscreenNote && <ErrorBanner message={fullscreenNote} onDismiss={() => setFullscreenNote(null)} />}
-        <Outlet />
+      <main className="paper-grain relative">
+        <div className="relative z-10 mx-auto max-w-6xl space-y-4 p-6">
+          {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+          {fullscreenNote && <ErrorBanner message={fullscreenNote} onDismiss={() => setFullscreenNote(null)} />}
+          <Outlet />
+        </div>
       </main>
     </div>
   );
