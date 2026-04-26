@@ -13,11 +13,15 @@ public class SellerConfiguration : IEntityTypeConfiguration<Seller>
         builder.Property(e => e.FirstName).HasColumnType("text");
         builder.Property(e => e.LastName).HasColumnType("text");
         builder.Property(e => e.DisplayName).HasColumnType("text").IsRequired();
+        builder.Property(e => e.PicklistBarcode).HasColumnType("text").HasMaxLength(32).IsRequired();
         builder.Property(e => e.Grade).HasColumnType("text");
         builder.Property(e => e.Teacher).HasColumnType("text");
         builder.Property(e => e.Notes).HasColumnType("text");
 
         builder.HasIndex(e => e.LastName);
         builder.HasIndex(e => e.DisplayName);
+        builder.HasIndex(e => e.PicklistBarcode)
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
     }
 }
