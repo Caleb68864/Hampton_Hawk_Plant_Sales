@@ -1,12 +1,12 @@
 import { get, post, put, del, delWithHeaders, postWithHeaders } from './client.js';
 import { buildAdminHeaders } from './adminHeaders.js';
-import type { Order, CreateOrderRequest, OrderLine, CreateOrderLineRequest, UpdateOrderRequest } from '@/types/order.js';
+import type { Order, CreateOrderRequest, OrderLine, CreateOrderLineRequest, UpdateOrderRequest, OrderStatus, BulkOperationResult } from '@/types/order.js';
 import type { PagedResult, PaginationParams } from '@/types/api.js';
 import type { FulfillmentEvent } from '@/types/fulfillment.js';
 import { mapApiOrder, type ApiOrder } from './orderMappers.js';
 
 export const ordersApi = {
-  list: async (params?: PaginationParams & { status?: string; isWalkUp?: boolean; sellerId?: string; customerId?: string; includeDeleted?: boolean }) => {
+  list: async (params?: PaginationParams & { status?: string; isWalkUp?: boolean; sellerId?: string; customerId?: string; includeDeleted?: boolean; sortBy?: string; sortDir?: 'asc' | 'desc' }) => {
     const response = await get<PagedResult<ApiOrder>>('/orders', params as Record<string, unknown>);
 
     return {
@@ -46,4 +46,18 @@ export const ordersApi = {
 
   regenerateBarcodes: (pin: string, reason: string) =>
     postWithHeaders<number>('/orders/regenerate-barcodes', {}, buildAdminHeaders(pin, reason)),
+
+  bulkComplete: (ids: string[], pin: string, reason: string) =>
+    postWithHeaders<BulkOperationResult>(
+      '/orders/bulk-complete',
+      { orderIds: ids },
+      buildAdminHeaders(pin, reason),
+    ),
+
+  bulkSetStatus: (ids: string[], targetStatus: OrderStatus, pin: string, reason: string) =>
+    postWithHeaders<BulkOperationResult>(
+      '/orders/bulk-status',
+      { orderIds: ids, targetStatus },
+      buildAdminHeaders(pin, reason),
+    ),
 };
