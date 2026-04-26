@@ -27,7 +27,7 @@ public class OrderService : IOrderService
 
     public async Task<PagedResult<OrderResponse>> GetAllAsync(
         string? search, OrderStatus? status, bool? isWalkUp, Guid? sellerId, Guid? customerId,
-        bool includeDeleted, PaginationParams paging)
+        bool includeDeleted, PaginationParams paging, bool includeDraft = false)
     {
         var query = includeDeleted
             ? _db.Orders.IgnoreQueryFilters().Include(o => o.Customer).Include(o => o.Seller).AsQueryable()
@@ -35,6 +35,11 @@ public class OrderService : IOrderService
 
         if (!includeDeleted)
             query = query.Where(o => o.DeletedAt == null);
+
+        // SS-05: exclude Draft orders by default (walk-up cash-register drafts).
+        // An explicit status filter or includeDraft=true overrides this.
+        if (!includeDraft && !status.HasValue)
+            query = query.Where(o => o.Status != OrderStatus.Draft);
 
         if (status.HasValue)
             query = query.Where(o => o.Status == status.Value);
@@ -54,8 +59,8 @@ public class OrderService : IOrderService
             query = query.Where(o =>
                 o.OrderNumber.ToLower().Contains(term) ||
                 (o.Barcode != null && o.Barcode.ToLower().Contains(term)) ||
-                o.Customer.DisplayName.ToLower().Contains(term) ||
-                o.Customer.PickupCode.ToLower().Contains(term));
+                (o.Customer != null && o.Customer.DisplayName.ToLower().Contains(term)) ||
+                (o.Customer != null && o.Customer.PickupCode.ToLower().Contains(term)));
         }
 
         var totalCount = await query.CountAsync();
@@ -338,6 +343,8 @@ public class OrderService : IOrderService
         Status = o.Status,
         IsWalkUp = o.IsWalkUp,
         HasIssue = o.HasIssue,
+        PaymentMethod = o.PaymentMethod,
+        AmountTendered = o.AmountTendered,
         Customer = o.Customer == null ? null : new CustomerResponse
         {
             Id = o.Customer.Id,
@@ -382,6 +389,7 @@ public class OrderService : IOrderService
         QtyOrdered = l.QtyOrdered,
         QtyFulfilled = l.QtyFulfilled,
         Notes = l.Notes,
+        LastScanIdempotencyKey = l.LastScanIdempotencyKey,
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };

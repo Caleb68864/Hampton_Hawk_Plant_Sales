@@ -213,6 +213,8 @@ public class WalkUpService : IWalkUpService
         Status = o.Status,
         IsWalkUp = o.IsWalkUp,
         HasIssue = o.HasIssue,
+        PaymentMethod = o.PaymentMethod,
+        AmountTendered = o.AmountTendered,
         Customer = o.Customer == null ? null : new CustomerResponse
         {
             Id = o.Customer.Id,
@@ -253,6 +255,7 @@ public class WalkUpService : IWalkUpService
         QtyOrdered = l.QtyOrdered,
         QtyFulfilled = l.QtyFulfilled,
         Notes = l.Notes,
+        LastScanIdempotencyKey = l.LastScanIdempotencyKey,
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };

@@ -11,9 +11,13 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         builder.HasQueryFilter(e => e.DeletedAt == null);
 
         builder.Property(e => e.Notes).HasColumnType("text");
+        builder.Property(e => e.LastScanIdempotencyKey)
+            .HasColumnType("text")
+            .HasMaxLength(64);
 
         builder.HasIndex(e => e.OrderId);
         builder.HasIndex(e => e.PlantCatalogId);
+        builder.HasIndex(e => e.LastScanIdempotencyKey);
 
         builder.HasOne(e => e.Order)
             .WithMany(o => o.OrderLines)

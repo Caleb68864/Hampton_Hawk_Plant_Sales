@@ -12,6 +12,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(e => e.OrderNumber).HasColumnType("text").IsRequired();
         builder.Property(e => e.Barcode).HasColumnType("text");
+        builder.Property(e => e.CustomerId).IsRequired(false);
+        builder.Property(e => e.PaymentMethod).HasColumnType("text");
+        builder.Property(e => e.AmountTendered).HasColumnType("numeric(12,2)");
 
         builder.HasIndex(e => e.OrderNumber).IsUnique();
         builder.HasIndex(e => e.Barcode)

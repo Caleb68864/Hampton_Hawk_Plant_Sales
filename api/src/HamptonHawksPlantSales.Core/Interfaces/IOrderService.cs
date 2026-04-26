@@ -5,7 +5,7 @@ namespace HamptonHawksPlantSales.Core.Interfaces;
 
 public interface IOrderService
 {
-    Task<PagedResult<OrderResponse>> GetAllAsync(string? search, OrderStatus? status, bool? isWalkUp, Guid? sellerId, Guid? customerId, bool includeDeleted, PaginationParams paging);
+    Task<PagedResult<OrderResponse>> GetAllAsync(string? search, OrderStatus? status, bool? isWalkUp, Guid? sellerId, Guid? customerId, bool includeDeleted, PaginationParams paging, bool includeDraft = false);
     Task<OrderResponse?> GetByIdAsync(Guid id);
     Task<OrderResponse> CreateAsync(CreateOrderRequest request);
     Task<OrderResponse> UpdateAsync(Guid id, UpdateOrderRequest request);

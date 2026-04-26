@@ -32,6 +32,7 @@ public class OrdersController : ControllerBase
     /// <param name="sellerId">Filter by seller ID.</param>
     /// <param name="customerId">Filter by customer ID.</param>
     /// <param name="includeDeleted">When true, includes soft-deleted orders.</param>
+    /// <param name="includeDraft">When true, includes Draft (in-progress walk-up) orders. Default false.</param>
     /// <param name="page">Page number (1-based).</param>
     /// <param name="pageSize">Items per page.</param>
     /// <response code="200">Paged list of orders.</response>
@@ -44,11 +45,12 @@ public class OrdersController : ControllerBase
         [FromQuery] Guid? sellerId,
         [FromQuery] Guid? customerId,
         [FromQuery] bool includeDeleted = false,
+        [FromQuery] bool includeDraft = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25)
     {
         var paging = new PaginationParams { Page = page, PageSize = pageSize };
-        var result = await _orderService.GetAllAsync(search, status, isWalkUp, sellerId, customerId, includeDeleted, paging);
+        var result = await _orderService.GetAllAsync(search, status, isWalkUp, sellerId, customerId, includeDeleted, paging, includeDraft);
         return Ok(ApiResponse<PagedResult<OrderResponse>>.Ok(result));
     }
 
