@@ -18,6 +18,16 @@ export function buildPrintSellerPacketPath(sellerId: string, returnTo?: string):
   return `/print/seller/${sellerId}${query ? `?${query}` : ''}`;
 }
 
+export function buildPrintCustomerPickListPath(customerId: string, returnTo?: string): string {
+  const params = new URLSearchParams();
+  if (returnTo?.startsWith('/')) {
+    params.set('returnTo', returnTo);
+  }
+
+  const query = params.toString();
+  return `/print/customer/${customerId}${query ? `?${query}` : ''}`;
+}
+
 export function resolvePrintReturnTo(value: string | null, fallback: string): string {
   return value?.startsWith('/') ? value : fallback;
 }

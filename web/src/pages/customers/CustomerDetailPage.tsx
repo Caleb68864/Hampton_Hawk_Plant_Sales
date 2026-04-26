@@ -8,6 +8,8 @@ import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { buildPrintCustomerPickListPath } from '@/utils/printRoutes.js';
+import { openPrintWindow } from '@/utils/printWindow.js';
 import type { Customer, CreateCustomerRequest } from '@/types/customer.js';
 import type { Order } from '@/types/order.js';
 
@@ -105,9 +107,23 @@ export function CustomerDetailPage() {
       title={isNew ? 'New Customer' : `Edit: ${customer?.displayName ?? ''}`}
       eyebrow={isNew ? 'Create' : 'Customer'}
       actions={
-        <TouchButton variant="ghost" onClick={() => navigate('/customers')}>
-          Back to Customers
-        </TouchButton>
+        <div className="flex flex-wrap gap-2">
+          {!isNew && customer && (
+            <TouchButton
+              variant="gold"
+              onClick={() => {
+                if (!openPrintWindow(buildPrintCustomerPickListPath(customer.id, `/customers/${customer.id}`))) {
+                  setError('Allow pop-ups for this site so the print preview can open.');
+                }
+              }}
+            >
+              Print Pick List
+            </TouchButton>
+          )}
+          <TouchButton variant="ghost" onClick={() => navigate('/customers')}>
+            Back to Customers
+          </TouchButton>
+        </div>
       }
     >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}

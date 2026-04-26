@@ -8,6 +8,8 @@ import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { buildPrintSellerPacketPath } from '@/utils/printRoutes.js';
+import { openPrintWindow } from '@/utils/printWindow.js';
 import type { Seller, CreateSellerRequest } from '@/types/seller.js';
 import type { Order } from '@/types/order.js';
 
@@ -105,9 +107,23 @@ export function SellerDetailPage() {
       title={isNew ? 'New Seller' : `Edit: ${seller?.displayName ?? ''}`}
       eyebrow={isNew ? 'Create' : 'Seller'}
       actions={
-        <TouchButton variant="ghost" onClick={() => navigate('/sellers')}>
-          Back to Sellers
-        </TouchButton>
+        <div className="flex flex-wrap gap-2">
+          {!isNew && seller && (
+            <TouchButton
+              variant="gold"
+              onClick={() => {
+                if (!openPrintWindow(buildPrintSellerPacketPath(seller.id, `/sellers/${seller.id}`))) {
+                  setError('Allow pop-ups for this site so the print preview can open.');
+                }
+              }}
+            >
+              Print Seller Packet
+            </TouchButton>
+          )}
+          <TouchButton variant="ghost" onClick={() => navigate('/sellers')}>
+            Back to Sellers
+          </TouchButton>
+        </div>
       }
     >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}

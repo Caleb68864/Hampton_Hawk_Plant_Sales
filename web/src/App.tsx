@@ -30,6 +30,7 @@ import { PrintOrderPage } from '@/pages/print/PrintOrderPage.js';
 import { PrintOrdersBatchPage } from '@/pages/print/PrintOrdersBatchPage.js';
 import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
+import { PrintCustomerPickListPage } from '@/pages/print/PrintCustomerPickListPage.js';
 import { ReportsPage } from '@/pages/ReportsPage.js';
 import { DailySalesPage } from '@/pages/reports/DailySalesPage.js';
 import { LeftoverInventoryPage } from '@/pages/reports/LeftoverInventoryPage.js';
@@ -104,6 +105,7 @@ function App() {
             <Route path="print/order-barcodes" element={<PrintOrderBarcodesBulkPage />} />
             <Route path="print/orders" element={<PrintOrdersBatchPage />} />
             <Route path="print/seller/:sellerId" element={<PrintSellerPacketPage />} />
+            <Route path="print/customer/:customerId" element={<PrintCustomerPickListPage />} />
             <Route path="print/cheatsheet/pickup" element={<PrintCheatsheetPickup />} />
             <Route path="print/cheatsheet/lookup" element={<PrintCheatsheetLookup />} />
             <Route path="print/cheatsheet/admin" element={<PrintCheatsheetAdmin />} />

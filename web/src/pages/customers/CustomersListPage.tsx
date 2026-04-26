@@ -11,6 +11,8 @@ import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useRecentItems } from '@/hooks/useRecentItems.js';
 import { ordersApi } from '@/api/orders.js';
+import { buildPrintCustomerPickListPath } from '@/utils/printRoutes.js';
+import { openPrintWindow } from '@/utils/printWindow.js';
 import type { Customer } from '@/types/customer.js';
 
 export function CustomersListPage() {
@@ -148,6 +150,7 @@ export function CustomersListPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup Code</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -161,6 +164,19 @@ export function CustomersListPage() {
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">{c.pickupCode}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{c.phone ?? '--'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{c.email ?? '--'}</td>
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                        onClick={() => {
+                          if (!openPrintWindow(buildPrintCustomerPickListPath(c.id, '/customers'))) {
+                            setError('Allow pop-ups for this site so the print preview can open.');
+                          }
+                        }}
+                      >
+                        Print
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
