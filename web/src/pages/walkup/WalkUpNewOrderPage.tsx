@@ -334,6 +334,22 @@ export function WalkUpNewOrderPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <BackToStationHomeButton />
+      <div
+        role="note"
+        className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900"
+      >
+        <p className="font-semibold">Legacy form</p>
+        <p>
+          Legacy form -- use the Register for new sales. This form remains available as a fallback.
+        </p>
+        <button
+          type="button"
+          className="mt-2 inline-flex items-center rounded-md border border-yellow-400 bg-white px-2.5 py-1 text-xs font-medium text-yellow-900 hover:bg-yellow-100"
+          onClick={() => navigate('/walkup/register/new')}
+        >
+          Open Register
+        </button>
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">
           New Walk-Up Order
