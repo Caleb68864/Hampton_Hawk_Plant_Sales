@@ -42,6 +42,14 @@ export async function put<T>(url: string, data?: unknown): Promise<T> {
   return unwrap<T>(await apiClient.put<ApiResponse<T>>(url, data));
 }
 
+export async function patch<T>(url: string, data?: unknown): Promise<T> {
+  return unwrap<T>(await apiClient.patch<ApiResponse<T>>(url, data));
+}
+
+export async function patchWithHeaders<T>(url: string, data: unknown, headers: Record<string, string>): Promise<T> {
+  return unwrap<T>(await apiClient.patch<ApiResponse<T>>(url, data, { headers }));
+}
+
 export async function putWithHeaders<T>(url: string, data: unknown, headers: Record<string, string>): Promise<T> {
   return unwrap<T>(await apiClient.put<ApiResponse<T>>(url, data, { headers }));
 }

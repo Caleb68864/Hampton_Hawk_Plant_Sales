@@ -39,6 +39,7 @@ import { SellerDetailPage } from '@/pages/sellers/SellerDetailPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
 import { StationHomePage } from '@/pages/station/StationHomePage.js';
 import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
+import { WalkUpRegisterPage } from '@/pages/walkup/WalkUpRegisterPage.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import { KioskRouteGuard } from '@/routes/KioskRouteGuard.js';
 
@@ -72,6 +73,9 @@ function App() {
               <Route path="pickup/:orderId" element={<PickupScanPage />} />
               <Route path="lookup-print" element={<LookupPrintStationPage />} />
               <Route path="walkup/new" element={<WalkUpNewOrderPage />} />
+              <Route path="walkup/register" element={<WalkUpRegisterPage />} />
+              <Route path="walkup/register/new" element={<WalkUpRegisterPage />} />
+              <Route path="walkup/register/:draftId" element={<WalkUpRegisterPage />} />
               <Route path="imports" element={<ImportsPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="reports/leftover-inventory" element={<LeftoverInventoryPage />} />

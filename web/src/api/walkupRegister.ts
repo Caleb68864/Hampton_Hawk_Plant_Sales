@@ -1,57 +1,80 @@
 /**
  * Walk-Up Register API Client
- * Consumes the WalkUpRegisterController endpoints from SS-07
+ * Consumes the WalkUpRegisterController endpoints from SS-07.
+ *
+ * Routes (from api/walkup-register):
+ *   POST   /draft                                   -> CreateDraft
+ *   POST   /draft/{id}/scan                         -> ScanIntoDraft
+ *   PATCH  /draft/{id}/lines/{lineId}               -> AdjustLine
+ *   DELETE /draft/{id}/lines/{lineId}               -> VoidLine (admin pin)
+ *   POST   /draft/{id}/close                        -> CloseDraft
+ *   POST   /draft/{id}/cancel                       -> CancelDraft (admin pin)
+ *   GET    /draft/open?workstationName=...          -> GetOpenDrafts
  */
-import { get, post, postWithHeaders, delWithHeaders } from './client.js';
+import {
+  get,
+  post,
+  patch,
+  patchWithHeaders,
+  delWithHeaders,
+  postWithHeaders,
+} from './client.js';
 import type {
   DraftOrder,
   CreateDraftRequest,
   ScanIntoDraftRequest,
-  ScanIntoDraftResponse,
   AdjustLineRequest,
   CloseDraftRequest,
-  CancelDraftRequest,
 } from '@/types/walkupRegister.js';
 
 const BASE_PATH = '/walkup-register';
 
 export const walkupRegisterApi = {
-  /**
-   * Create a new draft order for a workstation
-   */
-  createDraft: (data: CreateDraftRequest) =>
+  /** Create a new draft order for a workstation. */
+  createDraft: (data: CreateDraftRequest = {}) =>
     post<DraftOrder>(`${BASE_PATH}/draft`, data),
 
   /**
-   * Get a draft by ID
-   */
-  getDraft: (draftId: string) =>
-    get<DraftOrder>(`${BASE_PATH}/draft/${draftId}`),
-
-  /**
-   * Scan a plant barcode into a draft
-   * Uses idempotency key (scanId) for safe retries
+   * Scan a plant barcode into a draft. The client must supply a stable scanId
+   * (crypto.randomUUID()) so the backend can dedupe retries.
    */
   scan: (draftId: string, data: ScanIntoDraftRequest) =>
-    post<ScanIntoDraftResponse>(`${BASE_PATH}/draft/${draftId}/scan`, data),
+    post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, data),
 
   /**
-   * Adjust line quantity (admin-only)
+   * Adjust a line. The backend may require admin pin/reason if increasing past
+   * walk-up availability; pass them through when present.
    */
-  adjustLine: (draftId: string, lineId: string, data: AdjustLineRequest, adminPin: string, adminReason: string) =>
-    postWithHeaders<DraftOrder>(
-      `${BASE_PATH}/draft/${draftId}/lines/${lineId}/adjust`,
+  adjustLine: (
+    draftId: string,
+    lineId: string,
+    data: AdjustLineRequest,
+    adminPin?: string,
+    adminReason?: string,
+  ) => {
+    if (adminPin) {
+      return patchWithHeaders<DraftOrder>(
+        `${BASE_PATH}/draft/${draftId}/lines/${lineId}`,
+        data,
+        {
+          'X-Admin-Pin': adminPin,
+          'X-Admin-Reason': adminReason ?? '',
+        },
+      );
+    }
+    return patch<DraftOrder>(
+      `${BASE_PATH}/draft/${draftId}/lines/${lineId}`,
       data,
-      {
-        'X-Admin-Pin': adminPin,
-        'X-Admin-Reason': adminReason,
-      },
-    ),
+    );
+  },
 
-  /**
-   * Void a line (admin-only)
-   */
-  voidLine: (draftId: string, lineId: string, adminPin: string, adminReason: string) =>
+  /** Void a line (admin pin required). */
+  voidLine: (
+    draftId: string,
+    lineId: string,
+    adminPin: string,
+    adminReason: string,
+  ) =>
     delWithHeaders<DraftOrder>(
       `${BASE_PATH}/draft/${draftId}/lines/${lineId}`,
       {
@@ -60,28 +83,25 @@ export const walkupRegisterApi = {
       },
     ),
 
-  /**
-   * Close a draft (finalize sale)
-   */
+  /** Close (finalize) the draft. Captures payment metadata. */
   close: (draftId: string, data: CloseDraftRequest) =>
     post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/close`, data),
 
-  /**
-   * Cancel a draft (admin-only)
-   */
-  cancel: (draftId: string, data: CancelDraftRequest, adminPin: string, adminReason: string) =>
+  /** Cancel the draft (admin pin required). */
+  cancel: (draftId: string, adminPin: string, adminReason: string) =>
     postWithHeaders<DraftOrder>(
       `${BASE_PATH}/draft/${draftId}/cancel`,
-      data,
+      {},
       {
         'X-Admin-Pin': adminPin,
         'X-Admin-Reason': adminReason,
       },
     ),
 
-  /**
-   * Get open drafts for a workstation
-   */
+  /** List open drafts, optionally scoped to a workstation. */
   getOpenDrafts: (workstationName?: string) =>
-    get<DraftOrder[]>(`${BASE_PATH}/draft/open`, workstationName ? { workstationName } : undefined),
+    get<DraftOrder[]>(
+      `${BASE_PATH}/draft/open`,
+      workstationName ? { workstationName } : undefined,
+    ),
 };
