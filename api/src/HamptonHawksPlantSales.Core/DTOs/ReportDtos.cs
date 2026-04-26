@@ -47,3 +47,39 @@ public class SellerOrderSummaryResponse
     public int TotalItemsFulfilled { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+// ── SS-04/SS-05: Sales aggregate reports ──
+
+public class SalesBySellerRow
+{
+    public Guid SellerId { get; set; }
+    public string SellerDisplayName { get; set; } = string.Empty;
+    public int OrderCount { get; set; }
+    public int ItemsOrdered { get; set; }
+    public int ItemsFulfilled { get; set; }
+    public decimal RevenueOrdered { get; set; }
+    public decimal RevenueFulfilled { get; set; }
+}
+
+public class SalesByCustomerRow
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerDisplayName { get; set; } = string.Empty;
+    public int OrderCount { get; set; }
+    public int ItemsOrdered { get; set; }
+    public int ItemsFulfilled { get; set; }
+    public decimal RevenueOrdered { get; set; }
+    public decimal RevenueFulfilled { get; set; }
+}
+
+public class SalesByPlantRow
+{
+    public Guid PlantCatalogId { get; set; }
+    public string PlantName { get; set; } = string.Empty;
+    public string PlantSku { get; set; } = string.Empty;
+    public int OrderCount { get; set; }
+    public int ItemsOrdered { get; set; }
+    public int ItemsFulfilled { get; set; }
+    public decimal RevenueOrdered { get; set; }
+    public decimal RevenueFulfilled { get; set; }
+}
