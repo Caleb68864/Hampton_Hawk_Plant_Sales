@@ -1,11 +1,9 @@
 {
   "task_id": "ss02-migration-exists",
   "phase_id": 2,
-  "artifact_paths": [
-    "api/src/HamptonHawksPlantSales.Infrastructure/Data/Migrations/20260426042710_AddScannerTunings.cs",
-    "api/src/HamptonHawksPlantSales.Infrastructure/Data/Migrations/20260426042710_AddScannerTunings.Designer.cs"
-  ],
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Infrastructure/Data/Migrations/20260426042710_AddScannerTunings.cs"],
   "verification_command": "ls api/src/HamptonHawksPlantSales.Infrastructure/Data/Migrations/*AddScannerTunings* >/dev/null 2>&1 || (echo \"FAIL: migration not generated\" && exit 1)",
+  "expected_exit_code": 0,
   "status": "needs-verifier",
   "worker_id": "implementer-ss02"
 }

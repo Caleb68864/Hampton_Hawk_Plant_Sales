@@ -1,10 +1,9 @@
 {
   "task_id": "ss02-validator-exists",
   "phase_id": 2,
-  "artifact_paths": [
-    "api/src/HamptonHawksPlantSales.Core/Validators/UpdateScannerTuningRequestValidator.cs"
-  ],
-  "verification_command_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "timestamp": "2026-04-26T04:37:51.522Z",
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Core/Validators/UpdateScannerTuningRequestValidator.cs"],
+  "verification_command": "test -f api/src/HamptonHawksPlantSales.Core/Validators/UpdateScannerTuningRequestValidator.cs || (echo \"FAIL: validator missing\" && exit 1)",
+  "expected_exit_code": 0,
+  "status": "needs-verifier",
   "worker_id": "implementer-ss02"
 }
