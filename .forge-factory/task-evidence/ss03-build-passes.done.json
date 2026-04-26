@@ -1,0 +1,8 @@
+{
+  "task_id": "ss03-build-passes",
+  "phase_id": 3,
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Api/HamptonHawksPlantSales.Api.csproj", "api/src/HamptonHawksPlantSales.Core/HamptonHawksPlantSales.Core.csproj", "api/src/HamptonHawksPlantSales.Infrastructure/HamptonHawksPlantSales.Infrastructure.csproj"],
+  "verification_command": "cd api && dotnet build HamptonHawksPlantSales.sln --no-restore -v quiet || (echo \"FAIL: build failed\" && exit 1)",
+  "status": "needs-verifier",
+  "worker_id": "implementer-ss03"
+}

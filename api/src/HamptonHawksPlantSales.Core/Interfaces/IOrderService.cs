@@ -15,4 +15,6 @@ public interface IOrderService
     Task<OrderLineResponse> AddLineAsync(Guid orderId, CreateOrderLineRequest request, string? adminPin = null, string? adminReason = null);
     Task<OrderLineResponse> UpdateLineAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request);
     Task<bool> DeleteLineAsync(Guid orderId, Guid lineId);
+    Task<BulkOperationResult> BulkCompleteAsync(BulkCompleteOrdersRequest request, string? adminReason = null);
+    Task<BulkOperationResult> BulkSetStatusAsync(BulkSetOrderStatusRequest request, string? adminReason = null);
 }

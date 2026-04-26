@@ -1,0 +1,8 @@
+{
+  "task_id": "ss03-bulk-transactional",
+  "phase_id": 3,
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Infrastructure/Services/OrderService.cs"],
+  "verification_command": "grep -q \"BeginTransactionAsync\" api/src/HamptonHawksPlantSales.Infrastructure/Services/OrderService.cs || (echo \"FAIL: bulk operations not transactional\" && exit 1)",
+  "status": "needs-verifier",
+  "worker_id": "implementer-ss03"
+}

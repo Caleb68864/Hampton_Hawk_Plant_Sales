@@ -197,4 +197,58 @@ public class OrdersController : ControllerBase
             return NotFound(ApiResponse<bool>.Fail("Order line not found."));
         return Ok(ApiResponse<bool>.Ok(true));
     }
+
+    /// <summary>
+    /// Bulk-completes multiple orders at once. Only fully fulfilled orders will be completed.
+    /// </summary>
+    /// <param name="request">List of order IDs to complete.</param>
+    /// <param name="validator">FluentValidation validator.</param>
+    /// <response code="200">Bulk operation result with per-order outcomes.</response>
+    /// <response code="400">Validation errors (e.g., exceeds 500 cap).</response>
+    /// <response code="403">Admin PIN required.</response>
+    [HttpPost("bulk-complete")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<BulkOperationResult>), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> BulkComplete(
+        [FromBody] BulkCompleteOrdersRequest request,
+        [FromServices] IValidator<BulkCompleteOrdersRequest> validator)
+    {
+        var validation = await validator.ValidateAsync(request);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse<BulkOperationResult>.Fail(
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
+        var adminReason = HttpContext.Items["AdminReason"] as string;
+        var result = await _orderService.BulkCompleteAsync(request, adminReason);
+        return Ok(ApiResponse<BulkOperationResult>.Ok(result));
+    }
+
+    /// <summary>
+    /// Bulk sets the status on multiple orders at once.
+    /// </summary>
+    /// <param name="request">List of order IDs and target status.</param>
+    /// <param name="validator">FluentValidation validator.</param>
+    /// <response code="200">Bulk operation result with per-order outcomes.</response>
+    /// <response code="400">Validation errors (e.g., exceeds 500 cap).</response>
+    /// <response code="403">Admin PIN required.</response>
+    [HttpPost("bulk-status")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<BulkOperationResult>), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> BulkSetStatus(
+        [FromBody] BulkSetOrderStatusRequest request,
+        [FromServices] IValidator<BulkSetOrderStatusRequest> validator)
+    {
+        var validation = await validator.ValidateAsync(request);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse<BulkOperationResult>.Fail(
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
+        var adminReason = HttpContext.Items["AdminReason"] as string;
+        var result = await _orderService.BulkSetStatusAsync(request, adminReason);
+        return Ok(ApiResponse<BulkOperationResult>.Ok(result));
+    }
 }

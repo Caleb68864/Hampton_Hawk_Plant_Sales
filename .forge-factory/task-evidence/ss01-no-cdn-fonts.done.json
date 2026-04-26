@@ -1,0 +1,8 @@
+{
+  "task_id": "ss01-no-cdn-fonts",
+  "phase_id": 1,
+  "artifact_paths": ["web/dist"],
+  "verification_command": "! grep -rq \"fonts.googleapis.com\" web/dist 2>/dev/null || (echo \"FAIL: CDN font URL found in build\" && exit 1)",
+  "status": "needs-verifier",
+  "worker_id": "implementer-ss01"
+}

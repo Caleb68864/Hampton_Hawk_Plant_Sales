@@ -1,0 +1,8 @@
+{
+  "task_id": "ss03-bulk-complete-route",
+  "phase_id": 3,
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs"],
+  "verification_command": "grep -q \"bulk-complete\" api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs || (echo \"FAIL: bulk-complete route missing\" && exit 1)",
+  "status": "needs-verifier",
+  "worker_id": "implementer-ss03"
+}

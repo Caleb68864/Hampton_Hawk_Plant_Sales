@@ -385,4 +385,145 @@ public class OrderService : IOrderService
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };
+
+    public async Task<BulkOperationResult> BulkCompleteAsync(BulkCompleteOrdersRequest request, string? adminReason = null)
+    {
+        var outcomes = new List<BulkOrderOutcome>();
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
+
+        try
+        {
+            foreach (var orderId in request.OrderIds)
+            {
+                Order? order;
+
+                if (isRelational)
+                {
+                    // Acquire row lock with FOR UPDATE
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                        orderId);
+                }
+
+                order = await _db.Orders
+                    .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
+                    .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
+
+                if (order == null)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "Order not found"
+                    });
+                    continue;
+                }
+
+                // Check eligibility: all lines must be fully fulfilled
+                var allFulfilled = order.OrderLines.All(l => l.QtyFulfilled >= l.QtyOrdered);
+
+                if (!allFulfilled)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "unfulfilled lines"
+                    });
+                    continue;
+                }
+
+                // Complete the order
+                order.Status = OrderStatus.Complete;
+
+                outcomes.Add(new BulkOrderOutcome
+                {
+                    OrderId = orderId,
+                    Outcome = "Completed"
+                });
+
+                // Log admin action
+                await _adminService.LogActionAsync(
+                    "BulkComplete",
+                    "Order",
+                    orderId,
+                    adminReason ?? "Bulk operation",
+                    $"Bulk-completed via /api/orders/bulk-complete; selected={request.OrderIds.Count}");
+            }
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+
+        return new BulkOperationResult { Outcomes = outcomes };
+    }
+
+    public async Task<BulkOperationResult> BulkSetStatusAsync(BulkSetOrderStatusRequest request, string? adminReason = null)
+    {
+        var outcomes = new List<BulkOrderOutcome>();
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
+
+        try
+        {
+            foreach (var orderId in request.OrderIds)
+            {
+                if (isRelational)
+                {
+                    // Acquire row lock with FOR UPDATE
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                        orderId);
+                }
+
+                var order = await _db.Orders
+                    .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
+
+                if (order == null)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "Order not found"
+                    });
+                    continue;
+                }
+
+                // Set status
+                order.Status = request.TargetStatus;
+
+                outcomes.Add(new BulkOrderOutcome
+                {
+                    OrderId = orderId,
+                    Outcome = "StatusChanged"
+                });
+
+                // Log admin action
+                await _adminService.LogActionAsync(
+                    "BulkSetStatus",
+                    "Order",
+                    orderId,
+                    adminReason ?? "Bulk operation",
+                    $"Bulk status change to {request.TargetStatus} via /api/orders/bulk-status; selected={request.OrderIds.Count}");
+            }
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+
+        return new BulkOperationResult { Outcomes = outcomes };
+    }
 }

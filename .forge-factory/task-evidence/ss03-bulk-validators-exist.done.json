@@ -1,0 +1,8 @@
+{
+  "task_id": "ss03-bulk-validators-exist",
+  "phase_id": 3,
+  "artifact_paths": ["api/src/HamptonHawksPlantSales.Core/Validators/BulkCompleteOrdersRequestValidator.cs"],
+  "verification_command": "test -f api/src/HamptonHawksPlantSales.Core/Validators/BulkCompleteOrdersRequestValidator.cs || (echo \"FAIL: BulkCompleteOrdersRequestValidator missing\" && exit 1)",
+  "status": "needs-verifier",
+  "worker_id": "implementer-ss03"
+}
