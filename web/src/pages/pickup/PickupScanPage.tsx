@@ -6,8 +6,11 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
+import { ScanSuccessFlash } from '@/components/pickup/ScanSuccessFlash.js';
+import { OrderCompleteCelebration } from '@/components/pickup/OrderCompleteCelebration.js';
 import { ItemsRemainingCounter } from '@/components/pickup/ItemsRemainingCounter.js';
 import { ScanHistoryList } from '@/components/pickup/ScanHistoryList.js';
 import { ManualFulfillModal } from '@/components/pickup/ManualFulfillModal.js';
@@ -50,6 +53,16 @@ export function PickupScanPage() {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
   });
+
+  // Joy Pass: scan flash and celebration states
+  const [showScanFlash, setShowScanFlash] = useState(false);
+  const [scanFlashData, setScanFlashData] = useState<{
+    plantName: string;
+    sku?: string;
+    barcode?: string;
+    remainingForOrder?: number;
+  } | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const {
     currentOrder,
@@ -110,8 +123,30 @@ export function PickupScanPage() {
     const result = await scan(barcode);
     if (result) {
       playAudioForResult(result.result);
+
+      // Show scan success flash for accepted scans
+      if (result.result === 'Accepted' && currentOrder) {
+        const display = getScanDisplayFields(result);
+        const totalRemaining = currentOrder.lines.reduce(
+          (sum, line) => sum + Math.max(0, line.qtyOrdered - line.qtyFulfilled),
+          0
+        );
+        // After this scan is accepted, remaining will be totalRemaining - 1 (the one we just scanned)
+        setScanFlashData({
+          plantName: display.plantName ?? 'Unknown Plant',
+          sku: result.plant?.sku,
+          barcode,
+          remainingForOrder: Math.max(0, totalRemaining - 1),
+        });
+        setShowScanFlash(true);
+      }
     }
     refocusScanInput();
+  }
+
+  function handleScanFlashEnd() {
+    setShowScanFlash(false);
+    setScanFlashData(null);
   }
 
   async function confirmUndoLastScan() {
@@ -193,6 +228,8 @@ export function PickupScanPage() {
       try {
         await ordersApi.complete(orderId);
         await refreshOrder();
+        // Show celebration after successful completion
+        setShowCelebration(true);
       } catch {
         // error shown via networkError
       }
@@ -202,12 +239,19 @@ export function PickupScanPage() {
         try {
           await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
           await refreshOrder();
+          // Show celebration after successful force completion
+          setShowCelebration(true);
         } catch {
           // error shown via networkError
         }
       }
     }
     refocusScanInput();
+  }
+
+  function handleCelebrationComplete() {
+    setShowCelebration(false);
+    navigate('/pickup');
   }
 
   function handleManualOpen() {
@@ -286,6 +330,28 @@ export function PickupScanPage() {
       </div>
 
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
+
+      {/* Joy Pass: Scan Success Flash */}
+      {showScanFlash && scanFlashData && (
+        <ScanSuccessFlash
+          visible={showScanFlash}
+          plantName={scanFlashData.plantName}
+          sku={scanFlashData.sku}
+          barcode={scanFlashData.barcode}
+          remainingForOrder={scanFlashData.remainingForOrder}
+          onAnimationEnd={handleScanFlashEnd}
+        />
+      )}
+
+      {/* Joy Pass: Order Complete Celebration */}
+      {showCelebration && currentOrder && (
+        <OrderCompleteCelebration
+          visible={showCelebration}
+          orderNumber={currentOrder.orderNumber}
+          customerName={currentOrder.customerDisplayName}
+          onComplete={handleCelebrationComplete}
+        />
+      )}
 
       <ScanFeedbackBanner
         result={lastScanResult}
@@ -416,49 +482,29 @@ export function PickupScanPage() {
         </table>
       </div>
 
+      {/* Action bar hoisted above-the-fold for touch-friendly layout */}
       {!isComplete && (
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handleManualOpen}
-          >
+          <TouchButton variant="ghost" onClick={handleManualOpen}>
             Manual Fulfill
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
-            onClick={handleUndo}
-            disabled={isScanning}
-          >
+          </TouchButton>
+          <TouchButton variant="gold" onClick={handleUndo} disabled={isScanning}>
             Recover
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handlePrintOrder}
-          >
+          </TouchButton>
+          <TouchButton variant="ghost" onClick={handlePrintOrder}>
             Print Order Sheet
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-amber-900 bg-amber-100 rounded-md hover:bg-amber-200"
-            onClick={() => navigate('/pickup')}
-          >
+          </TouchButton>
+          <TouchButton variant="ghost" onClick={() => navigate('/pickup')}>
             Reopen Lookup
-          </button>
-          <button
-            type="button"
-            className={`ml-auto px-6 py-2 text-sm font-medium text-white rounded-md ${
-              allFulfilled
-                ? 'bg-hawk-600 hover:bg-hawk-700'
-                : 'bg-amber-500 hover:bg-amber-600'
-            }`}
+          </TouchButton>
+          <TouchButton
+            variant={allFulfilled ? 'primary' : 'gold'}
+            className="ml-auto"
             onClick={handleComplete}
             disabled={isScanning}
           >
             {allFulfilled ? 'Complete Order' : 'Force Complete'}
-          </button>
+          </TouchButton>
         </div>
       )}
 

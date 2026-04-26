@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { AzTabs } from '@/components/shared/AzTabs.js';
 import { SearchBar } from '@/components/shared/SearchBar.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
@@ -187,8 +189,11 @@ export function PickupLookupPage() {
       {!isPickupKiosk && <BackToStationHomeButton />}
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-800">Pickup Station</h1>
-        <p className="text-sm text-gray-600">
+        <SectionHeading level={1}>Pickup Station</SectionHeading>
+        <p
+          className="text-sm text-hawk-600"
+          style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+        >
           Keep the cursor here and scan the order sheet barcode. You can still type a customer name, order number, or pickup code.
         </p>
       </div>
@@ -205,18 +210,44 @@ export function PickupLookupPage() {
         inputRef={searchInputRef}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hawk-100 bg-hawk-50 px-4 py-3 text-sm text-hawk-900">
-        <div>
-          <p className="font-semibold">Scanner-ready search</p>
-          <p className="text-hawk-800">Scan with the cursor in the box. Press Enter if your scanner does not do it automatically.</p>
+      {/* Gold-trim input shell */}
+      <div
+        className="relative rounded-2xl p-5"
+        style={{
+          background: 'linear-gradient(180deg, white 0%, var(--color-gold-50) 100%)',
+          border: '2px solid var(--color-gold-300)',
+        }}
+      >
+        {/* Dashed inner border */}
+        <span
+          className="absolute pointer-events-none"
+          style={{
+            inset: '5px',
+            borderRadius: '12px',
+            border: '1px dashed rgba(184, 129, 26, 0.45)',
+          }}
+        />
+        <div className="relative z-10">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-hawk-900 mb-3">
+            <div>
+              <p
+                className="font-semibold"
+                style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+              >
+                Scanner-ready search
+              </p>
+              <p
+                className="text-hawk-700"
+                style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+              >
+                Scan with the cursor in the box. Press Enter if your scanner does not do it automatically.
+              </p>
+            </div>
+            <TouchButton variant="ghost" onClick={clearLookup}>
+              Clear for Next Order
+            </TouchButton>
+          </div>
         </div>
-        <button
-          type="button"
-          className="rounded-md border border-hawk-300 bg-white px-3 py-2 font-medium text-hawk-700 hover:border-hawk-400 hover:text-hawk-900"
-          onClick={clearLookup}
-        >
-          Clear for Next Order
-        </button>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
@@ -251,13 +282,13 @@ export function PickupLookupPage() {
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.customerDisplayName}</td>
                   <td className="px-4 py-3"><StatusChip status={order.status} hasIssue={order.hasIssue} /></td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="rounded-md bg-hawk-600 px-3 py-2 text-sm font-medium text-white hover:bg-hawk-700"
+                    <TouchButton
+                      variant="primary"
+                      className="text-sm px-4 py-2"
                       onClick={() => navigate(`/pickup/${order.id}`)}
                     >
                       Open Order
-                    </button>
+                    </TouchButton>
                   </td>
                 </tr>
               ))}
@@ -267,15 +298,22 @@ export function PickupLookupPage() {
       ) : showNoExactMatch ? (
         <div className="space-y-3">
           <ErrorBanner message={NO_MATCH_MESSAGE} />
-          <EmptyState
+          <BotanicalEmptyState
             title="No exact order match"
             description="Rescan the sheet, clear the field for the next customer, or type the order number manually."
           />
         </div>
       ) : results.length === 0 ? (
-        <EmptyState
+        <BotanicalEmptyState
           title="No results found"
           description={search ? 'Try a different search term or letter filter.' : 'Search by customer, order number, or pickup code to begin.'}
+          action={
+            search ? (
+              <TouchButton variant="ghost" onClick={clearLookup}>
+                Clear filters
+              </TouchButton>
+            ) : undefined
+          }
         />
       ) : (
         <div className="overflow-x-auto">
