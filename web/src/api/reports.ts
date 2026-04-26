@@ -1,12 +1,18 @@
 import { get } from './client.js';
 import type {
+  DailySalesResponse,
   DashboardMetrics,
   LowInventoryItem,
+  OutstandingAgingResponse,
+  PaymentBreakdownResponse,
   ProblemOrder,
   SalesByCustomerRow,
   SalesByPlantRow,
   SalesBySellerRow,
   SellerOrderSummary,
+  StatusFunnelResponse,
+  TopMoversResponse,
+  WalkupVsPreorderResponse,
 } from '@/types/reports.js';
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -116,6 +122,109 @@ function normalizeSalesByPlant(items: unknown): SalesByPlantRow[] {
   });
 }
 
+// SS-03 (Wave 3): normalizers for the new report DTOs.
+
+function normalizeDailySales(raw: unknown): DailySalesResponse {
+  const r = asRecord(raw);
+  const days = Array.isArray(r.days ?? r.Days) ? (r.days ?? r.Days) as unknown[] : [];
+  return {
+    days: days.map((d) => {
+      const row = asRecord(d);
+      return {
+        date: asString(row.date ?? row.Date),
+        orderCount: asNumber(row.orderCount ?? row.OrderCount),
+        itemCount: asNumber(row.itemCount ?? row.ItemCount),
+        revenue: asNumber(row.revenue ?? row.Revenue),
+        walkUpCount: asNumber(row.walkUpCount ?? row.WalkUpCount),
+        preorderCount: asNumber(row.preorderCount ?? row.PreorderCount),
+      };
+    }),
+  };
+}
+
+function normalizePaymentBreakdown(raw: unknown): PaymentBreakdownResponse {
+  const r = asRecord(raw);
+  const methods = Array.isArray(r.methods ?? r.Methods) ? (r.methods ?? r.Methods) as unknown[] : [];
+  return {
+    methods: methods.map((m) => {
+      const row = asRecord(m);
+      return {
+        method: asString(row.method ?? row.Method),
+        orderCount: asNumber(row.orderCount ?? row.OrderCount),
+        revenue: asNumber(row.revenue ?? row.Revenue),
+        averageOrder: asNumber(row.averageOrder ?? row.AverageOrder),
+      };
+    }),
+  };
+}
+
+function normalizeChannel(raw: unknown) {
+  const r = asRecord(raw);
+  return {
+    orderCount: asNumber(r.orderCount ?? r.OrderCount),
+    itemCount: asNumber(r.itemCount ?? r.ItemCount),
+    revenue: asNumber(r.revenue ?? r.Revenue),
+    averageOrder: asNumber(r.averageOrder ?? r.AverageOrder),
+  };
+}
+
+function normalizeWalkupVsPreorder(raw: unknown): WalkupVsPreorderResponse {
+  const r = asRecord(raw);
+  return {
+    walkUp: normalizeChannel(r.walkUp ?? r.WalkUp),
+    preorder: normalizeChannel(r.preorder ?? r.Preorder),
+    walkUpRatio: asNumber(r.walkUpRatio ?? r.WalkUpRatio),
+  };
+}
+
+function normalizeStatusFunnel(raw: unknown): StatusFunnelResponse {
+  const r = asRecord(raw);
+  const buckets = Array.isArray(r.buckets ?? r.Buckets) ? (r.buckets ?? r.Buckets) as unknown[] : [];
+  return {
+    total: asNumber(r.total ?? r.Total),
+    buckets: buckets.map((b) => {
+      const row = asRecord(b);
+      return {
+        status: asString(row.status ?? row.Status),
+        count: asNumber(row.count ?? row.Count),
+        percent: asNumber(row.percent ?? row.Percent),
+      };
+    }),
+  };
+}
+
+function normalizeTopMovers(raw: unknown): TopMoversResponse {
+  const r = asRecord(raw);
+  const plants = Array.isArray(r.plants ?? r.Plants) ? (r.plants ?? r.Plants) as unknown[] : [];
+  return {
+    plants: plants.map((p) => {
+      const row = asRecord(p);
+      return {
+        plantCatalogId: asString(row.plantCatalogId ?? row.PlantCatalogId),
+        plantName: asString(row.plantName ?? row.PlantName),
+        qtyOrdered: asNumber(row.qtyOrdered ?? row.QtyOrdered),
+        qtyFulfilled: asNumber(row.qtyFulfilled ?? row.QtyFulfilled),
+        orderCount: asNumber(row.orderCount ?? row.OrderCount),
+      };
+    }),
+  };
+}
+
+function normalizeOutstandingAging(raw: unknown): OutstandingAgingResponse {
+  const r = asRecord(raw);
+  const buckets = Array.isArray(r.buckets ?? r.Buckets) ? (r.buckets ?? r.Buckets) as unknown[] : [];
+  return {
+    buckets: buckets.map((b) => {
+      const row = asRecord(b);
+      return {
+        bucket: asString(row.bucket ?? row.Bucket),
+        count: asNumber(row.count ?? row.Count),
+        oldestAgeHours: asNumber(row.oldestAgeHours ?? row.OldestAgeHours),
+      };
+    }),
+  };
+}
+
 function normalizeSellerOrders(items: unknown): SellerOrderSummary[] {
   if (!Array.isArray(items)) return [];
   return items.map((raw) => {
@@ -147,4 +256,38 @@ export const reportsApi = {
   salesByCustomer: async () => normalizeSalesByCustomer(await get<unknown>('/reports/sales-by-customer')),
 
   salesByPlant: async () => normalizeSalesByPlant(await get<unknown>('/reports/sales-by-plant')),
+
+  // SS-03 (Wave 3): six new aggregations from Wave 2.
+  getDailySales: async (from?: string, to?: string) => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return normalizeDailySales(await get<unknown>('/reports/daily-sales', params));
+  },
+
+  getPaymentBreakdown: async (from?: string, to?: string) => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return normalizePaymentBreakdown(await get<unknown>('/reports/payment-breakdown', params));
+  },
+
+  getWalkupVsPreorder: async (from?: string, to?: string) => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return normalizeWalkupVsPreorder(await get<unknown>('/reports/walkup-vs-preorder', params));
+  },
+
+  getStatusFunnel: async () =>
+    normalizeStatusFunnel(await get<unknown>('/reports/status-funnel')),
+
+  getTopMovers: async (limit?: number) => {
+    const params: Record<string, unknown> = {};
+    if (typeof limit === 'number') params.limit = limit;
+    return normalizeTopMovers(await get<unknown>('/reports/top-movers', params));
+  },
+
+  getOutstandingAging: async () =>
+    normalizeOutstandingAging(await get<unknown>('/reports/outstanding-aging')),
 };

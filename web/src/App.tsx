@@ -31,10 +31,16 @@ import { PrintOrdersBatchPage } from '@/pages/print/PrintOrdersBatchPage.js';
 import { PrintPlantLabelsPage } from '@/pages/print/PrintPlantLabelsPage.js';
 import { PrintSellerPacketPage } from '@/pages/print/PrintSellerPacketPage.js';
 import { ReportsPage } from '@/pages/ReportsPage.js';
+import { DailySalesPage } from '@/pages/reports/DailySalesPage.js';
 import { LeftoverInventoryPage } from '@/pages/reports/LeftoverInventoryPage.js';
+import { OutstandingAgingPage } from '@/pages/reports/OutstandingAgingPage.js';
+import { PaymentBreakdownPage } from '@/pages/reports/PaymentBreakdownPage.js';
 import { SalesByCustomerPage } from '@/pages/reports/SalesByCustomerPage.js';
 import { SalesByPlantPage } from '@/pages/reports/SalesByPlantPage.js';
 import { SalesBySellerPage } from '@/pages/reports/SalesBySellerPage.js';
+import { StatusFunnelPage } from '@/pages/reports/StatusFunnelPage.js';
+import { TopMoversPage } from '@/pages/reports/TopMoversPage.js';
+import { WalkupVsPreorderPage } from '@/pages/reports/WalkupVsPreorderPage.js';
 import { SellersListPage } from '@/pages/sellers/SellersListPage.js';
 import { SellerDetailPage } from '@/pages/sellers/SellerDetailPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
@@ -84,6 +90,12 @@ function App() {
               <Route path="reports/sales-by-seller" element={<SalesBySellerPage />} />
               <Route path="reports/sales-by-customer" element={<SalesByCustomerPage />} />
               <Route path="reports/sales-by-plant" element={<SalesByPlantPage />} />
+              <Route path="reports/daily-sales" element={<DailySalesPage />} />
+              <Route path="reports/payment-breakdown" element={<PaymentBreakdownPage />} />
+              <Route path="reports/walkup-vs-preorder" element={<WalkupVsPreorderPage />} />
+              <Route path="reports/status-funnel" element={<StatusFunnelPage />} />
+              <Route path="reports/top-movers" element={<TopMoversPage />} />
+              <Route path="reports/outstanding-aging" element={<OutstandingAgingPage />} />
               <Route path="docs" element={<DocsPage />} />
             </Route>
 

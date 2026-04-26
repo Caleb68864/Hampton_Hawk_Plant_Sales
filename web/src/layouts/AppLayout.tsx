@@ -14,7 +14,6 @@ const navLinks = [
   { to: '/station', label: 'Station Home' },
   { to: '/imports', label: 'Imports' },
   { to: '/reports', label: 'Reports' },
-  { to: '/reports/leftover-inventory', label: 'Leftover Inventory' },
   { to: '/settings', label: 'Settings' },
   { to: '/docs', label: 'Docs' },
 ];
