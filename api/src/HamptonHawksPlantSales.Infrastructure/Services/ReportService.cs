@@ -1,6 +1,8 @@
 using HamptonHawksPlantSales.Core.DTOs;
+using HamptonHawksPlantSales.Core.DTOs.Reports;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
+using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -220,4 +222,252 @@ public class ReportService : IReportService
             })
             .ToListAsync();
     }
+
+    // ── SS-02 (Wave 2): Operations / money / inventory aggregations ──
+    //
+    // All six methods rely on the AppDbContext global query filter for soft
+    // delete (DeletedAt == null) and explicitly add Status != Draft so that
+    // in-progress walk-up cash-register sessions never inflate the numbers.
+    // Date-range bounds (when supplied) are applied at the database level via
+    // a DateTimeOffset cast of the inbound DateTime so Npgsql translates
+    // cleanly. Where grouping/bucketing isn't reliably translatable across
+    // providers (e.g. DateOnly grouping, status-funnel percent rounding),
+    // we narrow with a database-side filter first and then complete the
+    // aggregation in memory -- the result set is always small (one row per
+    // sale day / per status / per plant top-N).
+
+    public async Task<DailySalesResponse> GetDailySalesAsync(DateTime? from, DateTime? to)
+    {
+        var orders = ApplyOrderRange(BaseOrders(), from, to);
+
+        // Pull just the per-order projection we need; client-side group by date
+        // because DateOnly conversion isn't uniformly supported across providers.
+        var rows = await orders
+            .Select(o => new
+            {
+                o.Id,
+                o.CreatedAt,
+                o.IsWalkUp,
+                Revenue = o.AmountTendered ?? 0m,
+                ItemCount = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (int?)ol.QtyOrdered) ?? 0
+            })
+            .ToListAsync();
+
+        var days = rows
+            .GroupBy(r => DateOnly.FromDateTime(r.CreatedAt.UtcDateTime))
+            .OrderBy(g => g.Key)
+            .Select(g => new DailySalesDayDto
+            {
+                Date = g.Key,
+                OrderCount = g.Count(),
+                ItemCount = g.Sum(r => r.ItemCount),
+                Revenue = g.Sum(r => r.Revenue),
+                WalkUpCount = g.Count(r => r.IsWalkUp),
+                PreorderCount = g.Count(r => !r.IsWalkUp)
+            })
+            .ToList();
+
+        return new DailySalesResponse { Days = days };
+    }
+
+    public async Task<PaymentBreakdownResponse> GetPaymentBreakdownAsync(DateTime? from, DateTime? to)
+    {
+        var orders = ApplyOrderRange(BaseOrders(), from, to);
+
+        var rows = await orders
+            .Select(o => new
+            {
+                Method = o.PaymentMethod,
+                Revenue = o.AmountTendered ?? 0m
+            })
+            .ToListAsync();
+
+        var methods = rows
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.Method) ? "Unspecified" : r.Method!)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var count = g.Count();
+                var revenue = g.Sum(r => r.Revenue);
+                return new PaymentBreakdownRowDto
+                {
+                    Method = g.Key,
+                    OrderCount = count,
+                    Revenue = revenue,
+                    AverageOrder = count > 0 ? Math.Round(revenue / count, 2) : 0m
+                };
+            })
+            .ToList();
+
+        return new PaymentBreakdownResponse { Methods = methods };
+    }
+
+    public async Task<WalkupVsPreorderResponse> GetWalkupVsPreorderAsync(DateTime? from, DateTime? to)
+    {
+        var orders = ApplyOrderRange(BaseOrders(), from, to);
+
+        var rows = await orders
+            .Select(o => new ChannelOrderProjection
+            {
+                IsWalkUp = o.IsWalkUp,
+                Revenue = o.AmountTendered ?? 0m,
+                ItemCount = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (int?)ol.QtyOrdered) ?? 0
+            })
+            .ToListAsync();
+
+        var walkUp = BuildChannelMetrics(rows.Where(r => r.IsWalkUp));
+        var preorder = BuildChannelMetrics(rows.Where(r => !r.IsWalkUp));
+        var total = rows.Count;
+        var ratio = total > 0 ? Math.Round((double)walkUp.OrderCount / total, 4) : 0d;
+
+        return new WalkupVsPreorderResponse
+        {
+            WalkUp = walkUp,
+            Preorder = preorder,
+            WalkUpRatio = ratio
+        };
+    }
+
+    private sealed class ChannelOrderProjection
+    {
+        public bool IsWalkUp { get; set; }
+        public decimal Revenue { get; set; }
+        public int ItemCount { get; set; }
+    }
+
+    public async Task<StatusFunnelResponse> GetOrderStatusFunnelAsync()
+    {
+        var orders = BaseOrders();
+
+        var counts = await orders
+            .GroupBy(o => o.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var total = counts.Sum(c => c.Count);
+
+        var buckets = counts
+            .OrderBy(c => c.Status)
+            .Select(c => new StatusFunnelBucketDto
+            {
+                Status = c.Status,
+                Count = c.Count,
+                Percent = total > 0 ? Math.Round((double)c.Count / total * 100, 1) : 0d
+            })
+            .ToList();
+
+        return new StatusFunnelResponse
+        {
+            Buckets = buckets,
+            Total = total
+        };
+    }
+
+    public async Task<TopMoversResponse> GetTopMoversAsync(int limit = 25)
+    {
+        if (limit <= 0)
+        {
+            limit = 25;
+        }
+
+        var lines = _db.OrderLines
+            .Where(ol => ol.Order.Status != OrderStatus.Draft);
+
+        var grouped = await lines
+            .GroupBy(ol => new { ol.PlantCatalogId, ol.PlantCatalog.Name })
+            .Select(g => new TopMoverRowDto
+            {
+                PlantCatalogId = g.Key.PlantCatalogId,
+                PlantName = g.Key.Name,
+                QtyOrdered = g.Sum(ol => (int?)ol.QtyOrdered) ?? 0,
+                QtyFulfilled = g.Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
+                OrderCount = g.Select(ol => ol.OrderId).Distinct().Count()
+            })
+            .OrderByDescending(r => r.QtyOrdered)
+            .ThenBy(r => r.PlantName)
+            .Take(limit)
+            .ToListAsync();
+
+        return new TopMoversResponse { Plants = grouped };
+    }
+
+    public async Task<OutstandingAgingResponse> GetOutstandingAgingAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var open = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress)
+            .Select(o => o.CreatedAt)
+            .ToListAsync();
+
+        // Always emit four buckets (zero-counts are valid) so the UI can render a stable layout.
+        var buckets = new List<OutstandingAgingBucketDto>
+        {
+            new() { Bucket = "<24h" },
+            new() { Bucket = "1-3d" },
+            new() { Bucket = "3-7d" },
+            new() { Bucket = ">7d" }
+        };
+
+        foreach (var createdAt in open)
+        {
+            var ageHours = (now - createdAt).TotalHours;
+            var bucket = AgingBucketFor(ageHours);
+            var target = buckets.First(b => b.Bucket == bucket);
+            target.Count += 1;
+            if (ageHours > target.OldestAgeHours)
+            {
+                target.OldestAgeHours = Math.Round(ageHours, 2);
+            }
+        }
+
+        return new OutstandingAgingResponse { Buckets = buckets };
+    }
+
+    // ── SS-02 (Wave 2) helpers ──
+
+    private IQueryable<Order> BaseOrders() =>
+        _db.Orders.Where(o => o.Status != OrderStatus.Draft);
+
+    private static IQueryable<Order> ApplyOrderRange(IQueryable<Order> source, DateTime? from, DateTime? to)
+    {
+        if (from.HasValue)
+        {
+            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(from.Value, DateTimeKind.Utc));
+            source = source.Where(o => o.CreatedAt >= fromOffset);
+        }
+        if (to.HasValue)
+        {
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(to.Value, DateTimeKind.Utc));
+            source = source.Where(o => o.CreatedAt < toOffset);
+        }
+        return source;
+    }
+
+    private static ChannelMetricsDto BuildChannelMetrics(IEnumerable<ChannelOrderProjection> rows)
+    {
+        var list = rows.ToList();
+        var count = list.Count;
+        var revenue = list.Sum(r => r.Revenue);
+        var items = list.Sum(r => r.ItemCount);
+        return new ChannelMetricsDto
+        {
+            OrderCount = count,
+            ItemCount = items,
+            Revenue = revenue,
+            AverageOrder = count > 0 ? Math.Round(revenue / count, 2) : 0m
+        };
+    }
+
+    private static string AgingBucketFor(double ageHours) => ageHours switch
+    {
+        < 24 => "<24h",
+        < 72 => "1-3d",
+        < 168 => "3-7d",
+        _ => ">7d"
+    };
 }
