@@ -7,7 +7,9 @@ import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { BulkActionToolbar } from '@/components/orders/BulkActionToolbar.js';
 import { BulkResultModal } from '@/components/orders/BulkResultModal.js';
 import type { Order, OrderStatus, BulkOperationResult } from '@/types/order.js';
@@ -225,15 +227,11 @@ export function OrdersListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Orders</h1>
-        <button
-          type="button"
-          className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700"
-          onClick={() => navigate('/orders/new')}
-        >
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <SectionHeading level={1} eyebrow="Operations">Orders</SectionHeading>
+        <TouchButton variant="primary" onClick={() => navigate('/orders/new')}>
           New Order
-        </button>
+        </TouchButton>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -333,7 +331,17 @@ export function OrdersListPage() {
       {loading ? (
         <LoadingSpinner />
       ) : orders.length === 0 ? (
-        <EmptyState title="No orders found" description={search || statusFilter ? 'Try different filters.' : 'Create your first order to get started.'} />
+        <BotanicalEmptyState
+          title="No orders found"
+          description={search || statusFilter ? 'Try different filters or clear your search to see every order.' : 'Create your first order to get started.'}
+          action={
+            search || statusFilter ? undefined : (
+              <TouchButton variant="primary" onClick={() => navigate('/orders/new')}>
+                Create your first order
+              </TouchButton>
+            )
+          }
+        />
       ) : (
         <>
           <div className="overflow-x-auto">

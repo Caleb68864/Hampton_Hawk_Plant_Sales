@@ -6,6 +6,8 @@ import { settingsApi } from '@/api/settings.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAdminAuth } from '@/hooks/useAdminAuth.js';
 import { getKioskLandingRoute } from '@/routes/kioskRouteConfig.js';
 import { useAppStore } from '@/stores/appStore.js';
@@ -244,20 +246,23 @@ export function SettingsPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="paper-grain max-w-3xl mx-auto space-y-4 relative">
+      <div className="relative z-10 space-y-4">
       <BackToStationHomeButton />
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">Global sale controls stay separate from kiosk mode, which only affects this browser.</p>
+      <div className="space-y-1">
+        <SectionHeading level={1} eyebrow="Admin">Settings</SectionHeading>
+        <p
+          className="text-sm text-hawk-600"
+          style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+        >
+          Global sale controls stay separate from kiosk mode, which only affects this browser.
+        </p>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Global</p>
-          <h2 className="text-lg font-semibold text-gray-800">Sale Status</h2>
-        </div>
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <SectionHeading level={3} eyebrow="Global">Sale Status</SectionHeading>
 
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -291,11 +296,13 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Global</p>
-          <h2 className="text-lg font-semibold text-gray-800">Scanner Tuning</h2>
-          <p className="mt-1 text-sm text-gray-600">
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <div className="space-y-1">
+          <SectionHeading level={3} eyebrow="Global">Scanner Tuning</SectionHeading>
+          <p
+            className="text-sm text-hawk-600"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
             Tune pickup-station scan behavior. Changes apply on next page load. Admin PIN required.
           </p>
         </div>
@@ -353,22 +360,25 @@ export function SettingsPage() {
         </label>
 
         <div>
-          <button
-            type="button"
+          <TouchButton
+            variant="primary"
             disabled={tuningSaving}
             onClick={handleSaveScannerTuning}
-            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
           >
             {tuningSaving ? 'Saving…' : 'Save scanner tuning'}
-          </button>
+          </TouchButton>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">This Device</p>
-          <h2 className="text-lg font-semibold text-gray-800">Kiosk Mode</h2>
-          <p className="mt-1 text-sm text-gray-600">Lock only this browser into a volunteer-safe station workflow.</p>
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <div className="space-y-1">
+          <SectionHeading level={3} eyebrow="This Device">Kiosk Mode</SectionHeading>
+          <p
+            className="text-sm text-hawk-600"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
+            Lock only this browser into a volunteer-safe station workflow.
+          </p>
         </div>
 
         {kioskSession ? (
@@ -379,14 +389,13 @@ export function SettingsPage() {
                 {kioskSession.profile === 'pickup' ? 'Pickup Station' : 'Lookup & Print Station'} • {kioskSession.workstationName}
               </p>
             </div>
-            <button
-              type="button"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            <TouchButton
+              variant="ghost"
               disabled={kioskBusy}
               onClick={handleDisableKiosk}
             >
               {kioskBusy ? 'Checking PIN...' : 'Disable kiosk mode on this browser'}
-            </button>
+            </TouchButton>
           </div>
         ) : (
           <div className="space-y-4">
@@ -424,22 +433,35 @@ export function SettingsPage() {
               Prefer fullscreen on launch for this browser
             </label>
 
-            <button
-              type="button"
-              className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
+            <TouchButton
+              variant="primary"
               disabled={kioskBusy}
               onClick={handleEnableKiosk}
             >
               {kioskBusy ? 'Checking PIN...' : 'Enable kiosk mode on this browser'}
-            </button>
+            </TouchButton>
           </div>
         )}
       </div>
 
-      <div className="rounded-lg border border-red-300 bg-red-50 p-6 space-y-4">
+      <div className="rounded-2xl border border-red-300 bg-red-50 p-6 space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Danger Zone</p>
-          <h2 className="text-lg font-semibold text-red-800">Bulk Order Actions</h2>
+          <span
+            className="block text-xs font-bold uppercase tracking-[0.28em] text-red-700 mb-1"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
+            Danger Zone
+          </span>
+          <h2
+            className="text-2xl text-red-800"
+            style={{
+              fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+              fontVariationSettings: "'opsz' 144, 'SOFT' 80, 'wght' 500",
+              letterSpacing: '-0.015em',
+            }}
+          >
+            Bulk Order Actions
+          </h2>
           <p className="mt-1 text-sm text-red-700">Destructive actions. Admin PIN + reason required. Use with care.</p>
         </div>
 
@@ -454,14 +476,13 @@ export function SettingsPage() {
             <p className="text-sm font-semibold text-gray-800">Regenerate order barcodes</p>
             <p className="text-xs text-gray-600">Fills/refreshes the Barcode column for every order (OR + 10-digit zero-padded order number).</p>
           </div>
-          <button
-            type="button"
+          <TouchButton
+            variant="primary"
             disabled={dangerBusy}
             onClick={handleRegenerateBarcodes}
-            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
           >
             {dangerBusy ? 'Working…' : 'Regenerate all order barcodes'}
-          </button>
+          </TouchButton>
         </div>
 
         <div className="rounded-md border border-red-300 bg-white p-4 space-y-3">
@@ -482,15 +503,15 @@ export function SettingsPage() {
               placeholder="DELETE ALL ORDERS"
             />
           </label>
-          <button
-            type="button"
+          <TouchButton
+            variant="danger"
             disabled={dangerBusy || deleteConfirmText.trim().toUpperCase() !== 'DELETE ALL ORDERS'}
             onClick={handleDeleteAllOrders}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {dangerBusy ? 'Working…' : 'Delete ALL orders'}
-          </button>
+          </TouchButton>
         </div>
+      </div>
       </div>
     </div>
   );

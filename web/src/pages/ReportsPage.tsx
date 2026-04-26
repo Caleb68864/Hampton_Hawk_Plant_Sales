@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import type { DashboardMetrics, LowInventoryItem, ProblemOrder } from '@/types/reports.js';
 
 const EMPTY_METRICS: DashboardMetrics = {
@@ -95,18 +97,35 @@ export function ReportsPage() {
 
   if (loading) return <LoadingSpinner />;
 
+  const noReportData =
+    metrics.totalOrders === 0 &&
+    metrics.totalCustomers === 0 &&
+    metrics.totalSellers === 0 &&
+    statusRows.length === 0 &&
+    topLowInventory.length === 0 &&
+    oldestProblems.length === 0;
+
   return (
-    <div className="space-y-6">
+    <div className="paper-grain space-y-6 relative">
+      <div className="relative z-10 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
+        <SectionHeading level={1} eyebrow="Insights">Reports</SectionHeading>
         <Link
           to="/reports/leftover-inventory"
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          className="inline-flex items-center justify-center gap-2.5 min-h-11 min-w-11 px-5 py-3 rounded-xl text-sm font-semibold text-hawk-950 bg-gradient-to-b from-gold-300 to-gold-500 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_2px_0_var(--color-gold-800),0_12px_24px_-10px_rgba(184,129,26,0.6)] hover:brightness-105 transition-transform duration-100 ease-out active:translate-y-px"
+          style={{ fontFamily: "var(--font-body), 'Manrope', system-ui, sans-serif" }}
         >
           Leftover Inventory Report
         </Link>
       </div>
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {noReportData && !error && (
+        <BotanicalEmptyState
+          title="No report data yet"
+          description="Once orders start flowing in, dashboards, charts, and breakdowns will appear here."
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <MetricCard label="Total Orders" value={metrics.totalOrders} />
@@ -118,8 +137,10 @@ export function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <section className="rounded-lg border border-gray-200 bg-white p-6 xl:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Order Status Distribution</h2>
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 xl:col-span-2 joy-shadow-plum">
+          <div className="mb-4">
+            <SectionHeading level={3}>Order Status Distribution</SectionHeading>
+          </div>
           {statusRows.length === 0 ? (
             <p className="text-sm text-gray-500">No order status data available.</p>
           ) : (
@@ -145,34 +166,38 @@ export function ReportsPage() {
           )}
         </section>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Performance Snapshot</h2>
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+          <div className="mb-4">
+            <SectionHeading level={3}>Performance Snapshot</SectionHeading>
+          </div>
           <ProgressRing label="Order Completion" value={completionRate} colorClass="stroke-blue-500" />
           <div className="my-6 border-t border-gray-100" />
           <ProgressRing label="Line Fulfillment" value={fulfillmentRate} colorClass="stroke-green-500" />
         </section>
       </div>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-800">Sales Breakdowns</h2>
+      <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+        <div className="mb-4">
+          <SectionHeading level={3}>Sales Breakdowns</SectionHeading>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Link
             to="/reports/sales-by-seller"
-            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+            className="block rounded-xl border border-hawk-200 bg-hawk-50/50 p-4 transition-shadow hover:border-gold-300 hover:bg-white hover:shadow-[0_8px_20px_-12px_rgba(184,129,26,0.45)]"
           >
             <p className="text-sm font-semibold text-gray-900">Sales by Seller</p>
             <p className="mt-1 text-xs text-gray-600">Per-seller order count, units, and revenue (ordered vs fulfilled).</p>
           </Link>
           <Link
             to="/reports/sales-by-customer"
-            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+            className="block rounded-xl border border-hawk-200 bg-hawk-50/50 p-4 transition-shadow hover:border-gold-300 hover:bg-white hover:shadow-[0_8px_20px_-12px_rgba(184,129,26,0.45)]"
           >
             <p className="text-sm font-semibold text-gray-900">Sales by Customer</p>
             <p className="mt-1 text-xs text-gray-600">Per-customer order totals and revenue breakdown.</p>
           </Link>
           <Link
             to="/reports/sales-by-plant"
-            className="block rounded-md border border-gray-200 bg-gray-50 p-4 hover:border-emerald-300 hover:bg-emerald-50"
+            className="block rounded-xl border border-hawk-200 bg-hawk-50/50 p-4 transition-shadow hover:border-gold-300 hover:bg-white hover:shadow-[0_8px_20px_-12px_rgba(184,129,26,0.45)]"
           >
             <p className="text-sm font-semibold text-gray-900">Sales by Plant</p>
             <p className="mt-1 text-xs text-gray-600">Per-plant units sold and revenue (ordered vs fulfilled).</p>
@@ -181,10 +206,10 @@ export function ReportsPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Critical Inventory Risk</h2>
-            <Link to="/inventory" className="text-sm text-blue-600 hover:text-blue-700">Inventory</Link>
+            <SectionHeading level={3}>Critical Inventory Risk</SectionHeading>
+            <Link to="/inventory" className="text-sm text-hawk-700 hover:text-hawk-900 font-medium">Inventory</Link>
           </div>
           {topLowInventory.length === 0 ? (
             <p className="text-sm text-gray-500">No low inventory items.</p>
@@ -210,10 +235,10 @@ export function ReportsPage() {
           )}
         </section>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
+        <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Oldest Problem Orders</h2>
-            <Link to="/orders" className="text-sm text-blue-600 hover:text-blue-700">Orders</Link>
+            <SectionHeading level={3}>Oldest Problem Orders</SectionHeading>
+            <Link to="/orders" className="text-sm text-hawk-700 hover:text-hawk-900 font-medium">Orders</Link>
           </div>
           {oldestProblems.length === 0 ? (
             <p className="text-sm text-gray-500">No problem orders.</p>
@@ -235,15 +260,29 @@ export function ReportsPage() {
           )}
         </section>
       </div>
+      </div>
     </div>
   );
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{(value ?? 0).toLocaleString()}</p>
+    <div className="rounded-2xl border border-hawk-200 bg-white p-4 joy-shadow-plum">
+      <p
+        className="text-xs font-bold uppercase tracking-[0.24em] text-hawk-700"
+        style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+      >
+        {label}
+      </p>
+      <p
+        className="mt-1 text-3xl text-hawk-900"
+        style={{
+          fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+          fontVariationSettings: "'opsz' 144, 'wght' 600",
+        }}
+      >
+        {(value ?? 0).toLocaleString()}
+      </p>
     </div>
   );
 }
