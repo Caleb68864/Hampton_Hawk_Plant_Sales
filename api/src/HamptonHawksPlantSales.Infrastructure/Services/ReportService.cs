@@ -116,4 +116,14 @@ public class ReportService : IReportService
             })
             .ToListAsync();
     }
+
+    // SS-04 placeholders so the solution builds while SS-04 implements full logic.
+    public Task<List<SalesBySellerRow>> GetSalesBySellerAsync()
+        => throw new NotImplementedException("SS-04 will implement GetSalesBySellerAsync.");
+
+    public Task<List<SalesByCustomerRow>> GetSalesByCustomerAsync()
+        => throw new NotImplementedException("SS-04 will implement GetSalesByCustomerAsync.");
+
+    public Task<List<SalesByPlantRow>> GetSalesByPlantAsync()
+        => throw new NotImplementedException("SS-04 will implement GetSalesByPlantAsync.");
 }
