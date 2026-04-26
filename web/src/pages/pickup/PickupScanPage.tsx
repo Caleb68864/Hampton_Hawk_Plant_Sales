@@ -380,37 +380,50 @@ export function PickupScanPage() {
       </div>
 
       {!isComplete && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <ScanInput
             ref={scanInputRef}
             onScan={handleScan}
             disabled={isScanning}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              onClick={() => setShowUndoConfirm(true)}
+
+          {/* SS-09: Primary action bar hoisted directly under the scan input,
+              above the items table and scan history. Touch-friendly TouchButton
+              targets so volunteers can complete orders without scrolling. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <TouchButton
+              variant={allFulfilled ? 'primary' : 'gold'}
+              onClick={handleComplete}
               disabled={isScanning}
             >
-              Undo last scan
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              onClick={handleResetOrder}
-              disabled={isScanning}
-            >
+              {allFulfilled ? 'Complete Order' : 'Force Complete'}
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleManualOpen} disabled={isScanning}>
+              Manual Fulfill
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleUndo} disabled={isScanning}>
+              Undo Last Scan
+            </TouchButton>
+            <TouchButton variant="gold" onClick={handleUndo} disabled={isScanning}>
+              Recover
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleResetOrder} disabled={isScanning}>
               Reset current order
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
-              onClick={handleMarkPartial}
+            </TouchButton>
+            <TouchButton variant="danger" onClick={handleMarkPartial} disabled={isScanning}>
+              Mark partial + reason
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handlePrintOrder} disabled={isScanning}>
+              Print Order Sheet
+            </TouchButton>
+            <TouchButton
+              variant="ghost"
+              className="ml-auto"
+              onClick={() => navigate('/pickup')}
               disabled={isScanning}
             >
-              Mark partial + reason
-            </button>
+              Reopen Lookup
+            </TouchButton>
           </div>
         </div>
       )}
@@ -481,32 +494,6 @@ export function PickupScanPage() {
           </tbody>
         </table>
       </div>
-
-      {/* Action bar hoisted above-the-fold for touch-friendly layout */}
-      {!isComplete && (
-        <div className="flex flex-wrap items-center gap-3">
-          <TouchButton variant="ghost" onClick={handleManualOpen}>
-            Manual Fulfill
-          </TouchButton>
-          <TouchButton variant="gold" onClick={handleUndo} disabled={isScanning}>
-            Recover
-          </TouchButton>
-          <TouchButton variant="ghost" onClick={handlePrintOrder}>
-            Print Order Sheet
-          </TouchButton>
-          <TouchButton variant="ghost" onClick={() => navigate('/pickup')}>
-            Reopen Lookup
-          </TouchButton>
-          <TouchButton
-            variant={allFulfilled ? 'primary' : 'gold'}
-            className="ml-auto"
-            onClick={handleComplete}
-            disabled={isScanning}
-          >
-            {allFulfilled ? 'Complete Order' : 'Force Complete'}
-          </TouchButton>
-        </div>
-      )}
 
       {isComplete && (
         <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-center">

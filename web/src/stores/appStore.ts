@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { settingsApi } from '@/api/settings.js';
+import type { PickupAutoJumpMode } from '@/types/settings.js';
 
 /**
  * Per-workstation draft id map. Keyed by workstation name (or `__default__`
@@ -9,10 +10,21 @@ import { settingsApi } from '@/api/settings.js';
  */
 export type WalkUpDraftIdByWorkstation = Record<string, string>;
 
+// SS-09 defaults: applied when the API has not yet returned settings.
+export const DEFAULT_PICKUP_SEARCH_DEBOUNCE_MS = 120;
+export const DEFAULT_PICKUP_AUTO_JUMP_MODE: PickupAutoJumpMode = 'BestMatchWhenSingle';
+export const DEFAULT_PICKUP_MULTI_SCAN_ENABLED = true;
+
 interface AppState {
   saleClosed: boolean;
   settingsLoading: boolean;
   settingsError: string | null;
+
+  // Scanner tuning (SS-09 -- mirrors backend SettingsResponse fields)
+  pickupSearchDebounceMs: number;
+  pickupAutoJumpMode: PickupAutoJumpMode;
+  pickupMultiScanEnabled: boolean;
+
   fetchSettings: () => Promise<void>;
 
   // Walk-up register draft persistence (per workstation)
@@ -35,13 +47,25 @@ export const useAppStore = create<AppState>()(
       saleClosed: false,
       settingsLoading: false,
       settingsError: null,
+      pickupSearchDebounceMs: DEFAULT_PICKUP_SEARCH_DEBOUNCE_MS,
+      pickupAutoJumpMode: DEFAULT_PICKUP_AUTO_JUMP_MODE,
+      pickupMultiScanEnabled: DEFAULT_PICKUP_MULTI_SCAN_ENABLED,
       walkUpDraftIdByWorkstation: {},
 
       fetchSettings: async () => {
         set({ settingsLoading: true, settingsError: null });
         try {
           const settings = await settingsApi.get();
-          set({ saleClosed: settings.saleClosed, settingsLoading: false });
+          set({
+            saleClosed: settings.saleClosed,
+            pickupSearchDebounceMs:
+              settings.pickupSearchDebounceMs ?? DEFAULT_PICKUP_SEARCH_DEBOUNCE_MS,
+            pickupAutoJumpMode:
+              settings.pickupAutoJumpMode ?? DEFAULT_PICKUP_AUTO_JUMP_MODE,
+            pickupMultiScanEnabled:
+              settings.pickupMultiScanEnabled ?? DEFAULT_PICKUP_MULTI_SCAN_ENABLED,
+            settingsLoading: false,
+          });
         } catch (e) {
           set({
             settingsLoading: false,

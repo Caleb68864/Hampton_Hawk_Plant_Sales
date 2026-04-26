@@ -6,8 +6,12 @@ export interface TouchButtonProps
   children: ReactNode;
 }
 
+// Touch target floor: WCAG / Apple / Material guidance is >= 44px.
+// We pin both `min-h-11 min-w-11` (44px floor) and the larger `min-h-14 min-w-14`
+// (56px target) so the component cannot regress below the accessibility minimum
+// even if a future variant overrides the larger size.
 const baseClasses =
-  'inline-flex items-center justify-center gap-2.5 min-h-14 min-w-14 px-5 py-4 rounded-xl font-semibold text-base tracking-tight transition-transform duration-100 ease-out active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed';
+  'inline-flex items-center justify-center gap-2.5 min-h-11 min-w-11 min-h-14 min-w-14 px-5 py-4 rounded-xl font-semibold text-base tracking-tight transition-transform duration-100 ease-out active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed';
 
 const variantClasses: Record<NonNullable<TouchButtonProps['variant']>, string> =
   {

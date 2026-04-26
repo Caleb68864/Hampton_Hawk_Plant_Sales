@@ -12,7 +12,10 @@ import { useAppStore } from '@/stores/appStore.js';
 import { buildKioskSessionDraft, getDefaultWorkstationName } from '@/stores/kioskSession.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import type { KioskProfile } from '@/types/kiosk.js';
-import type { AppSettings } from '@/types/settings.js';
+import type { AppSettings, PickupAutoJumpMode } from '@/types/settings.js';
+
+const DEBOUNCE_MIN = 50;
+const DEBOUNCE_MAX = 500;
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -33,11 +36,24 @@ export function SettingsPage() {
   const [dangerMessage, setDangerMessage] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
+  // Scanner Tuning (SS-09)
+  const [tuningDebounce, setTuningDebounce] = useState<number>(120);
+  const [tuningAutoJumpMode, setTuningAutoJumpMode] = useState<PickupAutoJumpMode>('BestMatchWhenSingle');
+  const [tuningMultiScanEnabled, setTuningMultiScanEnabled] = useState<boolean>(true);
+  const [tuningSaving, setTuningSaving] = useState(false);
+  const [tuningMessage, setTuningMessage] = useState<string | null>(null);
+  const [tuningError, setTuningError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     settingsApi
       .get()
-      .then(setSettings)
+      .then((s) => {
+        setSettings(s);
+        setTuningDebounce(s.pickupSearchDebounceMs ?? 120);
+        setTuningAutoJumpMode(s.pickupAutoJumpMode ?? 'BestMatchWhenSingle');
+        setTuningMultiScanEnabled(s.pickupMultiScanEnabled ?? true);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
@@ -180,6 +196,51 @@ export function SettingsPage() {
     }
   }
 
+  async function handleSaveScannerTuning() {
+    setTuningError(null);
+    setTuningMessage(null);
+
+    if (
+      !Number.isFinite(tuningDebounce) ||
+      tuningDebounce < DEBOUNCE_MIN ||
+      tuningDebounce > DEBOUNCE_MAX
+    ) {
+      setTuningError(`Debounce must be between ${DEBOUNCE_MIN} and ${DEBOUNCE_MAX} ms.`);
+      return;
+    }
+
+    const auth = await requestAdminAuth({
+      title: 'Update Scanner Tuning',
+      description: 'Enter admin PIN to save scanner tuning changes.',
+      confirmLabel: 'Save scanner tuning',
+    });
+    if (!auth) return;
+
+    setTuningSaving(true);
+    try {
+      const updated = await settingsApi.updateScannerTuning(
+        {
+          pickupSearchDebounceMs: tuningDebounce,
+          pickupAutoJumpMode: tuningAutoJumpMode,
+          pickupMultiScanEnabled: tuningMultiScanEnabled,
+        },
+        auth.pin,
+        auth.reason ?? 'Update scanner tuning',
+      );
+      setSettings(updated);
+      setTuningDebounce(updated.pickupSearchDebounceMs ?? tuningDebounce);
+      setTuningAutoJumpMode(updated.pickupAutoJumpMode ?? tuningAutoJumpMode);
+      setTuningMultiScanEnabled(updated.pickupMultiScanEnabled ?? tuningMultiScanEnabled);
+      setTuningMessage('Scanner tuning saved.');
+      // Refresh global store so PickupLookupPage / PickupScanPage pick up new values immediately.
+      await fetchSettings();
+    } catch (e) {
+      setTuningError(e instanceof Error ? e.message : 'Failed to save scanner tuning');
+    } finally {
+      setTuningSaving(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -228,6 +289,79 @@ export function SettingsPage() {
             Sale is CLOSED. Barcode scanning and pickup fulfillment are disabled. Toggle above to re-open (requires admin PIN).
           </div>
         )}
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Global</p>
+          <h2 className="text-lg font-semibold text-gray-800">Scanner Tuning</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Tune pickup-station scan behavior. Changes apply on next page load. Admin PIN required.
+          </p>
+        </div>
+
+        {tuningError && <ErrorBanner message={tuningError} onDismiss={() => setTuningError(null)} />}
+        {tuningMessage && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {tuningMessage}
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-1 text-sm text-gray-700">
+            <span className="font-medium">Search debounce (ms)</span>
+            <input
+              type="number"
+              min={DEBOUNCE_MIN}
+              max={DEBOUNCE_MAX}
+              step={10}
+              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              value={tuningDebounce}
+              onChange={(e) => setTuningDebounce(Number(e.target.value))}
+            />
+            <span className="block text-xs text-gray-500">
+              Range: {DEBOUNCE_MIN}-{DEBOUNCE_MAX}. Lower = more responsive scanner; higher = fewer queries while typing.
+            </span>
+          </label>
+
+          <label className="space-y-1 text-sm text-gray-700">
+            <span className="font-medium">Auto-jump mode</span>
+            <select
+              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              value={tuningAutoJumpMode}
+              onChange={(e) => setTuningAutoJumpMode(e.target.value as PickupAutoJumpMode)}
+            >
+              <option value="ExactMatchOnly">Exact match only (strict order-number format)</option>
+              <option value="BestMatchWhenSingle">Best match when single (recommended)</option>
+            </select>
+            <span className="block text-xs text-gray-500">
+              Controls whether lookup auto-navigates to a single matching order.
+            </span>
+          </label>
+        </div>
+
+        <label className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={tuningMultiScanEnabled}
+            onChange={(e) => setTuningMultiScanEnabled(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Multi-scan enabled</span>
+            <span className="block text-xs text-gray-500">Allow rapid consecutive scans without modal interruption.</span>
+          </span>
+        </label>
+
+        <div>
+          <button
+            type="button"
+            disabled={tuningSaving}
+            onClick={handleSaveScannerTuning}
+            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
+          >
+            {tuningSaving ? 'Saving…' : 'Save scanner tuning'}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">

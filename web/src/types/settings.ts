@@ -1,7 +1,17 @@
+export type PickupAutoJumpMode = 'ExactMatchOnly' | 'BestMatchWhenSingle';
+
 export interface AppSettings {
-  id: string;
   saleClosed: boolean;
   saleClosedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+
+  // Scanner tuning fields (added in SS-02 / consumed in SS-09)
+  pickupSearchDebounceMs?: number;
+  pickupAutoJumpMode?: PickupAutoJumpMode;
+  pickupMultiScanEnabled?: boolean;
+}
+
+export interface UpdateScannerTuningRequest {
+  pickupSearchDebounceMs?: number;
+  pickupAutoJumpMode?: PickupAutoJumpMode;
+  pickupMultiScanEnabled?: boolean;
 }

@@ -11,6 +11,7 @@ import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { useAppStore } from '@/stores/appStore.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import {
   findExactOrderNumberMatches,
@@ -30,6 +31,8 @@ const NO_MATCH_MESSAGE = 'What happened: No order found for scanned barcode/orde
 export function PickupLookupPage() {
   const navigate = useNavigate();
   const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
+  const pickupSearchDebounceMs = useAppStore((s) => s.pickupSearchDebounceMs);
+  const pickupAutoJumpMode = useAppStore((s) => s.pickupAutoJumpMode);
   const [azFilter, setAzFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<CustomerWithOrders[]>([]);
@@ -137,7 +140,26 @@ export function PickupLookupPage() {
 
         setExactOrderMatches(nextExactMatches);
 
-        if (orderLookupActive && nextExactMatches.length === 1) {
+        // SS-09: Auto-jump rules.
+        // - ExactMatchOnly: jump only when the format heuristic recognizes the
+        //   value as an order number AND we have exactly one exact match.
+        // - BestMatchWhenSingle: bypass the format heuristic. If a direct order
+        //   search returned exactly one row, jump to it. Falls back to the
+        //   exact-match path when the heuristic does match.
+        if (pickupAutoJumpMode === 'BestMatchWhenSingle') {
+          if (orderLookupActive && nextExactMatches.length === 1) {
+            navigate(`/pickup/${nextExactMatches[0].id}`);
+            return;
+          }
+          if (
+            !orderLookupActive &&
+            trimmedSearch.length >= 2 &&
+            directOrderMatches.length === 1
+          ) {
+            navigate(`/pickup/${directOrderMatches[0].id}`);
+            return;
+          }
+        } else if (orderLookupActive && nextExactMatches.length === 1) {
           navigate(`/pickup/${nextExactMatches[0].id}`);
           return;
         }
@@ -159,7 +181,7 @@ export function PickupLookupPage() {
     return () => {
       cancelled = true;
     };
-  }, [azFilter, navigate, normalizedSearch, orderLookupActive, search]);
+  }, [azFilter, navigate, normalizedSearch, orderLookupActive, pickupAutoJumpMode, search]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -205,7 +227,7 @@ export function PickupLookupPage() {
         onChange={handleSearchChange}
         onEnter={handleSearchChange}
         placeholder="Scan order sheet barcode, or search by name, order #, or pickup code..."
-        debounceMs={120}
+        debounceMs={pickupSearchDebounceMs}
         autoFocus
         inputRef={searchInputRef}
       />
