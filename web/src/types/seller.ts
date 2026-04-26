@@ -6,6 +6,7 @@ export interface Seller {
   grade: string | null;
   teacher: string | null;
   notes: string | null;
+  picklistBarcode: string;
   createdAt: string;
   updatedAt: string;
 }

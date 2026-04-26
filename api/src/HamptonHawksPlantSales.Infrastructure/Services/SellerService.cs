@@ -120,6 +120,7 @@ public class SellerService : ISellerService
         Grade = s.Grade,
         Teacher = s.Teacher,
         Notes = s.Notes,
+        PicklistBarcode = s.PicklistBarcode,
         CreatedAt = s.CreatedAt,
         UpdatedAt = s.UpdatedAt,
         DeletedAt = s.DeletedAt

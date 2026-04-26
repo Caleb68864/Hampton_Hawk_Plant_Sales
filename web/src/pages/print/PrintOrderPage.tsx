@@ -5,6 +5,7 @@ import { customersApi } from '@/api/customers.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
+import { OrderNumberBarcode } from '@/components/print/OrderNumberBarcode.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
@@ -47,6 +48,15 @@ export function PrintOrderPage() {
         sellerName={order.sellerDisplayName ?? undefined}
         timestamp={new Date(order.createdAt).toLocaleString()}
       />
+
+      {customer?.picklistBarcode && (
+        <div className="mb-4 flex flex-col items-center" data-picklist-barcode={customer.picklistBarcode}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">
+            Customer Pick List Barcode
+          </p>
+          <OrderNumberBarcode value={customer.picklistBarcode} variant="bare" />
+        </div>
+      )}
 
       <table className="w-full text-sm border-collapse">
         <thead>

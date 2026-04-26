@@ -224,6 +224,7 @@ public class WalkUpService : IWalkUpService
             Phone = o.Customer.Phone,
             Email = o.Customer.Email,
             PickupCode = o.Customer.PickupCode,
+            PicklistBarcode = o.Customer.PicklistBarcode,
             Notes = o.Customer.Notes,
             CreatedAt = o.Customer.CreatedAt,
             UpdatedAt = o.Customer.UpdatedAt
@@ -236,6 +237,7 @@ public class WalkUpService : IWalkUpService
             DisplayName = o.Seller.DisplayName,
             Grade = o.Seller.Grade,
             Teacher = o.Seller.Teacher,
+            PicklistBarcode = o.Seller.PicklistBarcode,
             CreatedAt = o.Seller.CreatedAt,
             UpdatedAt = o.Seller.UpdatedAt
         },

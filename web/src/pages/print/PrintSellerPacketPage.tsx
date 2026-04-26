@@ -6,6 +6,7 @@ import { customersApi } from '@/api/customers.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
+import { OrderNumberBarcode } from '@/components/print/OrderNumberBarcode.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
@@ -167,6 +168,15 @@ export function PrintSellerPacketPage() {
               timestamp={new Date(order.createdAt).toLocaleString()}
             />
 
+            {seller.picklistBarcode && (
+              <div className="mb-4 flex flex-col items-center" data-picklist-barcode={seller.picklistBarcode}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">
+                  Seller Pick List Barcode
+                </p>
+                <OrderNumberBarcode value={seller.picklistBarcode} variant="bare" />
+              </div>
+            )}
+
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b-2 border-black">
@@ -221,6 +231,11 @@ export function PrintSellerPacketPage() {
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold">Hampton Hawks Plant Sales</h1>
             <p className="mt-1 text-sm text-gray-600">Student Plant Pick List Summary</p>
+            {seller.picklistBarcode && (
+              <div className="mx-auto mt-3 max-w-[320px]" data-picklist-barcode={seller.picklistBarcode}>
+                <OrderNumberBarcode value={seller.picklistBarcode} variant="bare" />
+              </div>
+            )}
           </div>
 
           <div className="mb-6 grid grid-cols-2 gap-x-8 gap-y-2 border-t border-b border-gray-300 py-3 text-sm">

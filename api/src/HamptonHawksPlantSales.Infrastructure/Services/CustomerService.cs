@@ -134,6 +134,7 @@ public class CustomerService : ICustomerService
         Phone = c.Phone,
         Email = c.Email,
         PickupCode = c.PickupCode,
+        PicklistBarcode = c.PicklistBarcode,
         Notes = c.Notes,
         CreatedAt = c.CreatedAt,
         UpdatedAt = c.UpdatedAt,
