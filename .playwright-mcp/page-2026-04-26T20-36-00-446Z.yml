@@ -1,0 +1,72 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Hampton Hawks" [ref=e7]
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: Hampton Hawks
+        - heading "Plant Sales" [level=1] [ref=e10]
+    - navigation [ref=e11]:
+      - link "Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /
+      - link "Plants" [ref=e13] [cursor=pointer]:
+        - /url: /plants
+      - link "Inventory" [ref=e14] [cursor=pointer]:
+        - /url: /inventory
+      - link "Customers" [ref=e15] [cursor=pointer]:
+        - /url: /customers
+      - link "Sellers" [ref=e16] [cursor=pointer]:
+        - /url: /sellers
+      - link "Orders" [ref=e17] [cursor=pointer]:
+        - /url: /orders
+      - link "Station Home" [ref=e18] [cursor=pointer]:
+        - /url: /station
+      - link "Imports" [ref=e19] [cursor=pointer]:
+        - /url: /imports
+      - link "Reports" [ref=e20] [cursor=pointer]:
+        - /url: /reports
+      - link "Settings" [ref=e21] [cursor=pointer]:
+        - /url: /settings
+      - link "Docs" [ref=e22] [cursor=pointer]:
+        - /url: /docs
+    - generic [ref=e23]:
+      - generic [ref=e24]: Quick Find
+      - textbox "Quick Find" [ref=e25]:
+        - /placeholder: "Order #, pickup code, customer, plant SKU/barcode/name, phone"
+  - main [ref=e26]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: Directory
+          - heading "Customers" [level=1] [ref=e33]
+        - button "New Customer" [ref=e35]
+      - generic [ref=e36]:
+        - button "All" [ref=e37]
+        - button "A" [ref=e38]
+        - button "B" [ref=e39]
+        - button "C" [ref=e40]
+        - button "D" [ref=e41]
+        - button "E" [ref=e42]
+        - button "F" [ref=e43]
+        - button "G" [ref=e44]
+        - button "H" [ref=e45]
+        - button "I" [ref=e46]
+        - button "J" [ref=e47]
+        - button "K" [ref=e48]
+        - button "L" [ref=e49]
+        - button "M" [ref=e50]
+        - button "N" [ref=e51]
+        - button "O" [ref=e52]
+        - button "P" [ref=e53]
+        - button "Q" [ref=e54]
+        - button "R" [ref=e55]
+        - button "S" [ref=e56]
+        - button "T" [ref=e57]
+        - button "U" [ref=e58]
+        - button "V" [ref=e59]
+        - button "W" [ref=e60]
+        - button "X" [ref=e61]
+        - button "Y" [ref=e62]
+        - button "Z" [ref=e63]
+        - button "#" [ref=e64]
+      - textbox "Search customers or scan pickup code... (press / to focus)" [ref=e67]
+      - paragraph [ref=e70]: Loading...

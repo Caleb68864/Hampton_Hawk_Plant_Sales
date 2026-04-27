@@ -1,0 +1,297 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Hampton Hawks" [ref=e7]
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: Hampton Hawks
+        - heading "Plant Sales" [level=1] [ref=e10]
+    - navigation [ref=e11]:
+      - link "Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /
+      - link "Plants" [ref=e13] [cursor=pointer]:
+        - /url: /plants
+      - link "Inventory" [ref=e14] [cursor=pointer]:
+        - /url: /inventory
+      - link "Customers" [ref=e15] [cursor=pointer]:
+        - /url: /customers
+      - link "Sellers" [ref=e16] [cursor=pointer]:
+        - /url: /sellers
+      - link "Orders" [ref=e17] [cursor=pointer]:
+        - /url: /orders
+      - link "Station Home" [ref=e18] [cursor=pointer]:
+        - /url: /station
+      - link "Imports" [ref=e19] [cursor=pointer]:
+        - /url: /imports
+      - link "Reports" [ref=e20] [cursor=pointer]:
+        - /url: /reports
+      - link "Settings" [ref=e21] [cursor=pointer]:
+        - /url: /settings
+      - link "Docs" [ref=e22] [cursor=pointer]:
+        - /url: /docs
+    - generic [ref=e23]:
+      - generic [ref=e24]: Quick Find
+      - textbox "Quick Find" [ref=e25]:
+        - /placeholder: "Order #, pickup code, customer, plant SKU/barcode/name, phone"
+  - main [ref=e26]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: Directory
+          - heading "Sellers" [level=1] [ref=e33]
+        - button "New Seller" [ref=e35]
+      - generic [ref=e36]:
+        - button "All" [ref=e37]
+        - button "A" [ref=e38]
+        - button "B" [ref=e39]
+        - button "C" [ref=e40]
+        - button "D" [ref=e41]
+        - button "E" [ref=e42]
+        - button "F" [ref=e43]
+        - button "G" [ref=e44]
+        - button "H" [ref=e45]
+        - button "I" [ref=e46]
+        - button "J" [ref=e47]
+        - button "K" [ref=e48]
+        - button "L" [ref=e49]
+        - button "M" [ref=e50]
+        - button "N" [ref=e51]
+        - button "O" [ref=e52]
+        - button "P" [ref=e53]
+        - button "Q" [ref=e54]
+        - button "R" [ref=e55]
+        - button "S" [ref=e56]
+        - button "T" [ref=e57]
+        - button "U" [ref=e58]
+        - button "V" [ref=e59]
+        - button "W" [ref=e60]
+        - button "X" [ref=e61]
+        - button "Y" [ref=e62]
+        - button "Z" [ref=e63]
+        - button "#" [ref=e64]
+      - textbox "Search sellers... (press / to focus)" [ref=e67]
+      - generic [ref=e68]:
+        - button "Print Selected Pick Lists (0)" [disabled] [ref=e69]
+        - button "Print All Pick Lists" [ref=e70]
+        - paragraph [ref=e71]: One compact sheet per seller; respects current selection.
+      - table [ref=e73]:
+        - rowgroup [ref=e74]:
+          - row "Select all sellers on this page Name Grade Teacher Actions" [ref=e75]:
+            - columnheader "Select all sellers on this page" [ref=e76]:
+              - checkbox "Select all sellers on this page" [ref=e77]
+            - columnheader "Name" [ref=e78]
+            - columnheader "Grade" [ref=e79]
+            - columnheader "Teacher" [ref=e80]
+            - columnheader "Actions" [ref=e81]
+        - rowgroup [ref=e82]:
+          - row "Select seller Abigail Winfield Abigail Winfield -- -- Print" [ref=e83] [cursor=pointer]:
+            - cell "Select seller Abigail Winfield" [ref=e84]:
+              - checkbox "Select seller Abigail Winfield" [ref=e85]
+            - cell "Abigail Winfield" [ref=e86]
+            - cell "--" [ref=e87]
+            - cell "--" [ref=e88]
+            - cell "Print" [ref=e89]:
+              - button "Print" [ref=e90]
+          - row "Select seller Adaline Roberts Adaline Roberts -- -- Print" [ref=e91] [cursor=pointer]:
+            - cell "Select seller Adaline Roberts" [ref=e92]:
+              - checkbox "Select seller Adaline Roberts" [ref=e93]
+            - cell "Adaline Roberts" [ref=e94]
+            - cell "--" [ref=e95]
+            - cell "--" [ref=e96]
+            - cell "Print" [ref=e97]:
+              - button "Print" [ref=e98]
+          - row "Select seller Adalynn Klute Adalynn Klute -- -- Print" [ref=e99] [cursor=pointer]:
+            - cell "Select seller Adalynn Klute" [ref=e100]:
+              - checkbox "Select seller Adalynn Klute" [ref=e101]
+            - cell "Adalynn Klute" [ref=e102]
+            - cell "--" [ref=e103]
+            - cell "--" [ref=e104]
+            - cell "Print" [ref=e105]:
+              - button "Print" [ref=e106]
+          - row "Select seller Addison Friesen Addison Friesen -- -- Print" [ref=e107] [cursor=pointer]:
+            - cell "Select seller Addison Friesen" [ref=e108]:
+              - checkbox "Select seller Addison Friesen" [ref=e109]
+            - cell "Addison Friesen" [ref=e110]
+            - cell "--" [ref=e111]
+            - cell "--" [ref=e112]
+            - cell "Print" [ref=e113]:
+              - button "Print" [ref=e114]
+          - row "Select seller Adelyn Blase Adelyn Blase -- -- Print" [ref=e115] [cursor=pointer]:
+            - cell "Select seller Adelyn Blase" [ref=e116]:
+              - checkbox "Select seller Adelyn Blase" [ref=e117]
+            - cell "Adelyn Blase" [ref=e118]
+            - cell "--" [ref=e119]
+            - cell "--" [ref=e120]
+            - cell "Print" [ref=e121]:
+              - button "Print" [ref=e122]
+          - row "Select seller Alayna Servantez Alayna Servantez -- -- Print" [ref=e123] [cursor=pointer]:
+            - cell "Select seller Alayna Servantez" [ref=e124]:
+              - checkbox "Select seller Alayna Servantez" [ref=e125]
+            - cell "Alayna Servantez" [ref=e126]
+            - cell "--" [ref=e127]
+            - cell "--" [ref=e128]
+            - cell "Print" [ref=e129]:
+              - button "Print" [ref=e130]
+          - row "Select seller Alexis Bennett Alexis Bennett -- -- Print" [ref=e131] [cursor=pointer]:
+            - cell "Select seller Alexis Bennett" [ref=e132]:
+              - checkbox "Select seller Alexis Bennett" [ref=e133]
+            - cell "Alexis Bennett" [ref=e134]
+            - cell "--" [ref=e135]
+            - cell "--" [ref=e136]
+            - cell "Print" [ref=e137]:
+              - button "Print" [ref=e138]
+          - row "Select seller Anniston Arnett Anniston Arnett -- -- Print" [ref=e139] [cursor=pointer]:
+            - cell "Select seller Anniston Arnett" [ref=e140]:
+              - checkbox "Select seller Anniston Arnett" [ref=e141]
+            - cell "Anniston Arnett" [ref=e142]
+            - cell "--" [ref=e143]
+            - cell "--" [ref=e144]
+            - cell "Print" [ref=e145]:
+              - button "Print" [ref=e146]
+          - row "Select seller Aubrey Goertzen Aubrey Goertzen -- -- Print" [ref=e147] [cursor=pointer]:
+            - cell "Select seller Aubrey Goertzen" [ref=e148]:
+              - checkbox "Select seller Aubrey Goertzen" [ref=e149]
+            - cell "Aubrey Goertzen" [ref=e150]
+            - cell "--" [ref=e151]
+            - cell "--" [ref=e152]
+            - cell "Print" [ref=e153]:
+              - button "Print" [ref=e154]
+          - row "Select seller Autumn Jenneman Autumn Jenneman -- -- Print" [ref=e155] [cursor=pointer]:
+            - cell "Select seller Autumn Jenneman" [ref=e156]:
+              - checkbox "Select seller Autumn Jenneman" [ref=e157]
+            - cell "Autumn Jenneman" [ref=e158]
+            - cell "--" [ref=e159]
+            - cell "--" [ref=e160]
+            - cell "Print" [ref=e161]:
+              - button "Print" [ref=e162]
+          - row "Select seller Avery Blase Avery Blase -- -- Print" [ref=e163] [cursor=pointer]:
+            - cell "Select seller Avery Blase" [ref=e164]:
+              - checkbox "Select seller Avery Blase" [ref=e165]
+            - cell "Avery Blase" [ref=e166]
+            - cell "--" [ref=e167]
+            - cell "--" [ref=e168]
+            - cell "Print" [ref=e169]:
+              - button "Print" [ref=e170]
+          - row "Select seller Axel Fisher Axel Fisher -- -- Print" [ref=e171] [cursor=pointer]:
+            - cell "Select seller Axel Fisher" [ref=e172]:
+              - checkbox "Select seller Axel Fisher" [ref=e173]
+            - cell "Axel Fisher" [ref=e174]
+            - cell "--" [ref=e175]
+            - cell "--" [ref=e176]
+            - cell "Print" [ref=e177]:
+              - button "Print" [ref=e178]
+          - row "Select seller Aydenn Scherff Aydenn Scherff -- -- Print" [ref=e179] [cursor=pointer]:
+            - cell "Select seller Aydenn Scherff" [ref=e180]:
+              - checkbox "Select seller Aydenn Scherff" [ref=e181]
+            - cell "Aydenn Scherff" [ref=e182]
+            - cell "--" [ref=e183]
+            - cell "--" [ref=e184]
+            - cell "Print" [ref=e185]:
+              - button "Print" [ref=e186]
+          - row "Select seller Bailey Goertzen Bailey Goertzen -- -- Print" [ref=e187] [cursor=pointer]:
+            - cell "Select seller Bailey Goertzen" [ref=e188]:
+              - checkbox "Select seller Bailey Goertzen" [ref=e189]
+            - cell "Bailey Goertzen" [ref=e190]
+            - cell "--" [ref=e191]
+            - cell "--" [ref=e192]
+            - cell "Print" [ref=e193]:
+              - button "Print" [ref=e194]
+          - row "Select seller Braden Buller Braden Buller -- -- Print" [ref=e195] [cursor=pointer]:
+            - cell "Select seller Braden Buller" [ref=e196]:
+              - checkbox "Select seller Braden Buller" [ref=e197]
+            - cell "Braden Buller" [ref=e198]
+            - cell "--" [ref=e199]
+            - cell "--" [ref=e200]
+            - cell "Print" [ref=e201]:
+              - button "Print" [ref=e202]
+          - row "Select seller Braxton Arnett Braxton Arnett -- -- Print" [ref=e203] [cursor=pointer]:
+            - cell "Select seller Braxton Arnett" [ref=e204]:
+              - checkbox "Select seller Braxton Arnett" [ref=e205]
+            - cell "Braxton Arnett" [ref=e206]
+            - cell "--" [ref=e207]
+            - cell "--" [ref=e208]
+            - cell "Print" [ref=e209]:
+              - button "Print" [ref=e210]
+          - row "Select seller Brayden Wolinski Brayden Wolinski -- -- Print" [ref=e211] [cursor=pointer]:
+            - cell "Select seller Brayden Wolinski" [ref=e212]:
+              - checkbox "Select seller Brayden Wolinski" [ref=e213]
+            - cell "Brayden Wolinski" [ref=e214]
+            - cell "--" [ref=e215]
+            - cell "--" [ref=e216]
+            - cell "Print" [ref=e217]:
+              - button "Print" [ref=e218]
+          - row "Select seller Brixlon Willingham Brixlon Willingham -- -- Print" [ref=e219] [cursor=pointer]:
+            - cell "Select seller Brixlon Willingham" [ref=e220]:
+              - checkbox "Select seller Brixlon Willingham" [ref=e221]
+            - cell "Brixlon Willingham" [ref=e222]
+            - cell "--" [ref=e223]
+            - cell "--" [ref=e224]
+            - cell "Print" [ref=e225]:
+              - button "Print" [ref=e226]
+          - row "Select seller Brody Gray Brody Gray -- -- Print" [ref=e227] [cursor=pointer]:
+            - cell "Select seller Brody Gray" [ref=e228]:
+              - checkbox "Select seller Brody Gray" [ref=e229]
+            - cell "Brody Gray" [ref=e230]
+            - cell "--" [ref=e231]
+            - cell "--" [ref=e232]
+            - cell "Print" [ref=e233]:
+              - button "Print" [ref=e234]
+          - row "Select seller Brooks Olsen Brooks Olsen -- -- Print" [ref=e235] [cursor=pointer]:
+            - cell "Select seller Brooks Olsen" [ref=e236]:
+              - checkbox "Select seller Brooks Olsen" [ref=e237]
+            - cell "Brooks Olsen" [ref=e238]
+            - cell "--" [ref=e239]
+            - cell "--" [ref=e240]
+            - cell "Print" [ref=e241]:
+              - button "Print" [ref=e242]
+          - row "Select seller Brynleigh Scheidemann Brynleigh Scheidemann -- -- Print" [ref=e243] [cursor=pointer]:
+            - cell "Select seller Brynleigh Scheidemann" [ref=e244]:
+              - checkbox "Select seller Brynleigh Scheidemann" [ref=e245]
+            - cell "Brynleigh Scheidemann" [ref=e246]
+            - cell "--" [ref=e247]
+            - cell "--" [ref=e248]
+            - cell "Print" [ref=e249]:
+              - button "Print" [ref=e250]
+          - row "Select seller Brysen Faller Brysen Faller -- -- Print" [ref=e251] [cursor=pointer]:
+            - cell "Select seller Brysen Faller" [ref=e252]:
+              - checkbox "Select seller Brysen Faller" [ref=e253]
+            - cell "Brysen Faller" [ref=e254]
+            - cell "--" [ref=e255]
+            - cell "--" [ref=e256]
+            - cell "Print" [ref=e257]:
+              - button "Print" [ref=e258]
+          - row "Select seller Camden Riggs Camden Riggs -- -- Print" [ref=e259] [cursor=pointer]:
+            - cell "Select seller Camden Riggs" [ref=e260]:
+              - checkbox "Select seller Camden Riggs" [ref=e261]
+            - cell "Camden Riggs" [ref=e262]
+            - cell "--" [ref=e263]
+            - cell "--" [ref=e264]
+            - cell "Print" [ref=e265]:
+              - button "Print" [ref=e266]
+          - row "Select seller Cameron Weedin Cameron Weedin -- -- Print" [ref=e267] [cursor=pointer]:
+            - cell "Select seller Cameron Weedin" [ref=e268]:
+              - checkbox "Select seller Cameron Weedin" [ref=e269]
+            - cell "Cameron Weedin" [ref=e270]
+            - cell "--" [ref=e271]
+            - cell "--" [ref=e272]
+            - cell "Print" [ref=e273]:
+              - button "Print" [ref=e274]
+          - row "Select seller Carter Klute Carter Klute -- -- Print" [ref=e275] [cursor=pointer]:
+            - cell "Select seller Carter Klute" [ref=e276]:
+              - checkbox "Select seller Carter Klute" [ref=e277]
+            - cell "Carter Klute" [ref=e278]
+            - cell "--" [ref=e279]
+            - cell "--" [ref=e280]
+            - cell "Print" [ref=e281]:
+              - button "Print" [ref=e282]
+      - generic [ref=e283]:
+        - generic [ref=e284]:
+          - generic [ref=e285]: "Rows per page:"
+          - combobox [ref=e286]:
+            - option "10"
+            - option "25" [selected]
+            - option "50"
+            - option "100"
+        - generic [ref=e287]:
+          - button "Prev" [disabled] [ref=e288]
+          - generic [ref=e289]: Page 1 of 5
+          - button "Next" [ref=e290]

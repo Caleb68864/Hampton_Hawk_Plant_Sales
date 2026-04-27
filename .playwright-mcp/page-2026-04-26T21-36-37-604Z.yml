@@ -1,0 +1,105 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Hampton Hawks" [ref=e7]
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: Hampton Hawks
+        - heading "Plant Sales" [level=1] [ref=e10]
+    - navigation [ref=e11]:
+      - link "Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /
+      - link "Plants" [ref=e13] [cursor=pointer]:
+        - /url: /plants
+      - link "Inventory" [ref=e14] [cursor=pointer]:
+        - /url: /inventory
+      - link "Customers" [ref=e15] [cursor=pointer]:
+        - /url: /customers
+      - link "Sellers" [ref=e16] [cursor=pointer]:
+        - /url: /sellers
+      - link "Orders" [ref=e17] [cursor=pointer]:
+        - /url: /orders
+      - link "Station Home" [ref=e18] [cursor=pointer]:
+        - /url: /station
+      - link "Imports" [ref=e19] [cursor=pointer]:
+        - /url: /imports
+      - link "Reports" [ref=e20] [cursor=pointer]:
+        - /url: /reports
+      - link "Settings" [ref=e21] [cursor=pointer]:
+        - /url: /settings
+      - link "Docs" [ref=e22] [cursor=pointer]:
+        - /url: /docs
+    - generic [ref=e23]:
+      - generic [ref=e24]: Quick Find
+      - textbox "Quick Find" [ref=e25]:
+        - /placeholder: "Order #, pickup code, customer, plant SKU/barcode/name, phone"
+  - main [ref=e26]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: Insights
+          - heading "WalkUp vs Preorder" [level=1] [ref=e33]
+        - generic [ref=e34]:
+          - button "Refresh" [ref=e35]
+          - button "Copy summary" [ref=e36]
+          - link "Back to Reports" [ref=e37] [cursor=pointer]:
+            - /url: /reports
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: From
+          - textbox "From" [ref=e42]
+        - generic [ref=e43]:
+          - generic [ref=e44]: To
+          - textbox "To" [ref=e45]
+        - paragraph [ref=e46]: All time
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - img "WalkUp Share donut chart" [ref=e51]
+            - generic:
+              - generic: 0.0%
+              - generic: WalkUp Share
+          - list [ref=e54]:
+            - listitem [ref=e55]:
+              - generic [ref=e57]:
+                - text: WalkUp
+                - generic [ref=e58]: (0)
+            - listitem [ref=e59]:
+              - generic [ref=e61]:
+                - text: Preorder
+                - generic [ref=e62]: (564)
+        - paragraph [ref=e63]: of 564 non-draft orders were walk-up.
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]: Channel
+            - heading "WalkUp" [level=3] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - term [ref=e71]: Orders
+              - definition [ref=e72]: "0"
+            - generic [ref=e73]:
+              - term [ref=e74]: Items
+              - definition [ref=e75]: "0"
+            - generic [ref=e76]:
+              - term [ref=e77]: Revenue
+              - definition [ref=e78]: $0.00
+            - generic [ref=e79]:
+              - term [ref=e80]: Avg Order
+              - definition [ref=e81]: $0.00
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: Channel
+            - heading "Preorder" [level=3] [ref=e85]
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - term [ref=e88]: Orders
+              - definition [ref=e89]: "564"
+            - generic [ref=e90]:
+              - term [ref=e91]: Items
+              - definition [ref=e92]: 4,669
+            - generic [ref=e93]:
+              - term [ref=e94]: Revenue
+              - definition [ref=e95]: $0.00
+            - generic [ref=e96]:
+              - term [ref=e97]: Avg Order
+              - definition [ref=e98]: $0.00
