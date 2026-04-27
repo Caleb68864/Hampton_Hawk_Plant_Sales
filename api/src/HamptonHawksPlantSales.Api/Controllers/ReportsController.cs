@@ -177,4 +177,17 @@ public class ReportsController : ControllerBase
         var result = await _reportService.GetOutstandingAgingAsync();
         return Ok(ApiResponse<OutstandingAgingResponse>.Ok(result));
     }
+
+    /// <summary>
+    /// Gets the sale-day live KPI dashboard payload (projector view). Read-only,
+    /// no admin pin so it can stay open on a projector unattended. Designed for
+    /// 5-second polling.
+    /// </summary>
+    [HttpGet("live-sale-kpi")]
+    [ProducesResponseType(typeof(ApiResponse<LiveSaleKpiResponse>), 200)]
+    public async Task<IActionResult> GetLiveSaleKpi()
+    {
+        var result = await _reportService.GetLiveSaleKpiAsync();
+        return Ok(ApiResponse<LiveSaleKpiResponse>.Ok(result));
+    }
 }

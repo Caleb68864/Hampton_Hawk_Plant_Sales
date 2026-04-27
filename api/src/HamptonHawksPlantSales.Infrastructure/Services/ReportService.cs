@@ -470,4 +470,176 @@ public class ReportService : IReportService
         < 168 => "3-7d",
         _ => ">7d"
     };
+
+    // ── Sale-day live KPI dashboard ──
+    //
+    // One round-trip aggregator powering the projector view. All "today"
+    // boundaries use UTC (DateTime.UtcNow.Date) so the result is timezone-stable
+    // across clients. Soft-delete is handled by the EF global query filter;
+    // Status=Draft is excluded explicitly. Empty data sets degrade gracefully:
+    // null-coalescing guards return 0/null instead of throwing, and the hourly
+    // sparkline is always 12 buckets wide so the UI never rejiggers.
+
+    public async Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var todayStart = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        var tomorrowStart = todayStart.AddDays(1);
+        var hourAgo = now.AddHours(-1);
+
+        var orders = BaseOrders();
+
+        var totalRevenue = await orders.SumAsync(o => (decimal?)(o.AmountTendered ?? 0m)) ?? 0m;
+        var totalOrdersToday = await orders.CountAsync(o => o.CreatedAt >= todayStart && o.CreatedAt < tomorrowStart);
+        var ordersCompleted = await orders.CountAsync(o => o.Status == OrderStatus.Complete);
+        var ordersOpen = await orders.CountAsync(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress);
+
+        var itemsScannedTotal = await _db.OrderLines
+            .Where(ol => ol.Order.Status != OrderStatus.Draft)
+            .SumAsync(ol => (int?)ol.QtyFulfilled) ?? 0;
+
+        // FulfillmentEvent base scope: exclude events whose parent order is
+        // soft-deleted (covered by global filter on Order via the navigation)
+        // or in Draft status. Draft orders shouldn't be producing real scans
+        // but we filter defensively.
+        var acceptedEvents = _db.FulfillmentEvents
+            .Where(e => e.Result == FulfillmentResult.Accepted
+                        && e.Order.Status != OrderStatus.Draft);
+
+        var itemsScannedToday = await acceptedEvents
+            .Where(e => e.CreatedAt >= todayStart && e.CreatedAt < tomorrowStart)
+            .SumAsync(e => (int?)e.Quantity) ?? 0;
+
+        var scansLastHour = await acceptedEvents.CountAsync(e => e.CreatedAt >= hourAgo);
+
+        // Mean seconds between scans: pull last 100 Accepted timestamps then
+        // compute consecutive deltas in memory. Null when we don't have at
+        // least two events to form a single delta.
+        var recentTimestamps = await acceptedEvents
+            .OrderByDescending(e => e.CreatedAt)
+            .Select(e => e.CreatedAt)
+            .Take(100)
+            .ToListAsync();
+
+        double? meanSecondsBetweenScans = null;
+        if (recentTimestamps.Count >= 2)
+        {
+            // recentTimestamps is descending; reverse for chronological diffs.
+            var ordered = recentTimestamps.OrderBy(t => t).ToList();
+            var deltas = new List<double>(ordered.Count - 1);
+            for (var i = 1; i < ordered.Count; i++)
+            {
+                deltas.Add((ordered[i] - ordered[i - 1]).TotalSeconds);
+            }
+            meanSecondsBetweenScans = Math.Round(deltas.Average(), 2);
+        }
+
+        // Average order pickup time: per Complete order completed today,
+        // measure (Order.UpdatedAt - earliest FulfillmentEvent.CreatedAt for
+        // that order). Null when zero orders completed today.
+        var completedToday = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Complete
+                        && o.UpdatedAt >= todayStart && o.UpdatedAt < tomorrowStart)
+            .Select(o => new
+            {
+                o.Id,
+                o.UpdatedAt,
+                FirstScanAt = _db.FulfillmentEvents
+                    .Where(e => e.OrderId == o.Id)
+                    .Min(e => (DateTimeOffset?)e.CreatedAt)
+            })
+            .ToListAsync();
+
+        double? averageOrderPickupSeconds = null;
+        var pickupSpans = completedToday
+            .Where(x => x.FirstScanAt.HasValue && x.UpdatedAt >= x.FirstScanAt.Value)
+            .Select(x => (x.UpdatedAt - x.FirstScanAt!.Value).TotalSeconds)
+            .ToList();
+        if (pickupSpans.Count > 0)
+        {
+            averageOrderPickupSeconds = Math.Round(pickupSpans.Average(), 2);
+        }
+
+        // Last scan + plant name: most recent Accepted event overall.
+        var lastScan = await acceptedEvents
+            .OrderByDescending(e => e.CreatedAt)
+            .Select(e => new
+            {
+                e.CreatedAt,
+                PlantName = e.PlantCatalog != null ? e.PlantCatalog.Name : null
+            })
+            .FirstOrDefaultAsync();
+
+        // Top movers today: top 5 by SUM(Quantity), joined to plant name.
+        var topMovers = await acceptedEvents
+            .Where(e => e.CreatedAt >= todayStart && e.CreatedAt < tomorrowStart
+                        && e.PlantCatalogId != null)
+            .GroupBy(e => new { e.PlantCatalogId, Name = e.PlantCatalog!.Name })
+            .Select(g => new TopMoverLiveRow
+            {
+                PlantName = g.Key.Name,
+                QtyScanned = g.Sum(e => e.Quantity)
+            })
+            .OrderByDescending(r => r.QtyScanned)
+            .ThenBy(r => r.PlantName)
+            .Take(5)
+            .ToListAsync();
+
+        // Hourly activity: last 12 hour-aligned buckets. Pull events from the
+        // earliest bucket forward then bucket in memory so zero-count buckets
+        // are preserved (DB-side group-by would drop empty hours).
+        var currentHourStart = new DateTimeOffset(
+            now.Year, now.Month, now.Day, now.Hour, 0, 0, TimeSpan.Zero);
+        var earliestBucket = currentHourStart.AddHours(-11);
+
+        var hourEvents = await acceptedEvents
+            .Where(e => e.CreatedAt >= earliestBucket)
+            .Select(e => new { e.CreatedAt, e.Quantity })
+            .ToListAsync();
+
+        var hourBuckets = new List<ScanActivityHourBucket>(12);
+        for (var i = 0; i < 12; i++)
+        {
+            var bucketStart = earliestBucket.AddHours(i);
+            var bucketEnd = bucketStart.AddHours(1);
+            var inBucket = hourEvents.Where(e => e.CreatedAt >= bucketStart && e.CreatedAt < bucketEnd).ToList();
+            hourBuckets.Add(new ScanActivityHourBucket
+            {
+                HourStart = bucketStart,
+                ScanCount = inBucket.Count,
+                ItemsScanned = inBucket.Sum(e => e.Quantity)
+            });
+        }
+
+        // Recent scans ticker: last 8 Accepted events with plant + order labels.
+        var recentScans = await acceptedEvents
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(8)
+            .Select(e => new RecentScanEntry
+            {
+                At = e.CreatedAt,
+                PlantName = e.PlantCatalog != null ? e.PlantCatalog.Name : string.Empty,
+                Quantity = e.Quantity,
+                OrderNumber = e.Order.OrderNumber
+            })
+            .ToListAsync();
+
+        return new LiveSaleKpiResponse
+        {
+            TotalSalesRevenue = totalRevenue,
+            TotalOrdersToday = totalOrdersToday,
+            OrdersCompleted = ordersCompleted,
+            OrdersOpen = ordersOpen,
+            ItemsScannedTotal = itemsScannedTotal,
+            ItemsScannedToday = itemsScannedToday,
+            ScansLastHour = scansLastHour,
+            MeanSecondsBetweenScans = meanSecondsBetweenScans,
+            AverageOrderPickupSeconds = averageOrderPickupSeconds,
+            LastScanAt = lastScan?.CreatedAt,
+            LastScanPlantName = lastScan?.PlantName,
+            TopMovers = topMovers,
+            HourlyActivity = hourBuckets,
+            RecentScans = recentScans
+        };
+    }
 }

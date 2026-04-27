@@ -22,4 +22,7 @@ public interface IReportService
     Task<StatusFunnelResponse> GetOrderStatusFunnelAsync();
     Task<TopMoversResponse> GetTopMoversAsync(int limit = 25);
     Task<OutstandingAgingResponse> GetOutstandingAgingAsync();
+
+    // Sale-day live KPI dashboard (projector view).
+    Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync();
 }
