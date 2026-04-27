@@ -30,16 +30,20 @@ export function OrderCompleteCelebration({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (visible && onComplete) {
-      timerRef.current = setTimeout(() => {
-        onComplete();
-      }, 700);
-    }
+    if (!visible || !onComplete) return;
+
+    timerRef.current = setTimeout(() => {
+      onComplete();
+    }, 700);
+
+    const dismiss = () => onComplete();
+    window.addEventListener('keydown', dismiss);
+    window.addEventListener('pointerdown', dismiss);
 
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener('keydown', dismiss);
+      window.removeEventListener('pointerdown', dismiss);
     };
   }, [visible, onComplete]);
 

@@ -20,16 +20,20 @@ export function ScanSuccessFlash({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (visible && onAnimationEnd) {
-      timerRef.current = setTimeout(() => {
-        onAnimationEnd();
-      }, 520);
-    }
+    if (!visible || !onAnimationEnd) return;
+
+    timerRef.current = setTimeout(() => {
+      onAnimationEnd();
+    }, 520);
+
+    const dismiss = () => onAnimationEnd();
+    window.addEventListener('keydown', dismiss);
+    window.addEventListener('pointerdown', dismiss);
 
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener('keydown', dismiss);
+      window.removeEventListener('pointerdown', dismiss);
     };
   }, [visible, onAnimationEnd]);
 
