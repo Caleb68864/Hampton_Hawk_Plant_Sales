@@ -131,12 +131,19 @@ public class ScanSessionService : IScanSessionService
         return await BuildResponseAsync(sessionId, session);
     }
 
-    public async Task<ScanSessionScanResponse> ScanInSessionAsync(Guid sessionId, string plantBarcode)
+    public async Task<ScanSessionScanResponse> ScanInSessionAsync(Guid sessionId, string plantBarcode, int quantity = 1)
     {
         if (string.IsNullOrWhiteSpace(plantBarcode))
             throw new ValidationException("Plant barcode is required.");
 
         plantBarcode = plantBarcode.Trim();
+
+        // Multi-quantity scanning (volunteer "set N, scan once" workflow).
+        // Coerce non-positive to 1 and treat anything above the matched
+        // remaining as a partial fill rather than an error -- the volunteer
+        // gave a deliberate quantity and needs to know the actual count
+        // applied (returned via session.aggregatedLines + session.remainingTotal).
+        if (quantity <= 0) quantity = 1;
 
         var sessionExisting = await _db.ScanSessions
             .AsNoTracking()
@@ -225,8 +232,11 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
-            // Find candidate OrderLine: oldest order (by CreatedAt), then oldest line.
-            var candidateLineId = await (
+            // Multi-line aggregation: find ALL candidate OrderLines (oldest order
+            // first, then oldest line), then distribute the requested quantity
+            // greedily. e.g., qty=4 against [line A: remaining=3, line B: remaining=2]
+            // applies 3 to A then 1 to B.
+            var candidateLineIds = await (
                 from ol in _db.OrderLines
                 join m in _db.ScanSessionMembers on ol.OrderId equals m.OrderId
                 join o in _db.Orders on ol.OrderId equals o.Id
@@ -239,9 +249,9 @@ public class ScanSessionService : IScanSessionService
                       && o.Status != OrderStatus.Draft
                 orderby o.CreatedAt, ol.CreatedAt
                 select ol.Id
-            ).FirstOrDefaultAsync();
+            ).ToListAsync();
 
-            if (candidateLineId == Guid.Empty)
+            if (candidateLineIds.Count == 0)
             {
                 // Determine if any line for this plant exists in session at all (fully-fulfilled or absent).
                 var anyLineForPlant = await (
@@ -270,43 +280,31 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
-            // Lock the candidate row + inventory row.
+            // Lock all candidate lines + the inventory row.
             if (isRelational)
             {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    candidateLineId);
+                foreach (var lineId in candidateLineIds)
+                {
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                        lineId);
+                }
 
                 await _db.Database.ExecuteSqlRawAsync(
                     "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
                     plant.Id);
             }
 
-            var lockedLine = await _db.OrderLines
-                .FirstOrDefaultAsync(l => l.Id == candidateLineId && l.DeletedAt == null);
-
             var lockedInventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == plant.Id && i.DeletedAt == null);
 
-            if (lockedLine == null || lockedInventory == null)
+            if (lockedInventory == null)
             {
                 if (transaction != null) await transaction.RollbackAsync();
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.OutOfStock,
                     Message = "Could not reserve item for fulfillment.",
-                    Plant = new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
-                    Session = await BuildResponseAsync(sessionId, lockedSession)
-                };
-            }
-
-            if (lockedLine.QtyFulfilled >= lockedLine.QtyOrdered)
-            {
-                if (transaction != null) await transaction.RollbackAsync();
-                return new ScanSessionScanResponse
-                {
-                    Result = ScanSessionResult.AlreadyFulfilled,
-                    Message = $"Line for '{plant.Name}' is already fully fulfilled.",
                     Plant = new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
                     Session = await BuildResponseAsync(sessionId, lockedSession)
                 };
@@ -324,28 +322,69 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
-            lockedLine.QtyFulfilled += 1;
-            lockedInventory.OnHandQty -= 1;
-
-            // Mirror per-order behaviour: bump order Open -> InProgress.
-            var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == lockedLine.OrderId && o.DeletedAt == null);
-            if (order != null && order.Status == OrderStatus.Open)
-                order.Status = OrderStatus.InProgress;
-
-            // Lock plant barcode if not yet locked (mirrors per-order scan).
+            // Greedy distribution: walk the lines in order, applying min(remaining,
+            // line-remaining, inventory-on-hand) per line, until we've consumed the
+            // requested quantity or run out of capacity.
+            var totalRemainingToApply = quantity;
+            var totalApplied = 0;
             var trackedPlant = await _db.PlantCatalogs.FirstOrDefaultAsync(p => p.Id == plant.Id);
             if (trackedPlant != null && trackedPlant.BarcodeLockedAt == null)
                 trackedPlant.BarcodeLockedAt = DateTimeOffset.UtcNow;
 
-            var evt = new FulfillmentEvent
+            foreach (var lineId in candidateLineIds)
             {
-                OrderId = lockedLine.OrderId,
-                PlantCatalogId = plant.Id,
-                Barcode = plantBarcode,
-                Result = FulfillmentResult.Accepted,
-                Message = $"Session scan: 1x '{plant.Name}'. Fulfilled {lockedLine.QtyFulfilled}/{lockedLine.QtyOrdered}."
-            };
-            _db.FulfillmentEvents.Add(evt);
+                if (totalRemainingToApply <= 0) break;
+                if (lockedInventory.OnHandQty <= 0) break;
+
+                var lockedLine = await _db.OrderLines
+                    .FirstOrDefaultAsync(l => l.Id == lineId && l.DeletedAt == null);
+
+                if (lockedLine == null) continue;
+
+                var lineRemaining = lockedLine.QtyOrdered - lockedLine.QtyFulfilled;
+                if (lineRemaining <= 0) continue;
+
+                var applyHere = Math.Min(totalRemainingToApply, Math.Min(lineRemaining, lockedInventory.OnHandQty));
+                if (applyHere <= 0) continue;
+
+                lockedLine.QtyFulfilled += applyHere;
+                lockedInventory.OnHandQty -= applyHere;
+                totalRemainingToApply -= applyHere;
+                totalApplied += applyHere;
+
+                // Bump order Open -> InProgress per line (mirrors per-order behaviour).
+                var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == lockedLine.OrderId && o.DeletedAt == null);
+                if (order != null && order.Status == OrderStatus.Open)
+                    order.Status = OrderStatus.InProgress;
+
+                // ONE event per line touched so the audit trail stays
+                // line-attributable, but each event uses Quantity to record the
+                // batched application count (cleaner than N events per line).
+                var evt = new FulfillmentEvent
+                {
+                    OrderId = lockedLine.OrderId,
+                    PlantCatalogId = plant.Id,
+                    Barcode = plantBarcode,
+                    Result = FulfillmentResult.Accepted,
+                    Quantity = applyHere,
+                    Message = $"Session scan: {applyHere}x '{plant.Name}'. Fulfilled {lockedLine.QtyFulfilled}/{lockedLine.QtyOrdered}."
+                };
+                _db.FulfillmentEvents.Add(evt);
+            }
+
+            // Defensive: if greedy distribution somehow applied nothing (race with
+            // another scanner), surface AlreadyFulfilled rather than a misleading Accepted.
+            if (totalApplied == 0)
+            {
+                if (transaction != null) await transaction.RollbackAsync();
+                return new ScanSessionScanResponse
+                {
+                    Result = ScanSessionResult.AlreadyFulfilled,
+                    Message = $"All matching lines for '{plant.Name}' are already fulfilled.",
+                    Plant = new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
+                    Session = await BuildResponseAsync(sessionId, lockedSession)
+                };
+            }
 
             await _db.SaveChangesAsync();
             if (transaction != null) await transaction.CommitAsync();
@@ -358,7 +397,7 @@ public class ScanSessionService : IScanSessionService
             return new ScanSessionScanResponse
             {
                 Result = ScanSessionResult.Accepted,
-                Message = $"Scanned 1x '{plant.Name}'.",
+                Message = $"Scanned {totalApplied}x '{plant.Name}'.",
                 Plant = new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
                 Session = await BuildResponseAsync(sessionId, refreshedSession)
             };

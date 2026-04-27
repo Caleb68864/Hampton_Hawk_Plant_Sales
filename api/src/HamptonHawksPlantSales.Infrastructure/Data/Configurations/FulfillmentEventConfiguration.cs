@@ -16,6 +16,12 @@ public class FulfillmentEventConfiguration : IEntityTypeConfiguration<Fulfillmen
             .HasConversion<string>()
             .HasColumnType("text");
 
+        // Multi-quantity scan support: default 1 preserves prior single-unit
+        // event semantics for any historical row that lacks an explicit value.
+        builder.Property(e => e.Quantity)
+            .HasDefaultValue(1)
+            .IsRequired();
+
         builder.HasIndex(e => e.OrderId);
         builder.HasIndex(e => e.PlantCatalogId);
 

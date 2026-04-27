@@ -75,7 +75,9 @@ public class ScanSessionsController : ControllerBase
     {
         try
         {
-            var result = await _service.ScanInSessionAsync(id, request.PlantBarcode);
+            // Multi-quantity session scan: forward request.Quantity. Service
+            // coerces non-positive to 1 and distributes across matching lines.
+            var result = await _service.ScanInSessionAsync(id, request.PlantBarcode, request.Quantity);
             if (result.Result == ScanSessionResult.Expired)
                 return StatusCode(StatusCodes.Status410Gone, ApiResponse<ScanSessionScanResponse>.Ok(result));
 
