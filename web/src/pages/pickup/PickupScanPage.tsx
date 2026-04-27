@@ -125,10 +125,12 @@ export function PickupScanPage() {
   }
 
   async function handleScan(barcode: string) {
-    // Multi-quantity scanning: forward the sticky scanQuantity. The backend
-    // caps it at the line's remaining; result.line.qtyFulfilled reflects the
-    // actual count applied (not the requested count).
-    const result = await scan(barcode, scanQuantity);
+    // Multi-quantity scanning: forward the current scanQuantity, then reset
+    // back to 1 so the next scan defaults to single. The backend caps qty at
+    // the line's remaining; result.line.qtyFulfilled reflects the actual
+    // count applied (not the requested count).
+    const requestedQty = scanQuantity;
+    const result = await scan(barcode, requestedQty);
     if (result) {
       playAudioForResult(result.result);
 
@@ -140,9 +142,9 @@ export function PickupScanPage() {
           0
         );
         // Remaining drops by the actual applied count from the response
-        // (line.qtyFulfilled delta), with a defensive fallback to scanQuantity
+        // (line.qtyFulfilled delta), with a defensive fallback to requestedQty
         // if the response does not carry a line.
-        const appliedCount = result.line ? scanQuantity : 1;
+        const appliedCount = result.line ? requestedQty : 1;
         setScanFlashData({
           plantName: display.plantName ?? 'Unknown Plant',
           sku: result.plant?.sku,
@@ -152,6 +154,7 @@ export function PickupScanPage() {
         setShowScanFlash(true);
       }
     }
+    setScanQuantity(1);
     refocusScanInput();
   }
 

@@ -146,8 +146,9 @@ export function PickupScanSessionPage() {
   }
 
   async function handleScan(barcode: string) {
-    // Multi-quantity session scan: forward the sticky scanQuantity. The
-    // backend distributes greedily across pending lines.
+    // Multi-quantity session scan: forward the current scanQuantity, then
+    // reset to 1 so the next scan defaults to single. Backend distributes
+    // greedily across pending lines.
     const result = await scanInSession(barcode, scanQuantity);
     if (result) {
       playAudioForResult(result.result);
@@ -161,6 +162,7 @@ export function PickupScanSessionPage() {
         setShowScanFlash(true);
       }
     }
+    setScanQuantity(1);
     refocusScanInput();
   }
 
