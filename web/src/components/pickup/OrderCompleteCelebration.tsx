@@ -105,20 +105,19 @@ export function OrderCompleteCelebration({
           fontVariationSettings: "'opsz' 144, 'wght' 600",
         }}
       >
-        {orderNumber} is on its way.
+        Order #{orderNumber} complete
       </h2>
 
       {/* Customer instructions */}
       <p
-        className="text-hawk-600 max-w-[46ch] mx-auto mt-2"
+        className="text-hawk-600 max-w-[46ch] mx-auto mt-2 text-lg"
         style={{
           fontFamily: "var(--font-body), 'Manrope', sans-serif",
         }}
       >
         {customerName
-          ? `Hand the order to ${customerName} and clear the bench.`
-          : 'Hand the order to the customer and clear the bench.'}{' '}
-        The next order is already focused below.
+          ? `Hand to ${customerName}, then scan the next pickup.`
+          : 'Hand to the customer, then scan the next pickup.'}
       </p>
     </div>
   );
