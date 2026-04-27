@@ -135,6 +135,16 @@ export function QuantitySelector({
           : 'border-hawk-200 bg-white'
       }`}
     >
+      <button
+        type="button"
+        onClick={() => onChange(1)}
+        disabled={disabled || clamped === 1}
+        aria-label="Reset scan quantity to 1"
+        className="min-h-11 min-w-11 rounded-md border-2 border-hawk-200 bg-white px-3 text-sm font-bold text-hawk-700 transition-colors hover:border-gold-300 hover:bg-gold-50 disabled:opacity-40"
+      >
+        ↺ Reset
+      </button>
+
       <span className="text-xs font-semibold uppercase tracking-wider text-hawk-700">
         Scan qty
       </span>
