@@ -103,10 +103,14 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 return await GetOrderResponseAsync(orderId);
             }
 
-            var currentQty = existingLine?.QtyFulfilled ?? 0;
-            var requestedQty = currentQty + 1;
+            // Multi-quantity scanning: coerce non-positive to 1 so the API stays
+            // backward compatible for callers that omit/send 0.
+            var requestedAdd = request.Quantity <= 0 ? 1 : request.Quantity;
 
-            var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedQty, orderId);
+            var currentQty = existingLine?.QtyFulfilled ?? 0;
+            var requestedTotal = currentQty + requestedAdd;
+
+            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedTotal, orderId);
             if (!allowed)
             {
                 if (transaction != null) await transaction.RollbackAsync();
@@ -122,7 +126,17 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
             }
 
-            inventory.OnHandQty -= 1;
+            // Cap the additive amount at remaining on-hand inventory. Walk-up
+            // availability has already been validated above for the requested
+            // total, so on-hand is the remaining ceiling.
+            var appliedAdd = Math.Min(requestedAdd, inventory.OnHandQty);
+            if (appliedAdd <= 0)
+            {
+                if (transaction != null) await transaction.RollbackAsync();
+                throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
+            }
+
+            inventory.OnHandQty -= appliedAdd;
 
             if (existingLine == null)
             {
@@ -130,16 +144,16 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 {
                     OrderId = orderId,
                     PlantCatalogId = plant.Id,
-                    QtyOrdered = 1,
-                    QtyFulfilled = 1,
+                    QtyOrdered = appliedAdd,
+                    QtyFulfilled = appliedAdd,
                     LastScanIdempotencyKey = scanId
                 };
                 _db.OrderLines.Add(newLine);
             }
             else
             {
-                existingLine.QtyOrdered += 1;
-                existingLine.QtyFulfilled += 1;
+                existingLine.QtyOrdered += appliedAdd;
+                existingLine.QtyFulfilled += appliedAdd;
                 existingLine.LastScanIdempotencyKey = scanId;
             }
 
