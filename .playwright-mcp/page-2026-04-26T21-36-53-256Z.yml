@@ -1,0 +1,297 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Hampton Hawks" [ref=e7]
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: Hampton Hawks
+        - heading "Plant Sales" [level=1] [ref=e10]
+    - navigation [ref=e11]:
+      - link "Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /
+      - link "Plants" [ref=e13] [cursor=pointer]:
+        - /url: /plants
+      - link "Inventory" [ref=e14] [cursor=pointer]:
+        - /url: /inventory
+      - link "Customers" [ref=e15] [cursor=pointer]:
+        - /url: /customers
+      - link "Sellers" [ref=e16] [cursor=pointer]:
+        - /url: /sellers
+      - link "Orders" [ref=e17] [cursor=pointer]:
+        - /url: /orders
+      - link "Station Home" [ref=e18] [cursor=pointer]:
+        - /url: /station
+      - link "Imports" [ref=e19] [cursor=pointer]:
+        - /url: /imports
+      - link "Reports" [ref=e20] [cursor=pointer]:
+        - /url: /reports
+      - link "Settings" [ref=e21] [cursor=pointer]:
+        - /url: /settings
+      - link "Docs" [ref=e22] [cursor=pointer]:
+        - /url: /docs
+    - generic [ref=e23]:
+      - generic [ref=e24]: Quick Find
+      - textbox "Quick Find" [ref=e25]:
+        - /placeholder: "Order #, pickup code, customer, plant SKU/barcode/name, phone"
+  - main [ref=e26]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: Insights
+          - heading "Top Movers" [level=1] [ref=e33]
+        - generic [ref=e34]:
+          - button "Refresh" [ref=e35]
+          - button "Download CSV" [ref=e36]
+          - link "Back to Reports" [ref=e37] [cursor=pointer]:
+            - /url: /reports
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: Limit
+          - combobox "Limit" [ref=e42]:
+            - option "Top 10"
+            - option "Top 25" [selected]
+            - option "Top 50"
+            - option "Top 100"
+        - paragraph [ref=e43]: 25 plants returned
+      - table [ref=e46]:
+        - rowgroup [ref=e47]:
+          - row "Plant Name Qty Ordered Visual Qty Fulfilled Order Count" [ref=e48]:
+            - columnheader "Plant Name" [ref=e49]:
+              - button "Plant Name" [ref=e50]:
+                - generic [ref=e51]: Plant Name
+            - columnheader "Qty Ordered" [ref=e52]:
+              - button "Qty Ordered" [ref=e53]:
+                - generic [ref=e54]: Qty Ordered
+                - generic [ref=e55]: ▼
+            - columnheader "Visual" [ref=e56]
+            - columnheader "Qty Fulfilled" [ref=e57]:
+              - button "Qty Fulfilled" [ref=e58]:
+                - generic [ref=e59]: Qty Fulfilled
+            - columnheader "Order Count" [ref=e60]:
+              - button "Order Count" [ref=e61]:
+                - generic [ref=e62]: Order Count
+        - rowgroup [ref=e63]:
+          - row "Spikes 180 180 0 65" [ref=e64]:
+            - cell "Spikes" [ref=e65]:
+              - link "Spikes" [ref=e66] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-7eb6-bd3e-c4118859b704
+            - cell "180" [ref=e67]
+            - cell "180" [ref=e68]:
+              - 'progressbar "Spikes: 180 of 180 ordered" [ref=e69]'
+            - cell "0" [ref=e71]
+            - cell "65" [ref=e72]
+          - row "Tomatoes Traditional 135 135 0 67" [ref=e73]:
+            - cell "Tomatoes Traditional" [ref=e74]:
+              - link "Tomatoes Traditional" [ref=e75] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7371-9d0d-44b0b772a880
+            - cell "135" [ref=e76]
+            - cell "135" [ref=e77]:
+              - 'progressbar "Tomatoes Traditional: 135 of 180 ordered" [ref=e78]'
+            - cell "0" [ref=e80]
+            - cell "67" [ref=e81]
+          - row "Ice Plant (Dortheanthus) 129 129 0 52" [ref=e82]:
+            - cell "Ice Plant (Dortheanthus)" [ref=e83]:
+              - link "Ice Plant (Dortheanthus)" [ref=e84] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-7815-867f-5ec5fab59d07
+            - cell "129" [ref=e85]
+            - cell "129" [ref=e86]:
+              - 'progressbar "Ice Plant (Dortheanthus): 129 of 180 ordered" [ref=e87]'
+            - cell "0" [ref=e89]
+            - cell "52" [ref=e90]
+          - row "Impatiens Violet/Pink 127 127 0 59" [ref=e91]:
+            - cell "Impatiens Violet/Pink" [ref=e92]:
+              - link "Impatiens Violet/Pink" [ref=e93] [cursor=pointer]:
+                - /url: /plants/019da5dd-8574-7a88-8f2f-22e0030d9d5f
+            - cell "127" [ref=e94]
+            - cell "127" [ref=e95]:
+              - 'progressbar "Impatiens Violet/Pink: 127 of 180 ordered" [ref=e96]'
+            - cell "0" [ref=e98]
+            - cell "59" [ref=e99]
+          - row "Moss Rose 124 124 0 61" [ref=e100]:
+            - cell "Moss Rose" [ref=e101]:
+              - link "Moss Rose" [ref=e102] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7b44-b9b3-d62cea96003f
+            - cell "124" [ref=e103]
+            - cell "124" [ref=e104]:
+              - 'progressbar "Moss Rose: 124 of 180 ordered" [ref=e105]'
+            - cell "0" [ref=e107]
+            - cell "61" [ref=e108]
+          - row "Zinnia Zahara (Assorted) 122 122 0 57" [ref=e109]:
+            - cell "Zinnia Zahara (Assorted)" [ref=e110]:
+              - link "Zinnia Zahara (Assorted)" [ref=e111] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-708d-b32c-f554d278770d
+            - cell "122" [ref=e112]
+            - cell "122" [ref=e113]:
+              - 'progressbar "Zinnia Zahara (Assorted): 122 of 180 ordered" [ref=e114]'
+            - cell "0" [ref=e116]
+            - cell "57" [ref=e117]
+          - row "Sweet Peppers 114 114 0 65" [ref=e118]:
+            - cell "Sweet Peppers" [ref=e119]:
+              - link "Sweet Peppers" [ref=e120] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7b22-8056-7cda92707ccd
+            - cell "114" [ref=e121]
+            - cell "114" [ref=e122]:
+              - 'progressbar "Sweet Peppers: 114 of 180 ordered" [ref=e123]'
+            - cell "0" [ref=e125]
+            - cell "65" [ref=e126]
+          - row "Marigold (Assorted) 113 113 0 55" [ref=e127]:
+            - cell "Marigold (Assorted)" [ref=e128]:
+              - link "Marigold (Assorted)" [ref=e129] [cursor=pointer]:
+                - /url: /plants/019da5dd-8574-7431-8860-e16075d66fe5
+            - cell "113" [ref=e130]
+            - cell "113" [ref=e131]:
+              - 'progressbar "Marigold (Assorted): 113 of 180 ordered" [ref=e132]'
+            - cell "0" [ref=e134]
+            - cell "55" [ref=e135]
+          - row "Lobelia 110 110 0 68" [ref=e136]:
+            - cell "Lobelia" [ref=e137]:
+              - link "Lobelia" [ref=e138] [cursor=pointer]:
+                - /url: /plants/019da5dd-8574-7384-ab05-187def2d0bd9
+            - cell "110" [ref=e139]
+            - cell "110" [ref=e140]:
+              - 'progressbar "Lobelia: 110 of 180 ordered" [ref=e141]'
+            - cell "0" [ref=e143]
+            - cell "68" [ref=e144]
+          - row "Lantana (Assorted) 98 98 0 46" [ref=e145]:
+            - cell "Lantana (Assorted)" [ref=e146]:
+              - link "Lantana (Assorted)" [ref=e147] [cursor=pointer]:
+                - /url: /plants/019da5dd-857a-7de3-b99c-5b7f5cf4f69c
+            - cell "98" [ref=e148]
+            - cell "98" [ref=e149]:
+              - 'progressbar "Lantana (Assorted): 98 of 180 ordered" [ref=e150]'
+            - cell "0" [ref=e152]
+            - cell "46" [ref=e153]
+          - row "MAX Planters 94 94 0 64" [ref=e154]:
+            - cell "MAX Planters" [ref=e155]:
+              - link "MAX Planters" [ref=e156] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-7e10-a1b4-55273b5c13ca
+            - cell "94" [ref=e157]
+            - cell "94" [ref=e158]:
+              - 'progressbar "MAX Planters: 94 of 180 ordered" [ref=e159]'
+            - cell "0" [ref=e161]
+            - cell "64" [ref=e162]
+          - row "Jalepeno Peppers 92 92 0 56" [ref=e163]:
+            - cell "Jalepeno Peppers" [ref=e164]:
+              - link "Jalepeno Peppers" [ref=e165] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7d4f-898e-c8123948c3e8
+            - cell "92" [ref=e166]
+            - cell "92" [ref=e167]:
+              - 'progressbar "Jalepeno Peppers: 92 of 180 ordered" [ref=e168]'
+            - cell "0" [ref=e170]
+            - cell "56" [ref=e171]
+          - row "Impatiens Red 91 91 0 45" [ref=e172]:
+            - cell "Impatiens Red" [ref=e173]:
+              - link "Impatiens Red" [ref=e174] [cursor=pointer]:
+                - /url: /plants/019da5dd-8574-7869-b63c-25b424ca1a25
+            - cell "91" [ref=e175]
+            - cell "91" [ref=e176]:
+              - 'progressbar "Impatiens Red: 91 of 180 ordered" [ref=e177]'
+            - cell "0" [ref=e179]
+            - cell "45" [ref=e180]
+          - row "Silver Falls Vine 91 91 0 42" [ref=e181]:
+            - cell "Silver Falls Vine" [ref=e182]:
+              - link "Silver Falls Vine" [ref=e183] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-750b-b22f-18f49f57a5ed
+            - cell "91" [ref=e184]
+            - cell "91" [ref=e185]:
+              - 'progressbar "Silver Falls Vine: 91 of 180 ordered" [ref=e186]'
+            - cell "0" [ref=e188]
+            - cell "42" [ref=e189]
+          - row "Slicing Cucumbers 91 91 0 63" [ref=e190]:
+            - cell "Slicing Cucumbers" [ref=e191]:
+              - link "Slicing Cucumbers" [ref=e192] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7f63-89c7-1249c17d5c14
+            - cell "91" [ref=e193]
+            - cell "91" [ref=e194]:
+              - 'progressbar "Slicing Cucumbers: 91 of 180 ordered" [ref=e195]'
+            - cell "0" [ref=e197]
+            - cell "63" [ref=e198]
+          - row "Snapdragons (Assorted) 90 90 0 50" [ref=e199]:
+            - cell "Snapdragons (Assorted)" [ref=e200]:
+              - link "Snapdragons (Assorted)" [ref=e201] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7e02-a819-81082ead3af5
+            - cell "90" [ref=e202]
+            - cell "90" [ref=e203]:
+              - 'progressbar "Snapdragons (Assorted): 90 of 180 ordered" [ref=e204]'
+            - cell "0" [ref=e206]
+            - cell "50" [ref=e207]
+          - row "Impatiens White 87 87 0 52" [ref=e208]:
+            - cell "Impatiens White" [ref=e209]:
+              - link "Impatiens White" [ref=e210] [cursor=pointer]:
+                - /url: /plants/019da5dd-8574-7676-b938-40fb0c9a5d48
+            - cell "87" [ref=e211]
+            - cell "87" [ref=e212]:
+              - 'progressbar "Impatiens White: 87 of 180 ordered" [ref=e213]'
+            - cell "0" [ref=e215]
+            - cell "52" [ref=e216]
+          - row "12\" Spectacular Patio Planters 86 86 0 66" [ref=e217]:
+            - cell "12\" Spectacular Patio Planters" [ref=e218]:
+              - link "12\" Spectacular Patio Planters" [ref=e219] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-79cd-b467-51ff64b9a0c3
+            - cell "86" [ref=e220]
+            - cell "86" [ref=e221]:
+              - 'progressbar "12\" Spectacular Patio Planters: 86 of 180 ordered" [ref=e222]'
+            - cell "0" [ref=e224]
+            - cell "66" [ref=e225]
+          - row "Petunia Purple 81 81 0 50" [ref=e226]:
+            - cell "Petunia Purple" [ref=e227]:
+              - link "Petunia Purple" [ref=e228] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7e48-9934-1a3b1ec9772c
+            - cell "81" [ref=e229]
+            - cell "81" [ref=e230]:
+              - 'progressbar "Petunia Purple: 81 of 180 ordered" [ref=e231]'
+            - cell "0" [ref=e233]
+            - cell "50" [ref=e234]
+          - row "Geranium Salmon 80 80 0 41" [ref=e235]:
+            - cell "Geranium Salmon" [ref=e236]:
+              - link "Geranium Salmon" [ref=e237] [cursor=pointer]:
+                - /url: /plants/019da5dd-8579-797b-a281-8ebd79a40ff7
+            - cell "80" [ref=e238]
+            - cell "80" [ref=e239]:
+              - 'progressbar "Geranium Salmon: 80 of 180 ordered" [ref=e240]'
+            - cell "0" [ref=e242]
+            - cell "41" [ref=e243]
+          - row "Geranium Purple/Fuschia 77 77 0 40" [ref=e244]:
+            - cell "Geranium Purple/Fuschia" [ref=e245]:
+              - link "Geranium Purple/Fuschia" [ref=e246] [cursor=pointer]:
+                - /url: /plants/019da5dd-8579-7070-b247-b6ad75cd146e
+            - cell "77" [ref=e247]
+            - cell "77" [ref=e248]:
+              - 'progressbar "Geranium Purple/Fuschia: 77 of 180 ordered" [ref=e249]'
+            - cell "0" [ref=e251]
+            - cell "40" [ref=e252]
+          - row "Tomatoes Heirloom 75 75 0 40" [ref=e253]:
+            - cell "Tomatoes Heirloom" [ref=e254]:
+              - link "Tomatoes Heirloom" [ref=e255] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7ac8-b2f5-f410ad7349ab
+            - cell "75" [ref=e256]
+            - cell "75" [ref=e257]:
+              - 'progressbar "Tomatoes Heirloom: 75 of 180 ordered" [ref=e258]'
+            - cell "0" [ref=e260]
+            - cell "40" [ref=e261]
+          - row "Petunia White 74 74 0 37" [ref=e262]:
+            - cell "Petunia White" [ref=e263]:
+              - link "Petunia White" [ref=e264] [cursor=pointer]:
+                - /url: /plants/019da5dd-8575-7d85-80fe-b965717283ac
+            - cell "74" [ref=e265]
+            - cell "74" [ref=e266]:
+              - 'progressbar "Petunia White: 74 of 180 ordered" [ref=e267]'
+            - cell "0" [ref=e269]
+            - cell "37" [ref=e270]
+          - row "Geranium Red 66 66 0 31" [ref=e271]:
+            - cell "Geranium Red" [ref=e272]:
+              - link "Geranium Red" [ref=e273] [cursor=pointer]:
+                - /url: /plants/019da5dd-8579-79ef-8585-8ea1eaa1fbc7
+            - cell "66" [ref=e274]
+            - cell "66" [ref=e275]:
+              - 'progressbar "Geranium Red: 66 of 180 ordered" [ref=e276]'
+            - cell "0" [ref=e278]
+            - cell "31" [ref=e279]
+          - row "Vinca Vine Variegated 65 65 0 25" [ref=e280]:
+            - cell "Vinca Vine Variegated" [ref=e281]:
+              - link "Vinca Vine Variegated" [ref=e282] [cursor=pointer]:
+                - /url: /plants/019da5dd-8578-7290-bd1e-5751fc6a57e0
+            - cell "65" [ref=e283]
+            - cell "65" [ref=e284]:
+              - 'progressbar "Vinca Vine Variegated: 65 of 180 ordered" [ref=e285]'
+            - cell "0" [ref=e287]
+            - cell "25" [ref=e288]

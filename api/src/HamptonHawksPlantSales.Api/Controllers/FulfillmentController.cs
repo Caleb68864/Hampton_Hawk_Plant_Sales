@@ -30,7 +30,10 @@ public class FulfillmentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ScanResponse>), 200)]
     public async Task<IActionResult> Scan(Guid id, [FromBody] ScanRequest request)
     {
-        var result = await _fulfillmentService.ScanAsync(id, request.Barcode);
+        // Multi-quantity scan: forward request.Quantity to the service. The
+        // service coerces non-positive values to 1 and caps the applied count
+        // at the line's remaining quantity, so the controller stays thin.
+        var result = await _fulfillmentService.ScanAsync(id, request.Barcode, request.Quantity);
         return Ok(ApiResponse<ScanResponse>.Ok(result));
     }
 

@@ -11,7 +11,10 @@ const kioskRouteConfig = {
   pickup: {
     landingRoute: '/pickup',
     stationLabel: 'Pickup Station',
-    appMatchers: [/^\/pickup$/, /^\/pickup\/[^/]+$/],
+    // SS-13: `/pickup/session/{id}` is added for pick-list scan sessions.
+    // The matcher list is order-sensitive only when overlapping; both
+    // `/pickup/session/{id}` and `/pickup/{orderId}` are valid pickup paths.
+    appMatchers: [/^\/pickup$/, /^\/pickup\/session\/[^/]+$/, /^\/pickup\/[^/]+$/],
     printMatchers: [/^\/print\/order\/[^/]+$/],
   },
   'lookup-print': {

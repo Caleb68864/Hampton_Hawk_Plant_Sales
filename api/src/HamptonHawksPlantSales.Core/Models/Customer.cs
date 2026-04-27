@@ -8,5 +8,6 @@ public class Customer : BaseEntity
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string PickupCode { get; set; } = string.Empty;
+    public string PicklistBarcode { get; set; } = string.Empty;
     public string? Notes { get; set; }
 }

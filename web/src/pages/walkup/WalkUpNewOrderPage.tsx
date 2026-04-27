@@ -7,6 +7,8 @@ import { plantsApi } from '@/api/plants.js';
 import { AzTabs } from '@/components/shared/AzTabs.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import type { Customer } from '@/types/customer.js';
 import type { Plant } from '@/types/plant.js';
@@ -332,14 +334,35 @@ export function WalkUpNewOrderPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <JoyPageShell
+      title="New Walk-Up Order"
+      eyebrow="Walk-Up"
+      actions={
+        <TouchButton
+          variant="primary"
+          disabled={saving || !canSubmit}
+          onClick={() => void handleSubmit()}
+        >
+          {saving ? 'Creating...' : 'Create Walk-Up Order'}
+        </TouchButton>
+      }
+    >
       <BackToStationHomeButton />
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">
-          New Walk-Up Order
-          <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">Walk-Up</span>
-        </h1>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/station')}>Back to Station Home</button>
+      <div
+        role="note"
+        className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900"
+      >
+        <p className="font-semibold">Legacy form</p>
+        <p>
+          Legacy form -- use the Register for new sales. This form remains available as a fallback.
+        </p>
+        <button
+          type="button"
+          className="mt-2 inline-flex items-center rounded-md border border-yellow-400 bg-white px-2.5 py-1 text-xs font-medium text-yellow-900 hover:bg-yellow-100"
+          onClick={() => navigate('/walkup/register/new')}
+        >
+          Open Register
+        </button>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
@@ -616,6 +639,6 @@ export function WalkUpNewOrderPage() {
           </div>
         </div>
       </div>
-    </div>
+    </JoyPageShell>
   );
 }

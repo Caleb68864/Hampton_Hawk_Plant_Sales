@@ -12,6 +12,7 @@ const customer: Customer = {
   phone: null,
   email: null,
   pickupCode: 'ABC123',
+  picklistBarcode: 'PLB-TEST0001',
   notes: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

@@ -27,4 +27,8 @@
   --color-gold-800: #7d4e1b;
   --color-gold-900: #68411c;
   --color-gold-950: #3c220c;
+
+  /* Typography */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
 }

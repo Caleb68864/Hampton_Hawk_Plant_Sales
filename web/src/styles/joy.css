@@ -1,0 +1,129 @@
+/* Joy Pass - shared styles for delightful UI */
+
+/* ================= DEPTH SHADOWS ================= */
+:root {
+  --joy-paper: #fbf7ee;
+  --joy-ink: #2a1430;
+  --joy-rule: rgba(102, 46, 128, 0.12);
+  --joy-plum-shadow: 0 18px 50px -22px rgba(68, 29, 85, 0.35),
+    0 4px 12px -6px rgba(68, 29, 85, 0.18);
+  --joy-press-shadow: 0 1px 0 rgba(0, 0, 0, 0.06),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.joy-shadow-plum {
+  box-shadow: var(--joy-plum-shadow);
+}
+
+/* ================= PAPER GRAIN BACKGROUND ================= */
+.paper-grain {
+  position: relative;
+}
+
+.paper-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    rgba(68, 29, 85, 0.045) 1px,
+    transparent 1px
+  );
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+/* ================= KEYFRAME ANIMATIONS ================= */
+
+/* Pop animation for scan success checkbloom */
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Ring animation for the expanding outer circle */
+@keyframes ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* Stamp animation for order complete */
+@keyframes stamp {
+  0% {
+    transform: rotate(-12deg) scale(1.4);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(-2deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-3deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Fall animation for confetti pieces */
+@keyframes fall {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(380px) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+/* ================= ANIMATION CLASSES ================= */
+.joy-animate-pop {
+  animation: pop 480ms cubic-bezier(0.2, 0.9, 0.25, 1.4) both;
+}
+
+.joy-animate-ring {
+  animation: ring 700ms ease-out forwards;
+}
+
+.joy-animate-stamp {
+  animation: stamp 380ms cubic-bezier(0.2, 0.9, 0.25, 1.3) both;
+}
+
+.joy-animate-fall {
+  animation: fall 1500ms cubic-bezier(0.4, 0.1, 0.4, 1) forwards;
+}
+
+/* ================= REDUCED MOTION ================= */
+@media (prefers-reduced-motion: reduce) {
+  .joy-animate-pop,
+  .joy-animate-ring,
+  .joy-animate-stamp,
+  .joy-animate-fall {
+    animation: none !important;
+  }
+
+  /* For elements that use keyframes directly */
+  [style*='animation'] {
+    animation: none !important;
+  }
+}

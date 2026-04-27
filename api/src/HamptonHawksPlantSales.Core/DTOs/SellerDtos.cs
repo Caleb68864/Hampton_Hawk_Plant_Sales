@@ -29,6 +29,7 @@ public class SellerResponse
     public string? Grade { get; set; }
     public string? Teacher { get; set; }
     public string? Notes { get; set; }
+    public string PicklistBarcode { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }

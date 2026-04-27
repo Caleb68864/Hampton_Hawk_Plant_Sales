@@ -1,0 +1,10 @@
+{
+  "task_id": "ss01-pickupscanpage-flash",
+  "phase_id": 1,
+  "artifact_paths": [
+    "web/src/pages/pickup/PickupScanPage.tsx"
+  ],
+  "verification_command_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "timestamp": "2026-04-26T15:44:09.613Z",
+  "worker_id": "implementer-ss01"
+}

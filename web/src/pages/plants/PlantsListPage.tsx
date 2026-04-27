@@ -5,7 +5,9 @@ import { SearchBar } from '@/components/shared/SearchBar.js';
 import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { Plant } from '@/types/plant.js';
 
 export function PlantsListPage() {
@@ -94,44 +96,39 @@ export function PlantsListPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">Plants</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="px-3 py-2 text-sm font-medium text-hawk-700 border border-hawk-200 rounded-md hover:bg-hawk-50 disabled:opacity-40"
+    <JoyPageShell
+      title="Plants"
+      eyebrow="Catalog"
+      maxWidth="wide"
+      actions={
+        <>
+          <TouchButton
+            variant="ghost"
             disabled={selectedPlantIds.size === 0}
             onClick={() => openLabelsForPlantIds(Array.from(selectedPlantIds))}
           >
             Print Selected Labels ({selectedPlantIds.size})
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100"
+          </TouchButton>
+          <TouchButton
+            variant="ghost"
             onClick={() => openLabelsForPlantIds(plants.map((plant) => plant.id))}
           >
             Print This Page
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 text-sm font-medium text-white bg-hawk-700 rounded-md hover:bg-hawk-800 disabled:opacity-50"
+          </TouchButton>
+          <TouchButton
+            variant="ghost"
             disabled={loadingAll}
             title={search ? 'Prints every plant matching the current search, one label each' : 'Prints every plant in the catalog, one label each'}
             onClick={handlePrintAllPlants}
           >
             {loadingAll ? 'Loading all…' : `Print All Plants${search ? ' (search)' : ''}`}
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700"
-            onClick={() => navigate('/plants/new')}
-          >
+          </TouchButton>
+          <TouchButton variant="primary" onClick={() => navigate('/plants/new')}>
             New Plant
-          </button>
-        </div>
-      </div>
-
+          </TouchButton>
+        </>
+      }
+    >
       <div ref={searchRef as React.RefObject<HTMLDivElement>}>
         <SearchBar value={search} onChange={handleSearchChange} placeholder="Search plants by name, SKU, or barcode... (press / to focus)" />
       </div>
@@ -141,7 +138,7 @@ export function PlantsListPage() {
       {loading ? (
         <LoadingSpinner />
       ) : plants.length === 0 ? (
-        <EmptyState title="No plants found" description={search ? 'Try a different search term.' : 'Create your first plant to get started.'} />
+        <BotanicalEmptyState title="No plants found" description={search ? 'Try a different search term.' : 'Create your first plant to get started.'} />
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -206,7 +203,7 @@ export function PlantsListPage() {
           />
         </>
       )}
-    </div>
+    </JoyPageShell>
   );
 }
 

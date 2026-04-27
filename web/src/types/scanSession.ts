@@ -1,0 +1,65 @@
+// SS-13: TypeScript mirrors of the backend ScanSession DTOs (see
+// api/src/HamptonHawksPlantSales.Core/DTOs/ScanSessionDtos.cs and the matching
+// enums under HamptonHawksPlantSales.Core.Enums). The JSON serializer emits
+// camelCase; keep these names aligned with that wire format.
+
+export type ScanSessionEntityKind = 'Customer' | 'Seller' | 'AdHoc';
+
+export type ScanSessionResult =
+  | 'Accepted'
+  | 'NotFound'
+  | 'AlreadyFulfilled'
+  | 'NotInSession'
+  | 'OutOfStock'
+  | 'SaleClosedBlocked'
+  | 'Expired';
+
+export interface CreateScanSessionRequest {
+  scannedBarcode: string;
+  workstationName: string;
+}
+
+export interface ScanInSessionRequest {
+  plantBarcode: string;
+  /**
+   * Multi-quantity scanning: number of units to fulfill in one scan.
+   * Optional; backend defaults to 1 when omitted. The session backend
+   * distributes the requested quantity across pending lines greedily
+   * (oldest order, then oldest line first).
+   */
+  quantity?: number;
+}
+
+export interface ScanSessionAggregatedLine {
+  plantCatalogId: string;
+  plantSku: string;
+  plantName: string;
+  qtyOrdered: number;
+  qtyFulfilled: number;
+  qtyRemaining: number;
+}
+
+export interface ScanSessionPlantInfo {
+  sku: string;
+  name: string;
+}
+
+export interface ScanSessionResponse {
+  id: string;
+  entityKind: ScanSessionEntityKind;
+  entityId: string | null;
+  entityName: string;
+  workstationName: string;
+  includedOrderIds: string[];
+  aggregatedLines: ScanSessionAggregatedLine[];
+  remainingTotal: number;
+  expiresAt: string;
+  closedAt: string | null;
+}
+
+export interface ScanSessionScanResponse {
+  result: ScanSessionResult;
+  message: string | null;
+  plant: ScanSessionPlantInfo | null;
+  session: ScanSessionResponse;
+}

@@ -35,6 +35,27 @@ export function looksLikeOrderNumberLookup(value: string): boolean {
   return normalizedValue.length >= 6 && /\d/.test(normalizedValue);
 }
 
+// SS-13: Pick-list barcode detection. Buyer ("PLB-") and student/seller
+// ("PLS-") prefixes signal the lookup field should create a scan session
+// rather than navigate to a single order. Match a 4+ char alphanumeric body
+// after the prefix.
+const BUYER_PICKLIST_PATTERN = /^PLB-[A-Z0-9]{4,}$/;
+const STUDENT_PICKLIST_PATTERN = /^PLS-[A-Z0-9]{4,}$/;
+
+export function looksLikeBuyerPicklist(value: string): boolean {
+  const normalizedValue = normalizeOrderLookupValue(value);
+  return BUYER_PICKLIST_PATTERN.test(normalizedValue);
+}
+
+export function looksLikeStudentPicklist(value: string): boolean {
+  const normalizedValue = normalizeOrderLookupValue(value);
+  return STUDENT_PICKLIST_PATTERN.test(normalizedValue);
+}
+
+export function looksLikePicklistBarcode(value: string): boolean {
+  return looksLikeBuyerPicklist(value) || looksLikeStudentPicklist(value);
+}
+
 export function isExactOrderNumberMatch(orderNumber: string, submittedValue: string): boolean {
   return normalizeOrderLookupValue(orderNumber) === normalizeOrderLookupValue(submittedValue);
 }

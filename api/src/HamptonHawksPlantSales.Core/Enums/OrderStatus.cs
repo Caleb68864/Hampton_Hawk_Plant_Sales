@@ -5,5 +5,6 @@ public enum OrderStatus
     Open,
     InProgress,
     Complete,
-    Cancelled
+    Cancelled,
+    Draft
 }

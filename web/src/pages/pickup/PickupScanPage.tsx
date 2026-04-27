@@ -6,8 +6,12 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
+import { QuantitySelector } from '@/components/pickup/QuantitySelector.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
+import { ScanSuccessFlash } from '@/components/pickup/ScanSuccessFlash.js';
+import { OrderCompleteCelebration } from '@/components/pickup/OrderCompleteCelebration.js';
 import { ItemsRemainingCounter } from '@/components/pickup/ItemsRemainingCounter.js';
 import { ScanHistoryList } from '@/components/pickup/ScanHistoryList.js';
 import { ManualFulfillModal } from '@/components/pickup/ManualFulfillModal.js';
@@ -50,6 +54,20 @@ export function PickupScanPage() {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
   });
+
+  // Multi-quantity scanning: volunteer "set N, scan, set N, scan" workflow.
+  // Sticky between scans -- never auto-resets so the volunteer keeps control.
+  const [scanQuantity, setScanQuantity] = useState(1);
+
+  // Joy Pass: scan flash and celebration states
+  const [showScanFlash, setShowScanFlash] = useState(false);
+  const [scanFlashData, setScanFlashData] = useState<{
+    plantName: string;
+    sku?: string;
+    barcode?: string;
+    remainingForOrder?: number;
+  } | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const {
     currentOrder,
@@ -107,11 +125,42 @@ export function PickupScanPage() {
   }
 
   async function handleScan(barcode: string) {
-    const result = await scan(barcode);
+    // Multi-quantity scanning: forward the current scanQuantity, then reset
+    // back to 1 so the next scan defaults to single. The backend caps qty at
+    // the line's remaining; result.line.qtyFulfilled reflects the actual
+    // count applied (not the requested count).
+    const requestedQty = scanQuantity;
+    const result = await scan(barcode, requestedQty);
     if (result) {
       playAudioForResult(result.result);
+
+      // Show scan success flash for accepted scans
+      if (result.result === 'Accepted' && currentOrder) {
+        const display = getScanDisplayFields(result);
+        const totalRemaining = currentOrder.lines.reduce(
+          (sum, line) => sum + Math.max(0, line.qtyOrdered - line.qtyFulfilled),
+          0
+        );
+        // Remaining drops by the actual applied count from the response
+        // (line.qtyFulfilled delta), with a defensive fallback to requestedQty
+        // if the response does not carry a line.
+        const appliedCount = result.line ? requestedQty : 1;
+        setScanFlashData({
+          plantName: display.plantName ?? 'Unknown Plant',
+          sku: result.plant?.sku,
+          barcode,
+          remainingForOrder: Math.max(0, totalRemaining - appliedCount),
+        });
+        setShowScanFlash(true);
+      }
     }
+    setScanQuantity(1);
     refocusScanInput();
+  }
+
+  function handleScanFlashEnd() {
+    setShowScanFlash(false);
+    setScanFlashData(null);
   }
 
   async function confirmUndoLastScan() {
@@ -193,6 +242,8 @@ export function PickupScanPage() {
       try {
         await ordersApi.complete(orderId);
         await refreshOrder();
+        // Show celebration after successful completion
+        setShowCelebration(true);
       } catch {
         // error shown via networkError
       }
@@ -202,12 +253,19 @@ export function PickupScanPage() {
         try {
           await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
           await refreshOrder();
+          // Show celebration after successful force completion
+          setShowCelebration(true);
         } catch {
           // error shown via networkError
         }
       }
     }
     refocusScanInput();
+  }
+
+  function handleCelebrationComplete() {
+    setShowCelebration(false);
+    navigate('/pickup');
   }
 
   function handleManualOpen() {
@@ -287,6 +345,28 @@ export function PickupScanPage() {
 
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
+      {/* Joy Pass: Scan Success Flash */}
+      {showScanFlash && scanFlashData && (
+        <ScanSuccessFlash
+          visible={showScanFlash}
+          plantName={scanFlashData.plantName}
+          sku={scanFlashData.sku}
+          barcode={scanFlashData.barcode}
+          remainingForOrder={scanFlashData.remainingForOrder}
+          onAnimationEnd={handleScanFlashEnd}
+        />
+      )}
+
+      {/* Joy Pass: Order Complete Celebration */}
+      {showCelebration && currentOrder && (
+        <OrderCompleteCelebration
+          visible={showCelebration}
+          orderNumber={currentOrder.orderNumber}
+          customerName={currentOrder.customerDisplayName}
+          onComplete={handleCelebrationComplete}
+        />
+      )}
+
       <ScanFeedbackBanner
         result={lastScanResult}
         message={getScanResultMessage(lastScanResult)}
@@ -314,37 +394,58 @@ export function PickupScanPage() {
       </div>
 
       {!isComplete && (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* Multi-quantity scanning: prominently visible above ScanInput so
+              the volunteer cannot miss that they're in multi-mode. Sticky
+              between scans -- never auto-resets after a successful scan. */}
+          <QuantitySelector
+            value={scanQuantity}
+            onChange={setScanQuantity}
+            disabled={isScanning}
+          />
           <ScanInput
             ref={scanInputRef}
             onScan={handleScan}
             disabled={isScanning}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              onClick={() => setShowUndoConfirm(true)}
+
+          {/* SS-09: Primary action bar hoisted directly under the scan input,
+              above the items table and scan history. Touch-friendly TouchButton
+              targets so volunteers can complete orders without scrolling. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <TouchButton
+              variant={allFulfilled ? 'primary' : 'gold'}
+              onClick={handleComplete}
               disabled={isScanning}
             >
-              Undo last scan
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              onClick={handleResetOrder}
-              disabled={isScanning}
-            >
+              {allFulfilled ? 'Complete Order' : 'Force Complete'}
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleManualOpen} disabled={isScanning}>
+              Manual Fulfill
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleUndo} disabled={isScanning}>
+              Undo Last Scan
+            </TouchButton>
+            <TouchButton variant="gold" onClick={handleUndo} disabled={isScanning}>
+              Recover
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handleResetOrder} disabled={isScanning}>
               Reset current order
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
-              onClick={handleMarkPartial}
+            </TouchButton>
+            <TouchButton variant="danger" onClick={handleMarkPartial} disabled={isScanning}>
+              Mark partial + reason
+            </TouchButton>
+            <TouchButton variant="ghost" onClick={handlePrintOrder} disabled={isScanning}>
+              Print Order Sheet
+            </TouchButton>
+            <TouchButton
+              variant="ghost"
+              className="ml-auto"
+              onClick={() => navigate('/pickup')}
               disabled={isScanning}
             >
-              Mark partial + reason
-            </button>
+              Reopen Lookup
+            </TouchButton>
           </div>
         </div>
       )}
@@ -415,52 +516,6 @@ export function PickupScanPage() {
           </tbody>
         </table>
       </div>
-
-      {!isComplete && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handleManualOpen}
-          >
-            Manual Fulfill
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
-            onClick={handleUndo}
-            disabled={isScanning}
-          >
-            Recover
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            onClick={handlePrintOrder}
-          >
-            Print Order Sheet
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-amber-900 bg-amber-100 rounded-md hover:bg-amber-200"
-            onClick={() => navigate('/pickup')}
-          >
-            Reopen Lookup
-          </button>
-          <button
-            type="button"
-            className={`ml-auto px-6 py-2 text-sm font-medium text-white rounded-md ${
-              allFulfilled
-                ? 'bg-hawk-600 hover:bg-hawk-700'
-                : 'bg-amber-500 hover:bg-amber-600'
-            }`}
-            onClick={handleComplete}
-            disabled={isScanning}
-          >
-            {allFulfilled ? 'Complete Order' : 'Force Complete'}
-          </button>
-        </div>
-      )}
 
       {isComplete && (
         <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-center">

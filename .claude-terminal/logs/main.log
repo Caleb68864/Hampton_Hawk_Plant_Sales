@@ -1,0 +1,774 @@
+2026-04-25T14:53:44.958Z [INFO] --- Log session started ---
+2026-04-25T14:53:45.295Z [DEBUG] [sessions] persisted 1 tabs to C:\Users\CalebBennett\Documents\GitHub\ForgeFrame\.claude-terminal\sessions.json
+2026-04-25T14:53:45.295Z [DEBUG] [sessions] skip persist for %s: %d claude tab(s) still initializing C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales 1
+2026-04-25T14:53:47.702Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:ready","data":"{\"sessionId\":\"f2ae33b4-e762-4926-8037-b5da7283a5fc\",\"source\":\"startup\"}"}
+
+2026-04-25T14:53:47.703Z [DEBUG] [hook] tab:ready tab-1777128824978-wshsei {"sessionId":"f2ae33b4-e762-4926-8037-b5da7283a5fc","source":"startup"}
+2026-04-25T14:53:47.703Z [INFO] [tab:ready] tab-1777128824978-wshsei sessionId: f2ae33b4-e762-4926-8037-b5da7283a5fc source: startup
+2026-04-25T14:53:47.915Z [DEBUG] [sessions] persisted 1 tabs to C:\Users\CalebBennett\Documents\GitHub\ForgeFrame\.claude-terminal\sessions.json
+2026-04-25T14:53:47.918Z [DEBUG] [sessions] persisted 1 tabs to C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\.claude-terminal\sessions.json
+2026-04-25T14:57:17.319Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:generate-name","data":"/forge:forge-brainstorm \nwe had the sale and here are my notes on things ythat could be improved\n\nscanning bar code goes stra
+2026-04-25T14:57:17.320Z [DEBUG] [hook] tab:generate-name tab-1777128824978-wshsei /forge:forge-brainstorm 
+we had the sale and here are my notes on things ythat c
+2026-04-25T14:57:17.320Z [DEBUG] [generateTabName] starting for tab tab-1777128824978-wshsei prompt: /forge:forge-brainstorm 
+we had the sale and here are my notes on things ythat c
+2026-04-25T14:57:17.320Z [DEBUG] [callHaikuForName] spawning: cmd.exe /c claude -p --no-session-persistence --model claude-haiku-4-5-20251001 --tools  --setting-sources 
+2026-04-25T14:57:23.928Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:23.928Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:57:24.599Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:24.599Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:57:25.629Z [DEBUG] [callHaikuForName] stdout: "Sale Feedback and Improvements\n"
+2026-04-25T14:57:25.846Z [DEBUG] [sessions] persisted 1 tabs to C:\Users\CalebBennett\Documents\GitHub\ForgeFrame\.claude-terminal\sessions.json
+2026-04-25T14:57:25.847Z [DEBUG] [sessions] persisted 1 tabs to C:\Users\CalebBennett\Documents\GitHub\Hampton_Hawk_Plant_Sales\.claude-terminal\sessions.json
+2026-04-25T14:57:31.157Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:31.158Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:57:32.095Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:32.095Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:57:32.849Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:32.849Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:57:33.045Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:57:33.045Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:58:05.746Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T14:58:05.746Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T14:58:13.603Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T14:58:13.603Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:04:53.419Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:04:53.420Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:05:01.145Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:05:01.146Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:06:02.126Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:06:02.126Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:06:15.573Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:06:15.573Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:08:49.537Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:08:49.537Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:08:50.194Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:08:50.194Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:08:56.129Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:08:56.129Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:09:18.817Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:18.818Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:09:19.701Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:19.701Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:09:20.382Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:20.382Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:09:24.055Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:24.055Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:09:42.659Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:42.659Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:09:43.871Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:43.871Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:09:44.851Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:44.851Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:09:55.500Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:09:55.500Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:10:00.605Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:10:00.605Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:10:14.042Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:10:14.042Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:11:32.022Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:11:32.022Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:11:39.492Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:11:39.492Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:12:19.712Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:12:19.712Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:12:27.161Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:12:27.161Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:14:16.231Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:14:16.231Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:14:44.493Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:14:44.493Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:14:52.129Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:14:52.129Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T15:18:26.859Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:26.859Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:28.107Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:28.107Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:35.985Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:35.985Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:37.868Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:37.869Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:45.044Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:45.044Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:45.810Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:45.810Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:46.235Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:46.235Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:52.094Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:52.094Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:52.376Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:52.376Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:18:53.182Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:18:53.182Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:04.660Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:04.660Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:06.655Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:06.655Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:08.086Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:08.086Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:09.265Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:09.265Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:10.780Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:10.781Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:11.546Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:11.546Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:13.765Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:13.766Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:18.786Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:18.786Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:19:52.513Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:19:52.513Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:21:43.460Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:21:43.461Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:21:48.800Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:21:48.800Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:21:49.034Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:21:49.035Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:21:58.530Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:21:58.530Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:21:58.991Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:21:58.991Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:22:07.379Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:22:07.379Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:00.655Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:00.655Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:24:01.839Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:01.839Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:08.081Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:08.081Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:08.391Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:08.391Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:16.025Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:16.025Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:16.444Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:16.445Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:24:33.038Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:33.038Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:24:34.165Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:34.165Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:24:34.839Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:24:34.839Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:25:30.718Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:25:30.718Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:25:31.400Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:25:31.400Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:25:32.449Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:25:32.449Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:25:57.846Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:25:57.846Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:26:04.059Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:26:04.059Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:26:04.245Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:26:04.245Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:26:16.694Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:26:16.694Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:26:22.476Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:idle","data":null}
+
+2026-04-25T15:26:22.476Z [DEBUG] [hook] tab:status:idle tab-1777128803921-ebafho null
+2026-04-25T15:26:52.180Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:26:52.180Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:28:20.614Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:28:20.614Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:28:28.626Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:28:28.626Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:29:41.616Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:29:41.616Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:29:44.537Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:29:44.537Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:30:28.699Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:28.699Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:30.116Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:30.116Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:32.065Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:32.065Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:33.580Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:33.580Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:35.133Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:35.133Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:36.253Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:36.253Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:38.195Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:38.195Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:30:43.371Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:43.371Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:44.217Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:44.217Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:30:46.396Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:30:46.396Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:31:04.582Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:04.582Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:05.196Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:05.197Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:28.124Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:28.124Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:31.150Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:31.150Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:34.154Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:34.154Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:38.531Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:38.531Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:44.829Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:44.829Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:45.216Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:45.216Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:45.831Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:45.832Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:51.231Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:51.232Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:59.021Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:59.021Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:31:59.779Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:31:59.779Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:00.466Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:00.466Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:11.536Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:11.536Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:13.134Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:13.134Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:18.682Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:18.682Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:27.600Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:27.601Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:33.197Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:33.197Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:43.314Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:43.314Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:44.259Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:44.259Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:44.464Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:44.464Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:54.960Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:54.960Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:32:56.126Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:32:56.126Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:33:26.303Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:33:26.303Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:33:52.252Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:33:52.252Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:33:52.841Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:33:52.841Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:34:46.660Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:34:46.661Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:34:49.562Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:34:49.562Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:35:14.473Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:35:14.473Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:35:29.181Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:35:29.181Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:35:56.393Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:35:56.393Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:36:40.277Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:36:40.277Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:03.919Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:03.919Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:07.227Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:07.227Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:17.486Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:17.486Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:25.898Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:25.899Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:36.582Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:36.582Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:49.958Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:49.958Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:37:56.202Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:37:56.202Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:38:09.703Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:09.703Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:38:12.916Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:12.916Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:38:12.924Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:12.924Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:38:35.445Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:35.445Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:38:38.926Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:38.926Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:38:44.057Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:38:44.057Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:39:00.327Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:00.327Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:39:09.292Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:09.292Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:39:34.080Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:34.080Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:39:37.047Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:37.047Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:39:37.072Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:37.072Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:39:38.165Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:38.165Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:39:40.102Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:39:40.102Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:08.241Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:08.241Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:40:09.347Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:09.347Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:14.791Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:14.791Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:29.633Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:29.634Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:40:42.921Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:42.921Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:48.685Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:48.685Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:54.555Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:54.555Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:40:55.415Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:40:55.415Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:41:10.210Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:10.210Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:41:13.335Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:13.335Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:41:16.407Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:16.407Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:41:24.987Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:24.987Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:41:25.755Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:25.755Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:41:26.252Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:26.252Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:41:29.369Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:29.370Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:41:35.800Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:35.800Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:41:57.663Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:41:57.664Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:42:29.132Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:29.132Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:42:34.337Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:34.338Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:42:40.938Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:40.939Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:42:50.054Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:50.054Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:42:56.094Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:56.094Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:42:57.953Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:42:57.953Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:43:06.745Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:06.745Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:43:15.951Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:15.951Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:43:18.007Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:18.007Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:43:19.076Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:19.076Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:43:27.648Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:27.648Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:43:28.785Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:28.785Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:43:50.527Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:43:50.527Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:44:14.261Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:14.261Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:44:17.774Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:17.774Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:44:28.568Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:28.569Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:44:33.577Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:33.577Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:44:34.372Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:34.372Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:44:47.173Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:47.173Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:44:57.477Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:44:57.477Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:45:02.413Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:02.413Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:45:10.918Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:10.918Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:45:14.073Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:14.073Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:45:15.849Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:15.849Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:45:25.840Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:25.840Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:45:33.483Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:45:33.483Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:00.266Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:00.266Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:08.997Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:08.997Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:12.800Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:12.801Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:15.872Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:15.872Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:17.588Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:17.588Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:22.780Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:22.780Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:28.089Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:28.089Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:40.492Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:40.492Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:43.551Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:43.551Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:46:45.703Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:45.703Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:55.311Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:55.312Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:55.624Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:55.624Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:46:58.732Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:46:58.733Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:47:09.878Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:09.878Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:47:31.141Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:31.141Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:47:34.320Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:34.320Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:47:45.391Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:45.391Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:47:52.070Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:52.070Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:47:52.373Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:52.374Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:47:58.438Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:58.439Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:47:58.970Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:58.970Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:47:59.322Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:59.322Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:47:59.681Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:47:59.681Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:48:05.580Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:05.580Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T15:48:31.491Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:31.491Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:48:34.564Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:34.564Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:48:37.112Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:idle","data":null}
+
+2026-04-25T15:48:37.112Z [DEBUG] [hook] tab:status:idle tab-1777128803921-ebafho null
+2026-04-25T15:48:45.419Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:45.419Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:48:52.025Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:52.025Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:48:52.474Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:48:52.474Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:49:12.024Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:49:12.024Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:50:04.422Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:50:04.422Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:50:07.607Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:50:07.607Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:50:14.607Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:input","data":null}
+
+2026-04-25T15:50:14.607Z [DEBUG] [hook] tab:status:input tab-1777128803921-ebafho null
+2026-04-25T15:50:26.594Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:idle","data":null}
+
+2026-04-25T15:50:26.594Z [DEBUG] [hook] tab:status:idle tab-1777128824978-wshsei null
+2026-04-25T15:51:41.408Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:51:41.408Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:51:42.085Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:51:42.085Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:54:20.072Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:54:20.072Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:55:45.071Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T15:55:45.072Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T15:56:06.079Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:idle","data":null}
+
+2026-04-25T15:56:06.079Z [DEBUG] [hook] tab:status:idle tab-1777128824978-wshsei null
+2026-04-25T15:57:49.391Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:input","data":null}
+
+2026-04-25T15:57:49.391Z [DEBUG] [hook] tab:status:input tab-1777128824978-wshsei null
+2026-04-25T16:09:31.383Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:09:31.383Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:09:43.554Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:09:43.554Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:09:50.055Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:09:50.055Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:02.775Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:02.776Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:05.990Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:05.990Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:18.818Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:18.818Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:21.878Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:21.878Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:36.126Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:36.126Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:39.128Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:39.128Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:43.835Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:43.835Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:48.968Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:48.968Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:10:52.053Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:10:52.054Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:11:03.132Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:11:03.132Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:11:06.141Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:11:06.141Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:11:28.990Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:11:28.990Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:11:32.228Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:11:32.228Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:11:56.665Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:11:56.665Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:12:00.024Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:12:00.024Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:12:05.325Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:12:05.325Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:12:14.982Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:12:14.982Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:12:41.386Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:12:41.386Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:13:01.625Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:01.625Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:13:07.163Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:07.163Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:13:18.299Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:18.300Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:13:21.441Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128803921-ebafho","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:21.441Z [DEBUG] [hook] tab:status:working tab-1777128803921-ebafho null
+2026-04-25T16:13:49.093Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:49.093Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null
+2026-04-25T16:13:50.111Z [DEBUG] [ipc-raw] {"tabId":"tab-1777128824978-wshsei","event":"tab:status:working","data":null}
+
+2026-04-25T16:13:50.112Z [DEBUG] [hook] tab:status:working tab-1777128824978-wshsei null

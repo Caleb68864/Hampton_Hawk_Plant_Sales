@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
-import type { DashboardMetrics, LowInventoryItem, ProblemOrder } from '@/types/reports.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import type { DashboardMetrics } from '@/types/reports.js';
 
 const EMPTY_METRICS: DashboardMetrics = {
   totalOrders: 0,
@@ -28,39 +30,116 @@ const CHART_COLORS = [
   'bg-cyan-500',
 ];
 
+interface ReportCardLink {
+  to: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+}
+
+interface ReportCategory {
+  heading: string;
+  eyebrow: string;
+  cards: ReportCardLink[];
+}
+
+const REPORT_CATEGORIES: ReportCategory[] = [
+  {
+    heading: 'Sales Breakdowns',
+    eyebrow: 'Sales',
+    cards: [
+      {
+        to: '/reports/sales-by-seller',
+        eyebrow: 'Sales',
+        title: 'Sales by Seller',
+        description: 'Per-seller order count, units, and revenue (ordered vs fulfilled).',
+      },
+      {
+        to: '/reports/sales-by-customer',
+        eyebrow: 'Sales',
+        title: 'Sales by Customer',
+        description: 'Per-customer order totals and revenue breakdown.',
+      },
+      {
+        to: '/reports/sales-by-plant',
+        eyebrow: 'Sales',
+        title: 'Sales by Plant',
+        description: 'Per-plant units sold and revenue (ordered vs fulfilled).',
+      },
+      {
+        to: '/reports/daily-sales',
+        eyebrow: 'Sales',
+        title: 'Daily Sales',
+        description: 'Day-by-day orders, items, revenue, and walk-up vs preorder split.',
+      },
+    ],
+  },
+  {
+    heading: 'Operations',
+    eyebrow: 'Ops',
+    cards: [
+      {
+        to: '/reports/status-funnel',
+        eyebrow: 'Ops',
+        title: 'Status Funnel',
+        description: 'Orders by status with percent of total — Draft excluded.',
+      },
+      {
+        to: '/reports/outstanding-aging',
+        eyebrow: 'Ops',
+        title: 'Outstanding Aging',
+        description: 'Open + in-progress orders bucketed by hours since created.',
+      },
+    ],
+  },
+  {
+    heading: 'Money',
+    eyebrow: 'Money',
+    cards: [
+      {
+        to: '/reports/payment-breakdown',
+        eyebrow: 'Money',
+        title: 'Payment Breakdown',
+        description: 'Orders, revenue, and average order grouped by payment method.',
+      },
+      {
+        to: '/reports/walkup-vs-preorder',
+        eyebrow: 'Money',
+        title: 'WalkUp vs Preorder',
+        description: 'Channel split with walk-up share, item counts, and revenue.',
+      },
+    ],
+  },
+  {
+    heading: 'Inventory',
+    eyebrow: 'Inventory',
+    cards: [
+      {
+        to: '/reports/top-movers',
+        eyebrow: 'Inventory',
+        title: 'Top Movers',
+        description: 'Most-ordered plants by quantity, with fulfillment counts.',
+      },
+      {
+        to: '/reports/leftover-inventory',
+        eyebrow: 'Inventory',
+        title: 'Leftover Inventory',
+        description: 'On-hand units that have not yet been claimed by an order.',
+      },
+    ],
+  },
+];
+
 export function ReportsPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
-  const [lowInventory, setLowInventory] = useState<LowInventoryItem[]>([]);
-  const [problemOrders, setProblemOrders] = useState<ProblemOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([
-      reportsApi.dashboardMetrics(),
-      reportsApi.lowInventory(),
-      reportsApi.problemOrders(),
-    ])
-      .then(([metricsResult, lowInventoryResult, problemOrdersResult]) => {
-        if (metricsResult.status === 'fulfilled') {
-          setMetrics(metricsResult.value);
-        }
-
-        if (lowInventoryResult.status === 'fulfilled') {
-          setLowInventory(lowInventoryResult.value);
-        }
-
-        if (problemOrdersResult.status === 'fulfilled') {
-          setProblemOrders(problemOrdersResult.value);
-        }
-
-        const firstFailure = [metricsResult, lowInventoryResult, problemOrdersResult]
-          .find((r) => r.status === 'rejected');
-        if (firstFailure && firstFailure.status === 'rejected') {
-          const reason = firstFailure.reason;
-          setError(reason instanceof Error ? reason.message : 'Some report data failed to load.');
-        }
-      })
+    reportsApi
+      .dashboardMetrics()
+      .then((result) => setMetrics(result))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load report metrics.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -85,128 +164,112 @@ export function ReportsPage() {
     ? Math.round((metrics.completedOrders / metrics.totalOrders) * 100)
     : 0;
 
-  const topLowInventory = [...lowInventory]
-    .sort((a, b) => a.onHandQty - b.onHandQty)
-    .slice(0, 8);
-
-  const oldestProblems = [...problemOrders]
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    .slice(0, 8);
-
   if (loading) return <LoadingSpinner />;
 
+  const noReportData =
+    metrics.totalOrders === 0 &&
+    metrics.totalCustomers === 0 &&
+    metrics.totalSellers === 0 &&
+    statusRows.length === 0;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
-        <Link
-          to="/reports/leftover-inventory"
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-        >
-          Leftover Inventory Report
-        </Link>
-      </div>
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+    <div className="paper-grain space-y-6 relative">
+      <div className="relative z-10 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionHeading level={1} eyebrow="Insights">Reports</SectionHeading>
+        </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <MetricCard label="Total Orders" value={metrics.totalOrders} />
-        <MetricCard label="Open Orders" value={metrics.openOrders} />
-        <MetricCard label="Completed" value={metrics.completedOrders} />
-        <MetricCard label="Items Ordered" value={metrics.totalItemsOrdered} />
-        <MetricCard label="Items Fulfilled" value={metrics.totalItemsFulfilled} />
-        <MetricCard label="Customers" value={metrics.totalCustomers} />
-      </div>
+        {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <section className="rounded-lg border border-gray-200 bg-white p-6 xl:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Order Status Distribution</h2>
-          {statusRows.length === 0 ? (
-            <p className="text-sm text-gray-500">No order status data available.</p>
-          ) : (
-            <div className="space-y-4">
-              {statusRows.map((row, index) => {
-                const percentage = metrics.totalOrders > 0 ? Math.round((row.count / metrics.totalOrders) * 100) : 0;
-                return (
-                  <div key={row.status}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <p className="font-medium text-gray-700">{formatStatus(row.status)}</p>
-                      <p className="text-gray-500">{row.count.toLocaleString()} ({percentage}%)</p>
-                    </div>
-                    <div className="h-3 w-full rounded-full bg-gray-100">
-                      <div
-                        className={`h-3 rounded-full ${CHART_COLORS[index % CHART_COLORS.length]}`}
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+        {noReportData && !error && (
+          <BotanicalEmptyState
+            title="No report data yet"
+            description="Once orders start flowing in, dashboards, charts, and breakdowns will appear here."
+          />
+        )}
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <MetricCard label="Total Orders" value={metrics.totalOrders} />
+          <MetricCard label="Open Orders" value={metrics.openOrders} />
+          <MetricCard label="Completed" value={metrics.completedOrders} />
+          <MetricCard label="Items Ordered" value={metrics.totalItemsOrdered} />
+          <MetricCard label="Items Fulfilled" value={metrics.totalItemsFulfilled} />
+          <MetricCard label="Customers" value={metrics.totalCustomers} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <section className="rounded-2xl border border-hawk-200 bg-white p-6 xl:col-span-2 joy-shadow-plum">
+            <div className="mb-4">
+              <SectionHeading level={3}>Order Status Distribution</SectionHeading>
             </div>
-          )}
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Performance Snapshot</h2>
-          <ProgressRing label="Order Completion" value={completionRate} colorClass="stroke-blue-500" />
-          <div className="my-6 border-t border-gray-100" />
-          <ProgressRing label="Line Fulfillment" value={fulfillmentRate} colorClass="stroke-green-500" />
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Critical Inventory Risk</h2>
-            <Link to="/inventory" className="text-sm text-blue-600 hover:text-blue-700">Inventory</Link>
-          </div>
-          {topLowInventory.length === 0 ? (
-            <p className="text-sm text-gray-500">No low inventory items.</p>
-          ) : (
-            <div className="space-y-3">
-              {topLowInventory.map((item) => {
-                const riskCeilingQty = 25;
-                const dangerPct = Math.max(0, Math.min(100, ((riskCeilingQty - item.onHandQty) / riskCeilingQty) * 100));
-                return (
-                  <div key={item.plantCatalogId}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <p className="font-medium text-gray-900">{item.plantName}</p>
-                      <p className="text-red-600">{item.onHandQty} left</p>
+            {statusRows.length === 0 ? (
+              <p className="text-sm text-gray-500">No order status data available.</p>
+            ) : (
+              <div className="space-y-4">
+                {statusRows.map((row, index) => {
+                  const percentage = metrics.totalOrders > 0 ? Math.round((row.count / metrics.totalOrders) * 100) : 0;
+                  return (
+                    <div key={row.status}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <p className="font-medium text-gray-700">{formatStatus(row.status)}</p>
+                        <p className="text-gray-500">{row.count.toLocaleString()} ({percentage}%)</p>
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-gray-100">
+                        <div
+                          className={`h-3 rounded-full ${CHART_COLORS[index % CHART_COLORS.length]}`}
+                          style={{ width: `${Math.min(percentage, 100)}%` }}
+                        />
+                      </div>
                     </div>
-                    <p className="mb-1 text-xs text-gray-500">{item.sku}</p>
-                    <div className="h-2 w-full rounded-full bg-red-100">
-                      <div className="h-2 rounded-full bg-red-500" style={{ width: `${dangerPct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">
+            <div className="mb-4">
+              <SectionHeading level={3}>Performance Snapshot</SectionHeading>
             </div>
-          )}
-        </section>
+            <ProgressRing label="Order Completion" value={completionRate} colorClass="stroke-blue-500" />
+            <div className="my-6 border-t border-gray-100" />
+            <ProgressRing label="Line Fulfillment" value={fulfillmentRate} colorClass="stroke-green-500" />
+          </section>
+        </div>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Oldest Problem Orders</h2>
-            <Link to="/orders" className="text-sm text-blue-600 hover:text-blue-700">Orders</Link>
-          </div>
-          {oldestProblems.length === 0 ? (
-            <p className="text-sm text-gray-500">No problem orders.</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {oldestProblems.map((order) => (
+        {REPORT_CATEGORIES.map((category) => (
+          <section key={category.heading} className="space-y-3">
+            <SectionHeading level={3} eyebrow={category.eyebrow}>
+              {category.heading}
+            </SectionHeading>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {category.cards.map((card) => (
                 <Link
-                  key={order.id}
-                  to={`/orders/${order.id}`}
-                  className="block rounded px-1 py-3 hover:bg-gray-50"
+                  key={card.to}
+                  to={card.to}
+                  className="group block rounded-2xl border border-hawk-200 bg-white p-5 joy-shadow-plum transition-shadow hover:border-gold-300 hover:shadow-[0_12px_28px_-12px_rgba(184,129,26,0.45)]"
                 >
-                  <p className="text-sm font-medium text-gray-900">{order.orderNumber} - {order.customerName}</p>
-                  <p className="text-xs text-amber-700">
-                    {formatStatus(order.status)} • {order.lineCount} lines • Created {formatDate(order.createdAt)}
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-[0.24em] text-hawk-700"
+                    style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+                  >
+                    {card.eyebrow}
                   </p>
+                  <h4
+                    className="mt-1 text-xl text-hawk-900 group-hover:text-hawk-950"
+                    style={{
+                      fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+                      fontVariationSettings: "'opsz' 144, 'wght' 600",
+                    }}
+                  >
+                    {card.title}
+                  </h4>
+                  <p className="mt-2 text-sm text-hawk-600">{card.description}</p>
                 </Link>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        ))}
       </div>
     </div>
   );
@@ -214,9 +277,22 @@ export function ReportsPage() {
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{(value ?? 0).toLocaleString()}</p>
+    <div className="rounded-2xl border border-hawk-200 bg-white p-4 joy-shadow-plum">
+      <p
+        className="text-xs font-bold uppercase tracking-[0.24em] text-hawk-700"
+        style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+      >
+        {label}
+      </p>
+      <p
+        className="mt-1 text-3xl text-hawk-900"
+        style={{
+          fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+          fontVariationSettings: "'opsz' 144, 'wght' 600",
+        }}
+      >
+        {(value ?? 0).toLocaleString()}
+      </p>
     </div>
   );
 }
@@ -257,17 +333,4 @@ function formatStatus(status: string): string {
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDate(isoDate: string): string {
-  if (!isoDate) return 'Unknown';
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }

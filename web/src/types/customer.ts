@@ -6,6 +6,7 @@ export interface Customer {
   phone: string | null;
   email: string | null;
   pickupCode: string;
+  picklistBarcode: string;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

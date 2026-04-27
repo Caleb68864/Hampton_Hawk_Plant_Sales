@@ -6,13 +6,18 @@ import { settingsApi } from '@/api/settings.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAdminAuth } from '@/hooks/useAdminAuth.js';
 import { getKioskLandingRoute } from '@/routes/kioskRouteConfig.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { buildKioskSessionDraft, getDefaultWorkstationName } from '@/stores/kioskSession.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import type { KioskProfile } from '@/types/kiosk.js';
-import type { AppSettings } from '@/types/settings.js';
+import type { AppSettings, PickupAutoJumpMode } from '@/types/settings.js';
+
+const DEBOUNCE_MIN = 50;
+const DEBOUNCE_MAX = 500;
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -33,11 +38,24 @@ export function SettingsPage() {
   const [dangerMessage, setDangerMessage] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
+  // Scanner Tuning (SS-09)
+  const [tuningDebounce, setTuningDebounce] = useState<number>(120);
+  const [tuningAutoJumpMode, setTuningAutoJumpMode] = useState<PickupAutoJumpMode>('BestMatchWhenSingle');
+  const [tuningMultiScanEnabled, setTuningMultiScanEnabled] = useState<boolean>(true);
+  const [tuningSaving, setTuningSaving] = useState(false);
+  const [tuningMessage, setTuningMessage] = useState<string | null>(null);
+  const [tuningError, setTuningError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     settingsApi
       .get()
-      .then(setSettings)
+      .then((s) => {
+        setSettings(s);
+        setTuningDebounce(s.pickupSearchDebounceMs ?? 120);
+        setTuningAutoJumpMode(s.pickupAutoJumpMode ?? 'BestMatchWhenSingle');
+        setTuningMultiScanEnabled(s.pickupMultiScanEnabled ?? true);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
@@ -180,23 +198,71 @@ export function SettingsPage() {
     }
   }
 
+  async function handleSaveScannerTuning() {
+    setTuningError(null);
+    setTuningMessage(null);
+
+    if (
+      !Number.isFinite(tuningDebounce) ||
+      tuningDebounce < DEBOUNCE_MIN ||
+      tuningDebounce > DEBOUNCE_MAX
+    ) {
+      setTuningError(`Debounce must be between ${DEBOUNCE_MIN} and ${DEBOUNCE_MAX} ms.`);
+      return;
+    }
+
+    const auth = await requestAdminAuth({
+      title: 'Update Scanner Tuning',
+      description: 'Enter admin PIN to save scanner tuning changes.',
+      confirmLabel: 'Save scanner tuning',
+    });
+    if (!auth) return;
+
+    setTuningSaving(true);
+    try {
+      const updated = await settingsApi.updateScannerTuning(
+        {
+          pickupSearchDebounceMs: tuningDebounce,
+          pickupAutoJumpMode: tuningAutoJumpMode,
+          pickupMultiScanEnabled: tuningMultiScanEnabled,
+        },
+        auth.pin,
+        auth.reason ?? 'Update scanner tuning',
+      );
+      setSettings(updated);
+      setTuningDebounce(updated.pickupSearchDebounceMs ?? tuningDebounce);
+      setTuningAutoJumpMode(updated.pickupAutoJumpMode ?? tuningAutoJumpMode);
+      setTuningMultiScanEnabled(updated.pickupMultiScanEnabled ?? tuningMultiScanEnabled);
+      setTuningMessage('Scanner tuning saved.');
+      // Refresh global store so PickupLookupPage / PickupScanPage pick up new values immediately.
+      await fetchSettings();
+    } catch (e) {
+      setTuningError(e instanceof Error ? e.message : 'Failed to save scanner tuning');
+    } finally {
+      setTuningSaving(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="paper-grain max-w-3xl mx-auto space-y-4 relative">
+      <div className="relative z-10 space-y-4">
       <BackToStationHomeButton />
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">Global sale controls stay separate from kiosk mode, which only affects this browser.</p>
+      <div className="space-y-1">
+        <SectionHeading level={1} eyebrow="Admin">Settings</SectionHeading>
+        <p
+          className="text-sm text-hawk-600"
+          style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+        >
+          Global sale controls stay separate from kiosk mode, which only affects this browser.
+        </p>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Global</p>
-          <h2 className="text-lg font-semibold text-gray-800">Sale Status</h2>
-        </div>
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <SectionHeading level={3} eyebrow="Global">Sale Status</SectionHeading>
 
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -230,11 +296,89 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <div className="space-y-1">
+          <SectionHeading level={3} eyebrow="Global">Scanner Tuning</SectionHeading>
+          <p
+            className="text-sm text-hawk-600"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
+            Tune pickup-station scan behavior. Changes apply on next page load. Admin PIN required.
+          </p>
+        </div>
+
+        {tuningError && <ErrorBanner message={tuningError} onDismiss={() => setTuningError(null)} />}
+        {tuningMessage && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {tuningMessage}
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-1 text-sm text-gray-700">
+            <span className="font-medium">Search debounce (ms)</span>
+            <input
+              type="number"
+              min={DEBOUNCE_MIN}
+              max={DEBOUNCE_MAX}
+              step={10}
+              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              value={tuningDebounce}
+              onChange={(e) => setTuningDebounce(Number(e.target.value))}
+            />
+            <span className="block text-xs text-gray-500">
+              Range: {DEBOUNCE_MIN}-{DEBOUNCE_MAX}. Lower = more responsive scanner; higher = fewer queries while typing.
+            </span>
+          </label>
+
+          <label className="space-y-1 text-sm text-gray-700">
+            <span className="font-medium">Auto-jump mode</span>
+            <select
+              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              value={tuningAutoJumpMode}
+              onChange={(e) => setTuningAutoJumpMode(e.target.value as PickupAutoJumpMode)}
+            >
+              <option value="ExactMatchOnly">Exact match only (strict order-number format)</option>
+              <option value="BestMatchWhenSingle">Best match when single (recommended)</option>
+            </select>
+            <span className="block text-xs text-gray-500">
+              Controls whether lookup auto-navigates to a single matching order.
+            </span>
+          </label>
+        </div>
+
+        <label className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={tuningMultiScanEnabled}
+            onChange={(e) => setTuningMultiScanEnabled(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Multi-scan enabled</span>
+            <span className="block text-xs text-gray-500">Allow rapid consecutive scans without modal interruption.</span>
+          </span>
+        </label>
+
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">This Device</p>
-          <h2 className="text-lg font-semibold text-gray-800">Kiosk Mode</h2>
-          <p className="mt-1 text-sm text-gray-600">Lock only this browser into a volunteer-safe station workflow.</p>
+          <TouchButton
+            variant="primary"
+            disabled={tuningSaving}
+            onClick={handleSaveScannerTuning}
+          >
+            {tuningSaving ? 'Saving…' : 'Save scanner tuning'}
+          </TouchButton>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
+        <div className="space-y-1">
+          <SectionHeading level={3} eyebrow="This Device">Kiosk Mode</SectionHeading>
+          <p
+            className="text-sm text-hawk-600"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
+            Lock only this browser into a volunteer-safe station workflow.
+          </p>
         </div>
 
         {kioskSession ? (
@@ -245,14 +389,13 @@ export function SettingsPage() {
                 {kioskSession.profile === 'pickup' ? 'Pickup Station' : 'Lookup & Print Station'} • {kioskSession.workstationName}
               </p>
             </div>
-            <button
-              type="button"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            <TouchButton
+              variant="ghost"
               disabled={kioskBusy}
               onClick={handleDisableKiosk}
             >
               {kioskBusy ? 'Checking PIN...' : 'Disable kiosk mode on this browser'}
-            </button>
+            </TouchButton>
           </div>
         ) : (
           <div className="space-y-4">
@@ -290,22 +433,35 @@ export function SettingsPage() {
               Prefer fullscreen on launch for this browser
             </label>
 
-            <button
-              type="button"
-              className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
+            <TouchButton
+              variant="primary"
               disabled={kioskBusy}
               onClick={handleEnableKiosk}
             >
               {kioskBusy ? 'Checking PIN...' : 'Enable kiosk mode on this browser'}
-            </button>
+            </TouchButton>
           </div>
         )}
       </div>
 
-      <div className="rounded-lg border border-red-300 bg-red-50 p-6 space-y-4">
+      <div className="rounded-2xl border border-red-300 bg-red-50 p-6 space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Danger Zone</p>
-          <h2 className="text-lg font-semibold text-red-800">Bulk Order Actions</h2>
+          <span
+            className="block text-xs font-bold uppercase tracking-[0.28em] text-red-700 mb-1"
+            style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+          >
+            Danger Zone
+          </span>
+          <h2
+            className="text-2xl text-red-800"
+            style={{
+              fontFamily: "var(--font-display), 'Fraunces', Georgia, serif",
+              fontVariationSettings: "'opsz' 144, 'SOFT' 80, 'wght' 500",
+              letterSpacing: '-0.015em',
+            }}
+          >
+            Bulk Order Actions
+          </h2>
           <p className="mt-1 text-sm text-red-700">Destructive actions. Admin PIN + reason required. Use with care.</p>
         </div>
 
@@ -320,14 +476,13 @@ export function SettingsPage() {
             <p className="text-sm font-semibold text-gray-800">Regenerate order barcodes</p>
             <p className="text-xs text-gray-600">Fills/refreshes the Barcode column for every order (OR + 10-digit zero-padded order number).</p>
           </div>
-          <button
-            type="button"
+          <TouchButton
+            variant="primary"
             disabled={dangerBusy}
             onClick={handleRegenerateBarcodes}
-            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:opacity-60"
           >
             {dangerBusy ? 'Working…' : 'Regenerate all order barcodes'}
-          </button>
+          </TouchButton>
         </div>
 
         <div className="rounded-md border border-red-300 bg-white p-4 space-y-3">
@@ -348,15 +503,15 @@ export function SettingsPage() {
               placeholder="DELETE ALL ORDERS"
             />
           </label>
-          <button
-            type="button"
+          <TouchButton
+            variant="danger"
             disabled={dangerBusy || deleteConfirmText.trim().toUpperCase() !== 'DELETE ALL ORDERS'}
             onClick={handleDeleteAllOrders}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {dangerBusy ? 'Working…' : 'Delete ALL orders'}
-          </button>
+          </TouchButton>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -5,6 +5,14 @@ namespace HamptonHawksPlantSales.Core.DTOs;
 public class ScanRequest
 {
     public string Barcode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Multi-quantity scanning: number of units to fulfill in one scan.
+    /// Defaults to 1 for backward compatibility. Values &lt;= 0 are coerced to 1
+    /// by the service. The service caps the applied count at the line's
+    /// remaining quantity (multi-line aggregation distributes greedily).
+    /// </summary>
+    public int Quantity { get; set; } = 1;
 }
 
 public class ManualFulfillRequest

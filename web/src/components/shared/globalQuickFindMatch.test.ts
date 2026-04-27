@@ -15,6 +15,7 @@ function makeCustomer(overrides: Partial<Customer>): Customer {
     phone: '555-0100',
     email: null,
     pickupCode: 'PICK123',
+    picklistBarcode: 'PLB-TEST0001',
     notes: null,
     createdAt: now,
     updatedAt: now,

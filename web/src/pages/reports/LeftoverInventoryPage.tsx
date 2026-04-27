@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { inventoryApi } from '@/api/inventory.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import type { InventoryItem } from '@/types/inventory.js';
 
 const PAGE_SIZE = 200;
@@ -90,21 +93,18 @@ export function LeftoverInventoryPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Leftover Inventory</h1>
-          <p className="text-sm text-gray-600">Post-sale report for cash-and-carry planning.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
+    <JoyPageShell
+      title="Leftover Inventory"
+      eyebrow="Post-Sale Report"
+      actions={
+        <>
+          <TouchButton
+            variant="primary"
             disabled={selectedCount === 0}
-            className="rounded-md bg-hawk-600 px-4 py-2 text-sm font-medium text-white hover:bg-hawk-700 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={handleCreateWalkUpFromSelected}
           >
             Create Walk-Up from Selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
-          </button>
+          </TouchButton>
           <Link
             to="/walkup/new"
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
@@ -117,8 +117,10 @@ export function LeftoverInventoryPage() {
           >
             Back to Reports
           </Link>
-        </div>
-      </div>
+        </>
+      }
+    >
+      <p className="text-sm text-gray-600">Post-sale report for cash-and-carry planning.</p>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -141,7 +143,10 @@ export function LeftoverInventoryPage() {
         </div>
 
         {leftoverItems.length === 0 ? (
-          <p className="text-sm text-gray-500">No leftover inventory found.</p>
+          <BotanicalEmptyState
+            title="No leftover inventory found"
+            description={search ? 'Try a different search term.' : 'Once sales close, plants with remaining stock will appear here.'}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -190,7 +195,7 @@ export function LeftoverInventoryPage() {
           </div>
         )}
       </section>
-    </div>
+    </JoyPageShell>
   );
 }
 

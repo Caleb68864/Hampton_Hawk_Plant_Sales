@@ -16,9 +16,13 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(e => e.Phone).HasColumnType("text");
         builder.Property(e => e.Email).HasColumnType("text");
         builder.Property(e => e.PickupCode).HasColumnType("text").IsRequired();
+        builder.Property(e => e.PicklistBarcode).HasColumnType("text").HasMaxLength(32).IsRequired();
         builder.Property(e => e.Notes).HasColumnType("text");
 
         builder.HasIndex(e => e.PickupCode).IsUnique();
+        builder.HasIndex(e => e.PicklistBarcode)
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
         builder.HasIndex(e => e.LastName);
         builder.HasIndex(e => e.Phone);
     }

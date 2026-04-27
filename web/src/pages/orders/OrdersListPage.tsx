@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
 import { SearchBar } from '@/components/shared/SearchBar.js';
@@ -7,13 +7,33 @@ import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
-import type { Order, OrderStatus } from '@/types/order.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
+import { BulkActionToolbar } from '@/components/orders/BulkActionToolbar.js';
+import { BulkResultModal } from '@/components/orders/BulkResultModal.js';
+import type { Order, OrderStatus, BulkOperationResult } from '@/types/order.js';
 
 const STATUS_OPTIONS: (OrderStatus | '')[] = ['', 'Open', 'InProgress', 'Complete', 'Cancelled'];
 
+type SortKey = 'orderNumber' | 'customerDisplayName' | 'sellerDisplayName' | 'status' | 'isWalkUp' | 'createdAt';
+type SortDir = 'asc' | 'desc';
+
+const SORTABLE_KEYS: ReadonlyArray<SortKey> = ['orderNumber', 'customerDisplayName', 'sellerDisplayName', 'status', 'isWalkUp', 'createdAt'];
+
+function parseSortKey(value: string | null): SortKey {
+  return SORTABLE_KEYS.includes(value as SortKey) ? (value as SortKey) : 'createdAt';
+}
+
+function parseSortDir(value: string | null): SortDir {
+  return value === 'asc' ? 'asc' : 'desc';
+}
+
 export function OrdersListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sortBy = parseSortKey(searchParams.get('sortBy'));
+  const sortDir = parseSortDir(searchParams.get('sortDir'));
   const [orders, setOrders] = useState<Order[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -26,6 +46,7 @@ export function OrdersListPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [openPrintCount, setOpenPrintCount] = useState('25');
   const [printingOpen, setPrintingOpen] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkOperationResult | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -38,6 +59,8 @@ export function OrdersListPage() {
         search: search || undefined,
         status: statusFilter || undefined,
         isWalkUp: walkUpFilter === 'true' ? true : walkUpFilter === 'false' ? false : undefined,
+        sortBy,
+        sortDir,
       });
       setOrders(result.items);
       setTotalPages(result.totalPages);
@@ -47,7 +70,32 @@ export function OrdersListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, statusFilter, walkUpFilter]);
+  }, [page, pageSize, search, statusFilter, walkUpFilter, sortBy, sortDir]);
+
+  function handleSortClick(column: SortKey) {
+    const next = new URLSearchParams(searchParams);
+    if (sortBy === column) {
+      next.set('sortBy', column);
+      next.set('sortDir', sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      next.set('sortBy', column);
+      next.set('sortDir', 'asc');
+    }
+    setSearchParams(next, { replace: true });
+    setPage(1);
+  }
+
+  function handleBulkResult(result: BulkOperationResult) {
+    setBulkResult(result);
+    setSelectedOrderIds([]);
+    fetchOrders();
+  }
+
+  const orderNumberById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of orders) map[o.id] = o.orderNumber;
+    return map;
+  }, [orders]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -156,17 +204,34 @@ export function OrdersListPage() {
 
   const allCurrentPageSelected = orders.length > 0 && orders.every((o) => selectedOrderIds.includes(o.id));
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Orders</h1>
+  function renderSortHeader(label: string, column: SortKey, alignRight = false) {
+    const active = sortBy === column;
+    const arrow = active ? (sortDir === 'asc' ? '▲' : '▼') : '';
+    return (
+      <th
+        scope="col"
+        className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${alignRight ? 'text-right' : 'text-left'}`}
+      >
         <button
           type="button"
-          className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700"
-          onClick={() => navigate('/orders/new')}
+          className={`inline-flex items-center gap-1 ${active ? 'text-hawk-800' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => handleSortClick(column)}
+          aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
         >
-          New Order
+          <span>{label}</span>
+          <span aria-hidden="true">{arrow}</span>
         </button>
+      </th>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <SectionHeading level={1} eyebrow="Operations">Orders</SectionHeading>
+        <TouchButton variant="primary" onClick={() => navigate('/orders/new')}>
+          New Order
+        </TouchButton>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -255,10 +320,28 @@ export function OrdersListPage() {
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
+      {selectedOrderIds.length > 0 && (
+        <BulkActionToolbar
+          selectedIds={selectedOrderIds}
+          onResult={handleBulkResult}
+          onClearSelection={() => setSelectedOrderIds([])}
+        />
+      )}
+
       {loading ? (
         <LoadingSpinner />
       ) : orders.length === 0 ? (
-        <EmptyState title="No orders found" description={search || statusFilter ? 'Try different filters.' : 'Create your first order to get started.'} />
+        <BotanicalEmptyState
+          title="No orders found"
+          description={search || statusFilter ? 'Try different filters or clear your search to see every order.' : 'Create your first order to get started.'}
+          action={
+            search || statusFilter ? undefined : (
+              <TouchButton variant="primary" onClick={() => navigate('/orders/new')}>
+                Create your first order
+              </TouchButton>
+            )
+          }
+        />
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -274,12 +357,12 @@ export function OrdersListPage() {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  {renderSortHeader('Order #', 'orderNumber')}
+                  {renderSortHeader('Customer', 'customerDisplayName')}
+                  {renderSortHeader('Seller', 'sellerDisplayName')}
+                  {renderSortHeader('Status', 'status')}
+                  {renderSortHeader('Type', 'isWalkUp')}
+                  {renderSortHeader('Date', 'createdAt')}
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -329,6 +412,13 @@ export function OrdersListPage() {
           />
         </>
       )}
+
+      <BulkResultModal
+        isOpen={bulkResult !== null}
+        result={bulkResult}
+        orderNumberById={orderNumberById}
+        onClose={() => setBulkResult(null)}
+      />
     </div>
   );
 }

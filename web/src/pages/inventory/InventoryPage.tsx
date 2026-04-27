@@ -4,7 +4,9 @@ import { SearchBar } from '@/components/shared/SearchBar.js';
 import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { InventoryItem } from '@/types/inventory.js';
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -100,11 +102,7 @@ export function InventoryPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Inventory</h1>
-      </div>
-
+    <JoyPageShell title="Inventory" eyebrow="Stock">
       <div ref={searchRef}>
         <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search inventory by plant name or SKU... (press / to focus)" />
       </div>
@@ -114,7 +112,7 @@ export function InventoryPage() {
       {loading ? (
         <LoadingSpinner />
       ) : items.length === 0 ? (
-        <EmptyState title="No inventory found" description={search ? 'Try a different search term.' : 'Inventory will appear here once plants are imported.'} />
+        <BotanicalEmptyState title="No inventory found" description={search ? 'Try a different search term.' : 'Inventory will appear here once plants are imported.'} />
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -251,18 +249,17 @@ export function InventoryPage() {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50"
+              <TouchButton
+                variant="primary"
                 disabled={!adjustModal.deltaQty || !adjustModal.reason.trim()}
                 onClick={submitAdjust}
               >
                 Apply Adjustment
-              </button>
+              </TouchButton>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </JoyPageShell>
   );
 }

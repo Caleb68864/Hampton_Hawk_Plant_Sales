@@ -69,6 +69,22 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("PickupAutoJumpMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("BestMatchWhenSingle");
+
+                    b.Property<bool>("PickupMultiScanEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("PickupSearchDebounceMs")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(120);
+
                     b.Property<bool>("SaleClosed")
                         .HasColumnType("boolean");
 
@@ -87,6 +103,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            PickupAutoJumpMode = "BestMatchWhenSingle",
+                            PickupMultiScanEnabled = true,
+                            PickupSearchDebounceMs = 120,
                             SaleClosed = false,
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         });
@@ -123,6 +142,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<string>("Phone")
                         .HasColumnType("text");
 
+                    b.Property<string>("PicklistBarcode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("text");
+
                     b.Property<string>("PickupCode")
                         .IsRequired()
                         .HasColumnType("text");
@@ -135,6 +159,10 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.HasIndex("LastName");
 
                     b.HasIndex("Phone");
+
+                    b.HasIndex("PicklistBarcode")
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
 
                     b.HasIndex("PickupCode")
                         .IsUnique();
@@ -166,6 +194,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
 
                     b.Property<Guid?>("PlantCatalogId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<string>("Result")
                         .IsRequired()
@@ -327,13 +360,16 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("AmountTendered")
+                        .HasColumnType("numeric(12,2)");
+
                     b.Property<string>("Barcode")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("CustomerId")
+                    b.Property<Guid?>("CustomerId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
@@ -347,6 +383,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
 
                     b.Property<string>("OrderNumber")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PaymentMethod")
                         .HasColumnType("text");
 
                     b.Property<Guid?>("SellerId")
@@ -387,6 +426,10 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("LastScanIdempotencyKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("text");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
@@ -406,6 +449,8 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LastScanIdempotencyKey");
 
                     b.HasIndex("OrderId");
 
@@ -469,6 +514,79 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.ToTable("PlantCatalogs");
                 });
 
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ScanSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityKind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WorkstationName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosedAt");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("EntityKind", "EntityId");
+
+                    b.ToTable("ScanSessions");
+                });
+
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ScanSessionMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("SessionId", "OrderId");
+
+                    b.ToTable("ScanSessionMembers");
+                });
+
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.Seller", b =>
                 {
                     b.Property<Guid>("Id")
@@ -497,6 +615,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<string>("PicklistBarcode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("text");
+
                     b.Property<string>("Teacher")
                         .HasColumnType("text");
 
@@ -508,6 +631,10 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.HasIndex("DisplayName");
 
                     b.HasIndex("LastName");
+
+                    b.HasIndex("PicklistBarcode")
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
 
                     b.ToTable("Sellers");
                 });
@@ -568,8 +695,7 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.HasOne("HamptonHawksPlantSales.Core.Models.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HamptonHawksPlantSales.Core.Models.Seller", "Seller")
                         .WithMany()
@@ -600,6 +726,25 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Navigation("PlantCatalog");
                 });
 
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ScanSessionMember", b =>
+                {
+                    b.HasOne("HamptonHawksPlantSales.Core.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HamptonHawksPlantSales.Core.Models.ScanSession", "Session")
+                        .WithMany("Members")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ImportBatch", b =>
                 {
                     b.Navigation("Issues");
@@ -608,6 +753,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.Order", b =>
                 {
                     b.Navigation("OrderLines");
+                });
+
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ScanSession", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

@@ -7,6 +7,8 @@ import { StatusChip } from '@/components/shared/StatusChip.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAdminAuth } from '@/hooks/useAdminAuth.js';
 import type { Order } from '@/types/order.js';
 
@@ -84,17 +86,19 @@ export function OrderDetailPage() {
   const overallPct = totalOrdered > 0 ? Math.round((totalFulfilled / totalOrdered) * 100) : 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-800">Order {order.orderNumber}</h1>
+    <JoyPageShell
+      title={`Order ${order.orderNumber}`}
+      eyebrow="Order Detail"
+      maxWidth="wide"
+      actions={
+        <>
           <StatusChip status={order.status} hasIssue={order.hasIssue} />
-        </div>
-        <button type="button" className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate('/orders')}>
-          Back to Orders
-        </button>
-      </div>
-
+          <TouchButton variant="ghost" onClick={() => navigate('/orders')}>
+            Back to Orders
+          </TouchButton>
+        </>
+      }
+    >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -234,6 +238,6 @@ export function OrderDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
-    </div>
+    </JoyPageShell>
   );
 }

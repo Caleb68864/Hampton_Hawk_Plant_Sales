@@ -19,15 +19,20 @@ public class FulfillmentService : IFulfillmentService
         _adminService = adminService;
     }
 
-    public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode)
+    public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode, int quantity = 1)
     {
+        // Multi-quantity scanning (volunteer "set N, scan once" workflow):
+        // coerce non-positive values to 1 so a malformed client cannot zero-out
+        // a scan. The internal path caps at the line's remaining quantity.
+        if (quantity <= 0) quantity = 1;
+
         const int maxAttempts = 3;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
-                return await ScanInternalAsync(orderId, barcode);
+                return await ScanInternalAsync(orderId, barcode, quantity);
             }
             catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
             {
@@ -42,7 +47,7 @@ public class FulfillmentService : IFulfillmentService
         // Final attempt without catch filter so unexpected errors still bubble up.
         try
         {
-            return await ScanInternalAsync(orderId, barcode);
+            return await ScanInternalAsync(orderId, barcode, quantity);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -70,7 +75,7 @@ public class FulfillmentService : IFulfillmentService
         }
     }
 
-    private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode)
+    private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode, int quantity)
     {
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
@@ -176,9 +181,18 @@ public class FulfillmentService : IFulfillmentService
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, lockedOrderLine);
             }
 
-            // Decrement inventory, increment fulfilled
-            lockedInventory.OnHandQty -= 1;
-            lockedOrderLine.QtyFulfilled += 1;
+            // Multi-quantity scan: apply min(requested, line-remaining, inventory-on-hand).
+            // Capping at line-remaining prevents over-fulfillment of the line; capping at
+            // inventory-on-hand keeps the inventory non-negative when the volunteer
+            // requests more than is physically in stock. The response is still
+            // Accepted with the actual count (the volunteer asked for a quantity,
+            // not "as many as possible" — they need to know exactly how many landed).
+            var lineRemaining = lockedOrderLine.QtyOrdered - lockedOrderLine.QtyFulfilled;
+            var applied = Math.Min(quantity, Math.Min(lineRemaining, lockedInventory.OnHandQty));
+            if (applied <= 0) applied = 1; // defensive — earlier guards already caught zero/negative cases
+
+            lockedInventory.OnHandQty -= applied;
+            lockedOrderLine.QtyFulfilled += applied;
 
             // Set BarcodeLockedAt if null — plant was loaded AsNoTracking, so load tracked version
             var trackedPlant = await _db.PlantCatalogs.FindAsync(plant.Id);
@@ -194,14 +208,17 @@ public class FulfillmentService : IFulfillmentService
                 order.Status = OrderStatus.InProgress;
             }
 
-            // Insert FulfillmentEvent(Accepted)
+            // Insert FulfillmentEvent(Accepted) — single event with Quantity column
+            // captures the volunteer intent cleanly (one scan = one event), while
+            // Quantity preserves the audit count without N rows of noise.
             var evt = new FulfillmentEvent
             {
                 OrderId = orderId,
                 PlantCatalogId = plant.Id,
                 Barcode = barcode,
                 Result = FulfillmentResult.Accepted,
-                Message = $"Scanned 1x '{plant.Name}'. Fulfilled {lockedOrderLine.QtyFulfilled}/{lockedOrderLine.QtyOrdered}."
+                Quantity = applied,
+                Message = $"Scanned {applied}x '{plant.Name}'. Fulfilled {lockedOrderLine.QtyFulfilled}/{lockedOrderLine.QtyOrdered}."
             };
             _db.FulfillmentEvents.Add(evt);
 

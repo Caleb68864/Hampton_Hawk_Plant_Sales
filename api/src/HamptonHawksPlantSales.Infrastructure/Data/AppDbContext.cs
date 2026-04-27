@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportIssue> ImportIssues => Set<ImportIssue>();
     public DbSet<AdminAction> AdminActions => Set<AdminAction>();
+    public DbSet<ScanSession> ScanSessions => Set<ScanSession>();
+    public DbSet<ScanSessionMember> ScanSessionMembers => Set<ScanSessionMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

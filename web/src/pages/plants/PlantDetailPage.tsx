@@ -4,6 +4,8 @@ import { plantsApi } from '@/api/plants.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
+import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import type { Plant, CreatePlantRequest, UpdatePlantRequest } from '@/types/plant.js';
 
 export function PlantDetailPage() {
@@ -103,10 +105,11 @@ export function PlantDetailPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">{isNew ? 'New Plant' : `Edit: ${plant?.name ?? ''}`}</h1>
-        <div className="flex items-center gap-3">
+    <JoyPageShell
+      title={isNew ? 'New Plant' : `Edit: ${plant?.name ?? ''}`}
+      eyebrow={isNew ? 'Create' : 'Plant'}
+      actions={
+        <>
           {!isNew && plant && (
             <a
               href={`/print/labels?plantId=${plant.id}&density=test`}
@@ -117,16 +120,12 @@ export function PlantDetailPage() {
               Print Label
             </a>
           )}
-          <button
-            type="button"
-            className="text-sm text-gray-500 hover:text-gray-700"
-            onClick={() => navigate('/plants')}
-          >
+          <TouchButton variant="ghost" onClick={() => navigate('/plants')}>
             Back to Plants
-          </button>
-        </div>
-      </div>
-
+          </TouchButton>
+        </>
+      }
+    >
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {plant?.barcodeLockedAt && (
@@ -217,13 +216,9 @@ export function PlantDetailPage() {
               </button>
             )}
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2 text-sm font-medium text-white bg-hawk-600 rounded-md hover:bg-hawk-700 disabled:opacity-50"
-          >
+          <TouchButton type="submit" variant="primary" disabled={saving}>
             {saving ? 'Saving...' : isNew ? 'Create Plant' : 'Save Changes'}
-          </button>
+          </TouchButton>
         </div>
       </form>
 
@@ -236,6 +231,6 @@ export function PlantDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
-    </div>
+    </JoyPageShell>
   );
 }

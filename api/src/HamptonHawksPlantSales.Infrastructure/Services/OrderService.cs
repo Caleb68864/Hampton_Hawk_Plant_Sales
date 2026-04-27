@@ -27,7 +27,7 @@ public class OrderService : IOrderService
 
     public async Task<PagedResult<OrderResponse>> GetAllAsync(
         string? search, OrderStatus? status, bool? isWalkUp, Guid? sellerId, Guid? customerId,
-        bool includeDeleted, PaginationParams paging)
+        bool includeDeleted, PaginationParams paging, bool includeDraft = false)
     {
         var query = includeDeleted
             ? _db.Orders.IgnoreQueryFilters().Include(o => o.Customer).Include(o => o.Seller).AsQueryable()
@@ -35,6 +35,11 @@ public class OrderService : IOrderService
 
         if (!includeDeleted)
             query = query.Where(o => o.DeletedAt == null);
+
+        // SS-05: exclude Draft orders by default (walk-up cash-register drafts).
+        // An explicit status filter or includeDraft=true overrides this.
+        if (!includeDraft && !status.HasValue)
+            query = query.Where(o => o.Status != OrderStatus.Draft);
 
         if (status.HasValue)
             query = query.Where(o => o.Status == status.Value);
@@ -54,8 +59,8 @@ public class OrderService : IOrderService
             query = query.Where(o =>
                 o.OrderNumber.ToLower().Contains(term) ||
                 (o.Barcode != null && o.Barcode.ToLower().Contains(term)) ||
-                o.Customer.DisplayName.ToLower().Contains(term) ||
-                o.Customer.PickupCode.ToLower().Contains(term));
+                (o.Customer != null && o.Customer.DisplayName.ToLower().Contains(term)) ||
+                (o.Customer != null && o.Customer.PickupCode.ToLower().Contains(term)));
         }
 
         var totalCount = await query.CountAsync();
@@ -338,6 +343,8 @@ public class OrderService : IOrderService
         Status = o.Status,
         IsWalkUp = o.IsWalkUp,
         HasIssue = o.HasIssue,
+        PaymentMethod = o.PaymentMethod,
+        AmountTendered = o.AmountTendered,
         Customer = o.Customer == null ? null : new CustomerResponse
         {
             Id = o.Customer.Id,
@@ -347,6 +354,7 @@ public class OrderService : IOrderService
             Phone = o.Customer.Phone,
             Email = o.Customer.Email,
             PickupCode = o.Customer.PickupCode,
+            PicklistBarcode = o.Customer.PicklistBarcode,
             Notes = o.Customer.Notes,
             CreatedAt = o.Customer.CreatedAt,
             UpdatedAt = o.Customer.UpdatedAt,
@@ -360,6 +368,7 @@ public class OrderService : IOrderService
             DisplayName = o.Seller.DisplayName,
             Grade = o.Seller.Grade,
             Teacher = o.Seller.Teacher,
+            PicklistBarcode = o.Seller.PicklistBarcode,
             CreatedAt = o.Seller.CreatedAt,
             UpdatedAt = o.Seller.UpdatedAt,
             DeletedAt = o.Seller.DeletedAt
@@ -382,7 +391,149 @@ public class OrderService : IOrderService
         QtyOrdered = l.QtyOrdered,
         QtyFulfilled = l.QtyFulfilled,
         Notes = l.Notes,
+        LastScanIdempotencyKey = l.LastScanIdempotencyKey,
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };
+
+    public async Task<BulkOperationResult> BulkCompleteAsync(BulkCompleteOrdersRequest request, string? adminReason = null)
+    {
+        var outcomes = new List<BulkOrderOutcome>();
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
+
+        try
+        {
+            foreach (var orderId in request.OrderIds)
+            {
+                Order? order;
+
+                if (isRelational)
+                {
+                    // Acquire row lock with FOR UPDATE
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                        orderId);
+                }
+
+                order = await _db.Orders
+                    .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
+                    .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
+
+                if (order == null)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "Order not found"
+                    });
+                    continue;
+                }
+
+                // Check eligibility: all lines must be fully fulfilled
+                var allFulfilled = order.OrderLines.All(l => l.QtyFulfilled >= l.QtyOrdered);
+
+                if (!allFulfilled)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "unfulfilled lines"
+                    });
+                    continue;
+                }
+
+                // Complete the order
+                order.Status = OrderStatus.Complete;
+
+                outcomes.Add(new BulkOrderOutcome
+                {
+                    OrderId = orderId,
+                    Outcome = "Completed"
+                });
+
+                // Log admin action
+                await _adminService.LogActionAsync(
+                    "BulkComplete",
+                    "Order",
+                    orderId,
+                    adminReason ?? "Bulk operation",
+                    $"Bulk-completed via /api/orders/bulk-complete; selected={request.OrderIds.Count}");
+            }
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+
+        return new BulkOperationResult { Outcomes = outcomes };
+    }
+
+    public async Task<BulkOperationResult> BulkSetStatusAsync(BulkSetOrderStatusRequest request, string? adminReason = null)
+    {
+        var outcomes = new List<BulkOrderOutcome>();
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
+
+        try
+        {
+            foreach (var orderId in request.OrderIds)
+            {
+                if (isRelational)
+                {
+                    // Acquire row lock with FOR UPDATE
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                        orderId);
+                }
+
+                var order = await _db.Orders
+                    .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
+
+                if (order == null)
+                {
+                    outcomes.Add(new BulkOrderOutcome
+                    {
+                        OrderId = orderId,
+                        Outcome = "Skipped",
+                        Reason = "Order not found"
+                    });
+                    continue;
+                }
+
+                // Set status
+                order.Status = request.TargetStatus;
+
+                outcomes.Add(new BulkOrderOutcome
+                {
+                    OrderId = orderId,
+                    Outcome = "StatusChanged"
+                });
+
+                // Log admin action
+                await _adminService.LogActionAsync(
+                    "BulkSetStatus",
+                    "Order",
+                    orderId,
+                    adminReason ?? "Bulk operation",
+                    $"Bulk status change to {request.TargetStatus} via /api/orders/bulk-status; selected={request.OrderIds.Count}");
+            }
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+
+        return new BulkOperationResult { Outcomes = outcomes };
+    }
 }

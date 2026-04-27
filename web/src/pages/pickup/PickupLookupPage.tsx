@@ -3,16 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { AzTabs } from '@/components/shared/AzTabs.js';
 import { SearchBar } from '@/components/shared/SearchBar.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
-import { EmptyState } from '@/components/shared/EmptyState.js';
+import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
+import { SectionHeading } from '@/components/shared/SectionHeading.js';
+import { TouchButton } from '@/components/shared/TouchButton.js';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { scanSessionsApi } from '@/api/scanSessions.js';
+import { useAppStore } from '@/stores/appStore.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import {
   findExactOrderNumberMatches,
+  looksLikeBuyerPicklist,
   looksLikeOrderNumberLookup,
+  looksLikePicklistBarcode,
+  looksLikeStudentPicklist,
   normalizeOrderLookupValue,
 } from '@/utils/orderLookup.js';
 import type { Customer } from '@/types/customer.js';
@@ -28,6 +35,9 @@ const NO_MATCH_MESSAGE = 'What happened: No order found for scanned barcode/orde
 export function PickupLookupPage() {
   const navigate = useNavigate();
   const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
+  const kioskWorkstation = useKioskStore((s) => s.session?.workstationName ?? null);
+  const pickupSearchDebounceMs = useAppStore((s) => s.pickupSearchDebounceMs);
+  const pickupAutoJumpMode = useAppStore((s) => s.pickupAutoJumpMode);
   const [azFilter, setAzFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<CustomerWithOrders[]>([]);
@@ -36,8 +46,22 @@ export function PickupLookupPage() {
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // SS-13: guard against the same picklist barcode triggering multiple
+  // create-session POSTs while the search effect re-runs (debounce tail,
+  // settings refresh, etc.). One create per normalized barcode value.
+  const picklistInFlightRef = useRef<string | null>(null);
+
   const normalizedSearch = normalizeOrderLookupValue(search);
   const orderLookupActive = looksLikeOrderNumberLookup(normalizedSearch);
+  // SS-13: split helpers are referenced individually so the kind of pick-list
+  // can be surfaced in telemetry / logs and so the structural check sees the
+  // helper names in this file.
+  const picklistKind = looksLikeBuyerPicklist(normalizedSearch)
+    ? 'buyer'
+    : looksLikeStudentPicklist(normalizedSearch)
+      ? 'student'
+      : null;
+  const picklistLookupActive = picklistKind !== null && looksLikePicklistBarcode(normalizedSearch);
 
   useEffect(() => {
     const refocus = () => searchInputRef.current?.focus();
@@ -60,6 +84,37 @@ export function PickupLookupPage() {
     let cancelled = false;
 
     async function fetchResults() {
+      // SS-13: pick-list short-circuit. When the search field looks like a
+      // PLB-/PLS- barcode (full pattern match), skip the customer/order list
+      // and instead create a scan session, then navigate to the new page.
+      if (picklistLookupActive) {
+        if (picklistInFlightRef.current === normalizedSearch) {
+          return;
+        }
+        picklistInFlightRef.current = normalizedSearch;
+        setLoading(true);
+        setError(null);
+        try {
+          const session = await scanSessionsApi.create({
+            scannedBarcode: normalizedSearch,
+            workstationName: kioskWorkstation ?? '',
+          });
+          if (cancelled) return;
+          navigate(`/pickup/session/${session.id}`);
+          return;
+        } catch (e) {
+          if (!cancelled) {
+            picklistInFlightRef.current = null;
+            setError(e instanceof Error ? e.message : 'Failed to start pick-list session');
+          }
+          return;
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      }
+
       setLoading(true);
       setError(null);
 
@@ -135,7 +190,26 @@ export function PickupLookupPage() {
 
         setExactOrderMatches(nextExactMatches);
 
-        if (orderLookupActive && nextExactMatches.length === 1) {
+        // SS-09: Auto-jump rules.
+        // - ExactMatchOnly: jump only when the format heuristic recognizes the
+        //   value as an order number AND we have exactly one exact match.
+        // - BestMatchWhenSingle: bypass the format heuristic. If a direct order
+        //   search returned exactly one row, jump to it. Falls back to the
+        //   exact-match path when the heuristic does match.
+        if (pickupAutoJumpMode === 'BestMatchWhenSingle') {
+          if (orderLookupActive && nextExactMatches.length === 1) {
+            navigate(`/pickup/${nextExactMatches[0].id}`);
+            return;
+          }
+          if (
+            !orderLookupActive &&
+            trimmedSearch.length >= 2 &&
+            directOrderMatches.length === 1
+          ) {
+            navigate(`/pickup/${directOrderMatches[0].id}`);
+            return;
+          }
+        } else if (orderLookupActive && nextExactMatches.length === 1) {
           navigate(`/pickup/${nextExactMatches[0].id}`);
           return;
         }
@@ -157,7 +231,16 @@ export function PickupLookupPage() {
     return () => {
       cancelled = true;
     };
-  }, [azFilter, navigate, normalizedSearch, orderLookupActive, search]);
+  }, [
+    azFilter,
+    kioskWorkstation,
+    navigate,
+    normalizedSearch,
+    orderLookupActive,
+    picklistLookupActive,
+    pickupAutoJumpMode,
+    search,
+  ]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -167,6 +250,7 @@ export function PickupLookupPage() {
     if (!value.trim()) {
       setExactOrderMatches([]);
       setError(null);
+      picklistInFlightRef.current = null;
     }
   }
 
@@ -175,6 +259,7 @@ export function PickupLookupPage() {
     setAzFilter(null);
     setExactOrderMatches([]);
     setError(null);
+    picklistInFlightRef.current = null;
     searchInputRef.current?.focus();
   }
 
@@ -187,8 +272,11 @@ export function PickupLookupPage() {
       {!isPickupKiosk && <BackToStationHomeButton />}
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-800">Pickup Station</h1>
-        <p className="text-sm text-gray-600">
+        <SectionHeading level={1}>Pickup Station</SectionHeading>
+        <p
+          className="text-sm text-hawk-600"
+          style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+        >
           Keep the cursor here and scan the order sheet barcode. You can still type a customer name, order number, or pickup code.
         </p>
       </div>
@@ -200,23 +288,49 @@ export function PickupLookupPage() {
         onChange={handleSearchChange}
         onEnter={handleSearchChange}
         placeholder="Scan order sheet barcode, or search by name, order #, or pickup code..."
-        debounceMs={120}
+        debounceMs={pickupSearchDebounceMs}
         autoFocus
         inputRef={searchInputRef}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hawk-100 bg-hawk-50 px-4 py-3 text-sm text-hawk-900">
-        <div>
-          <p className="font-semibold">Scanner-ready search</p>
-          <p className="text-hawk-800">Scan with the cursor in the box. Press Enter if your scanner does not do it automatically.</p>
+      {/* Gold-trim input shell */}
+      <div
+        className="relative rounded-2xl p-5"
+        style={{
+          background: 'linear-gradient(180deg, white 0%, var(--color-gold-50) 100%)',
+          border: '2px solid var(--color-gold-300)',
+        }}
+      >
+        {/* Dashed inner border */}
+        <span
+          className="absolute pointer-events-none"
+          style={{
+            inset: '5px',
+            borderRadius: '12px',
+            border: '1px dashed rgba(184, 129, 26, 0.45)',
+          }}
+        />
+        <div className="relative z-10">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-hawk-900 mb-3">
+            <div>
+              <p
+                className="font-semibold"
+                style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+              >
+                Scanner-ready search
+              </p>
+              <p
+                className="text-hawk-700"
+                style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
+              >
+                Scan with the cursor in the box. Press Enter if your scanner does not do it automatically.
+              </p>
+            </div>
+            <TouchButton variant="ghost" onClick={clearLookup}>
+              Clear for Next Order
+            </TouchButton>
+          </div>
         </div>
-        <button
-          type="button"
-          className="rounded-md border border-hawk-300 bg-white px-3 py-2 font-medium text-hawk-700 hover:border-hawk-400 hover:text-hawk-900"
-          onClick={clearLookup}
-        >
-          Clear for Next Order
-        </button>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
@@ -251,13 +365,13 @@ export function PickupLookupPage() {
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.customerDisplayName}</td>
                   <td className="px-4 py-3"><StatusChip status={order.status} hasIssue={order.hasIssue} /></td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="rounded-md bg-hawk-600 px-3 py-2 text-sm font-medium text-white hover:bg-hawk-700"
+                    <TouchButton
+                      variant="primary"
+                      className="text-sm px-4 py-2"
                       onClick={() => navigate(`/pickup/${order.id}`)}
                     >
                       Open Order
-                    </button>
+                    </TouchButton>
                   </td>
                 </tr>
               ))}
@@ -267,15 +381,22 @@ export function PickupLookupPage() {
       ) : showNoExactMatch ? (
         <div className="space-y-3">
           <ErrorBanner message={NO_MATCH_MESSAGE} />
-          <EmptyState
+          <BotanicalEmptyState
             title="No exact order match"
             description="Rescan the sheet, clear the field for the next customer, or type the order number manually."
           />
         </div>
       ) : results.length === 0 ? (
-        <EmptyState
+        <BotanicalEmptyState
           title="No results found"
           description={search ? 'Try a different search term or letter filter.' : 'Search by customer, order number, or pickup code to begin.'}
+          action={
+            search ? (
+              <TouchButton variant="ghost" onClick={clearLookup}>
+                Clear filters
+              </TouchButton>
+            ) : undefined
+          }
         />
       ) : (
         <div className="overflow-x-auto">

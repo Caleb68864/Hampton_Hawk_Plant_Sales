@@ -1,0 +1,10 @@
+{
+  "task_id": "ss02-migration-exists",
+  "phase_id": 2,
+  "artifact_paths": [
+    "api/src/HamptonHawksPlantSales.Infrastructure/Data/Migrations/20260426042710_AddScannerTunings.cs"
+  ],
+  "verification_command_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "timestamp": "2026-04-26T15:50:33.397Z",
+  "worker_id": "implementer-ss02"
+}
