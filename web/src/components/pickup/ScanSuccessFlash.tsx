@@ -39,10 +39,12 @@ export function ScanSuccessFlash({
 
   return (
     <div
-      className="flex flex-col items-center justify-center py-8 gap-4"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 pointer-events-none"
+      role="status"
+      aria-live="polite"
       style={{
         background:
-          'radial-gradient(600px 280px at 50% 40%, rgba(212, 160, 33, 0.16) 0%, transparent 70%)',
+          'radial-gradient(600px 280px at 50% 50%, rgba(212, 160, 33, 0.20) 0%, rgba(0,0,0,0.10) 50%, transparent 75%)',
       }}
     >
       {/* Checkbloom circle */}

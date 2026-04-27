@@ -48,7 +48,15 @@ export function OrderCompleteCelebration({
   }
 
   return (
-    <div className="relative text-center py-6 px-4 overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center text-center px-4 overflow-hidden pointer-events-none"
+      role="status"
+      aria-live="polite"
+      style={{
+        background:
+          'radial-gradient(900px 500px at 50% 45%, rgba(212, 160, 33, 0.22) 0%, rgba(102, 46, 128, 0.15) 40%, rgba(0,0,0,0.25) 100%)',
+      }}
+    >
       {/* Confetti */}
       <div
         className="absolute inset-0 pointer-events-none overflow-hidden"
