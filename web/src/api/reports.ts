@@ -2,15 +2,19 @@ import { get } from './client.js';
 import type {
   DailySalesResponse,
   DashboardMetrics,
+  LiveSaleKpiResponse,
   LowInventoryItem,
   OutstandingAgingResponse,
   PaymentBreakdownResponse,
   ProblemOrder,
+  RecentScanEntry,
   SalesByCustomerRow,
   SalesByPlantRow,
   SalesBySellerRow,
+  ScanActivityHourBucket,
   SellerOrderSummary,
   StatusFunnelResponse,
+  TopMoverLiveRow,
   TopMoversResponse,
   WalkupVsPreorderResponse,
 } from '@/types/reports.js';
@@ -210,6 +214,73 @@ function normalizeTopMovers(raw: unknown): TopMoversResponse {
   };
 }
 
+function asNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'number' ? value : null;
+}
+
+function asNullableString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'string' ? value : null;
+}
+
+function normalizeLiveSaleKpi(raw: unknown): LiveSaleKpiResponse {
+  const r = asRecord(raw);
+  const topMoversRaw = Array.isArray(r.topMovers ?? r.TopMovers)
+    ? (r.topMovers ?? r.TopMovers) as unknown[]
+    : [];
+  const hourlyRaw = Array.isArray(r.hourlyActivity ?? r.HourlyActivity)
+    ? (r.hourlyActivity ?? r.HourlyActivity) as unknown[]
+    : [];
+  const recentRaw = Array.isArray(r.recentScans ?? r.RecentScans)
+    ? (r.recentScans ?? r.RecentScans) as unknown[]
+    : [];
+
+  const topMovers: TopMoverLiveRow[] = topMoversRaw.map((row) => {
+    const o = asRecord(row);
+    return {
+      plantName: asString(o.plantName ?? o.PlantName),
+      qtyScanned: asNumber(o.qtyScanned ?? o.QtyScanned),
+    };
+  });
+
+  const hourlyActivity: ScanActivityHourBucket[] = hourlyRaw.map((row) => {
+    const o = asRecord(row);
+    return {
+      hourStart: asString(o.hourStart ?? o.HourStart),
+      scanCount: asNumber(o.scanCount ?? o.ScanCount),
+      itemsScanned: asNumber(o.itemsScanned ?? o.ItemsScanned),
+    };
+  });
+
+  const recentScans: RecentScanEntry[] = recentRaw.map((row) => {
+    const o = asRecord(row);
+    return {
+      at: asString(o.at ?? o.At),
+      plantName: asString(o.plantName ?? o.PlantName),
+      quantity: asNumber(o.quantity ?? o.Quantity),
+      orderNumber: asString(o.orderNumber ?? o.OrderNumber),
+    };
+  });
+
+  return {
+    totalSalesRevenue: asNumber(r.totalSalesRevenue ?? r.TotalSalesRevenue),
+    totalOrdersToday: asNumber(r.totalOrdersToday ?? r.TotalOrdersToday),
+    ordersCompleted: asNumber(r.ordersCompleted ?? r.OrdersCompleted),
+    ordersOpen: asNumber(r.ordersOpen ?? r.OrdersOpen),
+    itemsScannedTotal: asNumber(r.itemsScannedTotal ?? r.ItemsScannedTotal),
+    itemsScannedToday: asNumber(r.itemsScannedToday ?? r.ItemsScannedToday),
+    scansLastHour: asNumber(r.scansLastHour ?? r.ScansLastHour),
+    meanSecondsBetweenScans: asNullableNumber(r.meanSecondsBetweenScans ?? r.MeanSecondsBetweenScans),
+    averageOrderPickupSeconds: asNullableNumber(r.averageOrderPickupSeconds ?? r.AverageOrderPickupSeconds),
+    lastScanAt: asNullableString(r.lastScanAt ?? r.LastScanAt),
+    lastScanPlantName: asNullableString(r.lastScanPlantName ?? r.LastScanPlantName),
+    topMovers,
+    hourlyActivity,
+    recentScans,
+  };
+}
+
 function normalizeOutstandingAging(raw: unknown): OutstandingAgingResponse {
   const r = asRecord(raw);
   const buckets = Array.isArray(r.buckets ?? r.Buckets) ? (r.buckets ?? r.Buckets) as unknown[] : [];
@@ -290,4 +361,7 @@ export const reportsApi = {
 
   getOutstandingAging: async () =>
     normalizeOutstandingAging(await get<unknown>('/reports/outstanding-aging')),
+
+  getLiveSaleKpi: async () =>
+    normalizeLiveSaleKpi(await get<unknown>('/reports/live-sale-kpi')),
 };

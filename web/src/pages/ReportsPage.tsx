@@ -35,6 +35,8 @@ interface ReportCardLink {
   eyebrow: string;
   title: string;
   description: string;
+  /** When true, render the card with a gilded border + projector accent. */
+  highlight?: boolean;
 }
 
 interface ReportCategory {
@@ -44,6 +46,19 @@ interface ReportCategory {
 }
 
 const REPORT_CATEGORIES: ReportCategory[] = [
+  {
+    heading: 'Live',
+    eyebrow: 'Projector',
+    cards: [
+      {
+        to: '/reports/live-sale-kpi',
+        eyebrow: 'Projector',
+        title: 'Sale Day Live',
+        description: 'Auto-refreshing KPI dashboard for the projector. Big bold numbers, scan tempo, top movers, recent activity.',
+        highlight: true,
+      },
+    ],
+  },
   {
     heading: 'Sales Breakdowns',
     eyebrow: 'Sales',
@@ -247,10 +262,18 @@ export function ReportsPage() {
                 <Link
                   key={card.to}
                   to={card.to}
-                  className="group block rounded-2xl border border-hawk-200 bg-white p-5 joy-shadow-plum transition-shadow hover:border-gold-300 hover:shadow-[0_12px_28px_-12px_rgba(184,129,26,0.45)]"
+                  className={
+                    card.highlight
+                      ? 'group block rounded-2xl border-2 border-gold-400 bg-gradient-to-b from-gold-50 to-white p-5 joy-shadow-plum transition-shadow hover:border-gold-500 hover:shadow-[0_18px_36px_-12px_rgba(184,129,26,0.55)]'
+                      : 'group block rounded-2xl border border-hawk-200 bg-white p-5 joy-shadow-plum transition-shadow hover:border-gold-300 hover:shadow-[0_12px_28px_-12px_rgba(184,129,26,0.45)]'
+                  }
                 >
                   <p
-                    className="text-[11px] font-bold uppercase tracking-[0.24em] text-hawk-700"
+                    className={
+                      card.highlight
+                        ? 'text-[11px] font-bold uppercase tracking-[0.28em] text-gold-700'
+                        : 'text-[11px] font-bold uppercase tracking-[0.24em] text-hawk-700'
+                    }
                     style={{ fontFamily: "var(--font-body), 'Manrope', sans-serif" }}
                   >
                     {card.eyebrow}

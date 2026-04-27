@@ -143,3 +143,41 @@ export interface OutstandingAgingBucket {
 export interface OutstandingAgingResponse {
   buckets: OutstandingAgingBucket[];
 }
+
+// Sale-day live KPI dashboard (projector view). All Date* fields arrive as
+// ISO 8601 strings over JSON.
+
+export interface TopMoverLiveRow {
+  plantName: string;
+  qtyScanned: number;
+}
+
+export interface ScanActivityHourBucket {
+  hourStart: string;
+  scanCount: number;
+  itemsScanned: number;
+}
+
+export interface RecentScanEntry {
+  at: string;
+  plantName: string;
+  quantity: number;
+  orderNumber: string;
+}
+
+export interface LiveSaleKpiResponse {
+  totalSalesRevenue: number;
+  totalOrdersToday: number;
+  ordersCompleted: number;
+  ordersOpen: number;
+  itemsScannedTotal: number;
+  itemsScannedToday: number;
+  scansLastHour: number;
+  meanSecondsBetweenScans: number | null;
+  averageOrderPickupSeconds: number | null;
+  lastScanAt: string | null;
+  lastScanPlantName: string | null;
+  topMovers: TopMoverLiveRow[];
+  hourlyActivity: ScanActivityHourBucket[];
+  recentScans: RecentScanEntry[];
+}

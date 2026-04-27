@@ -36,6 +36,7 @@ import { PrintCustomersBatchPage } from '@/pages/print/PrintCustomersBatchPage.j
 import { ReportsPage } from '@/pages/ReportsPage.js';
 import { DailySalesPage } from '@/pages/reports/DailySalesPage.js';
 import { LeftoverInventoryPage } from '@/pages/reports/LeftoverInventoryPage.js';
+import { LiveSaleKpiPage } from '@/pages/reports/LiveSaleKpiPage.js';
 import { OutstandingAgingPage } from '@/pages/reports/OutstandingAgingPage.js';
 import { PaymentBreakdownPage } from '@/pages/reports/PaymentBreakdownPage.js';
 import { SalesByCustomerPage } from '@/pages/reports/SalesByCustomerPage.js';
@@ -89,6 +90,7 @@ function App() {
               <Route path="walkup/register/:draftId" element={<WalkUpRegisterPage />} />
               <Route path="imports" element={<ImportsPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="reports/live-sale-kpi" element={<LiveSaleKpiPage />} />
               <Route path="reports/leftover-inventory" element={<LeftoverInventoryPage />} />
               <Route path="reports/sales-by-seller" element={<SalesBySellerPage />} />
               <Route path="reports/sales-by-customer" element={<SalesByCustomerPage />} />
