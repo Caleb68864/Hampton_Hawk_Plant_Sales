@@ -16,8 +16,14 @@ export const scanSessionsApi = {
   get: (id: string) =>
     get<ScanSessionResponse>(`/scan-sessions/${id}`),
 
-  scan: (id: string, data: ScanInSessionRequest) =>
-    post<ScanSessionScanResponse>(`/scan-sessions/${id}/scan`, data),
+  // Multi-quantity session scan: callers may pass `data.quantity` to fulfill
+  // multiple units across pending lines in one round-trip. Omitted/undefined
+  // defaults to 1 server-side; the wire payload always carries quantity so the
+  // backend distribution log stays explicit.
+  scan: (id: string, data: ScanInSessionRequest) => {
+    const quantity = data.quantity ?? 1;
+    return post<ScanSessionScanResponse>(`/scan-sessions/${id}/scan`, { ...data, quantity });
+  },
 
   close: (id: string) =>
     post<ScanSessionResponse>(`/scan-sessions/${id}/close`),

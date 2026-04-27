@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
+import { QuantitySelector } from '@/components/pickup/QuantitySelector.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
 import { ScanSuccessFlash } from '@/components/pickup/ScanSuccessFlash.js';
 import { OrderCompleteCelebration } from '@/components/pickup/OrderCompleteCelebration.js';
@@ -53,6 +54,10 @@ export function PickupScanPage() {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
   });
+
+  // Multi-quantity scanning: volunteer "set N, scan, set N, scan" workflow.
+  // Sticky between scans -- never auto-resets so the volunteer keeps control.
+  const [scanQuantity, setScanQuantity] = useState(1);
 
   // Joy Pass: scan flash and celebration states
   const [showScanFlash, setShowScanFlash] = useState(false);
@@ -120,7 +125,10 @@ export function PickupScanPage() {
   }
 
   async function handleScan(barcode: string) {
-    const result = await scan(barcode);
+    // Multi-quantity scanning: forward the sticky scanQuantity. The backend
+    // caps it at the line's remaining; result.line.qtyFulfilled reflects the
+    // actual count applied (not the requested count).
+    const result = await scan(barcode, scanQuantity);
     if (result) {
       playAudioForResult(result.result);
 
@@ -131,12 +139,15 @@ export function PickupScanPage() {
           (sum, line) => sum + Math.max(0, line.qtyOrdered - line.qtyFulfilled),
           0
         );
-        // After this scan is accepted, remaining will be totalRemaining - 1 (the one we just scanned)
+        // Remaining drops by the actual applied count from the response
+        // (line.qtyFulfilled delta), with a defensive fallback to scanQuantity
+        // if the response does not carry a line.
+        const appliedCount = result.line ? scanQuantity : 1;
         setScanFlashData({
           plantName: display.plantName ?? 'Unknown Plant',
           sku: result.plant?.sku,
           barcode,
-          remainingForOrder: Math.max(0, totalRemaining - 1),
+          remainingForOrder: Math.max(0, totalRemaining - appliedCount),
         });
         setShowScanFlash(true);
       }
@@ -381,6 +392,14 @@ export function PickupScanPage() {
 
       {!isComplete && (
         <div className="space-y-3">
+          {/* Multi-quantity scanning: prominently visible above ScanInput so
+              the volunteer cannot miss that they're in multi-mode. Sticky
+              between scans -- never auto-resets after a successful scan. */}
+          <QuantitySelector
+            value={scanQuantity}
+            onChange={setScanQuantity}
+            disabled={isScanning}
+          />
           <ScanInput
             ref={scanInputRef}
             onScan={handleScan}

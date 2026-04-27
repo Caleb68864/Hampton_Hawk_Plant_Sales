@@ -21,6 +21,13 @@ export interface CreateScanSessionRequest {
 
 export interface ScanInSessionRequest {
   plantBarcode: string;
+  /**
+   * Multi-quantity scanning: number of units to fulfill in one scan.
+   * Optional; backend defaults to 1 when omitted. The session backend
+   * distributes the requested quantity across pending lines greedily
+   * (oldest order, then oldest line first).
+   */
+  quantity?: number;
 }
 
 export interface ScanSessionAggregatedLine {

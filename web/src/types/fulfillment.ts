@@ -8,6 +8,12 @@ export type FulfillmentResultType =
 
 export interface ScanRequest {
   barcode: string;
+  /**
+   * Multi-quantity scanning: number of units to fulfill in one scan.
+   * Optional; backend defaults to 1 when omitted. Volunteer "set 6, scan once"
+   * workflow drives this from the QuantitySelector on PickupScanPage.
+   */
+  quantity?: number;
 }
 
 export interface ScanResponse {

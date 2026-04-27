@@ -128,13 +128,16 @@ export function useScanWorkflow(
   }, [mode, id]);
 
   const scan = useCallback(
-    async (barcode: string): Promise<ScanResponse | null> => {
+    async (barcode: string, quantity: number = 1): Promise<ScanResponse | null> => {
       if (mode !== 'order' || !id) return null;
       const normalized = normalizeScannedBarcode(barcode);
       const lookupBarcode = normalized || barcode;
+      // Multi-quantity scanning: pass the volunteer-set quantity through.
+      // Defaults to 1 so callers that don't care about multi-qty stay unchanged.
+      const qty = quantity > 0 ? quantity : 1;
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
-        const result = await fulfillmentApi.scan(id, { barcode: lookupBarcode });
+        const result = await fulfillmentApi.scan(id, { barcode: lookupBarcode, quantity: qty });
         const { plantName } = getScanDisplayFields(result);
         const entry: ScanHistoryEntry = {
           barcode,
@@ -164,13 +167,16 @@ export function useScanWorkflow(
   );
 
   const scanInSession = useCallback(
-    async (barcode: string): Promise<ScanSessionScanResponse | null> => {
+    async (barcode: string, quantity: number = 1): Promise<ScanSessionScanResponse | null> => {
       if (mode !== 'session' || !id) return null;
       const normalized = normalizeScannedBarcode(barcode);
       const lookupBarcode = normalized || barcode;
+      // Multi-quantity session scanning: pass the volunteer-set quantity. The
+      // backend distributes it across pending lines (oldest order first).
+      const qty = quantity > 0 ? quantity : 1;
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
-        const result = await scanSessionsApi.scan(id, { plantBarcode: lookupBarcode });
+        const result = await scanSessionsApi.scan(id, { plantBarcode: lookupBarcode, quantity: qty });
         const entry: ScanHistoryEntry = {
           barcode,
           // ScanSessionResult shares 'Accepted' | 'AlreadyFulfilled' |
@@ -350,8 +356,8 @@ export interface UseOrderScanWorkflowReturn extends UseScanWorkflowSharedReturn 
   lastSessionScanResult: ScanSessionScanResponse | null;
   loadOrder: () => Promise<void>;
   loadSession: () => Promise<void>;
-  scan: (barcode: string) => Promise<ScanResponse | null>;
-  scanInSession: (barcode: string) => Promise<ScanSessionScanResponse | null>;
+  scan: (barcode: string, quantity?: number) => Promise<ScanResponse | null>;
+  scanInSession: (barcode: string, quantity?: number) => Promise<ScanSessionScanResponse | null>;
   undoLastScan: (reason?: string, operator?: string) => Promise<ScanResponse | null>;
   refreshOrder: () => Promise<void>;
   refreshSession: () => Promise<void>;

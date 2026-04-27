@@ -8,6 +8,7 @@ import { TouchButton } from '@/components/shared/TouchButton.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
+import { QuantitySelector } from '@/components/pickup/QuantitySelector.js';
 import { ScanFeedbackBanner } from '@/components/pickup/ScanFeedbackBanner.js';
 import { ScanSuccessFlash } from '@/components/pickup/ScanSuccessFlash.js';
 import { ScanHistoryList } from '@/components/pickup/ScanHistoryList.js';
@@ -78,6 +79,10 @@ export function PickupScanSessionPage() {
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
   });
 
+  // Multi-quantity scanning (mirrors PickupScanPage). Sticky between scans
+  // so the volunteer can "set 6, scan, scan, scan" without re-setting.
+  const [scanQuantity, setScanQuantity] = useState(1);
+
   // SS-13: scan flash + remaining counter are stateful so we can show a
   // celebratory overlay on accepted scans, mirroring PickupScanPage.
   const [showScanFlash, setShowScanFlash] = useState(false);
@@ -141,7 +146,9 @@ export function PickupScanSessionPage() {
   }
 
   async function handleScan(barcode: string) {
-    const result = await scanInSession(barcode);
+    // Multi-quantity session scan: forward the sticky scanQuantity. The
+    // backend distributes greedily across pending lines.
+    const result = await scanInSession(barcode, scanQuantity);
     if (result) {
       playAudioForResult(result.result);
       if (result.result === 'Accepted') {
@@ -284,6 +291,14 @@ export function PickupScanSessionPage() {
 
       {!isClosed && (
         <div className="space-y-3">
+          {/* Multi-quantity scanning: prominently visible above ScanInput.
+              Sticky between scans so the volunteer can keep scanning at the
+              chosen multiplier. */}
+          <QuantitySelector
+            value={scanQuantity}
+            onChange={setScanQuantity}
+            disabled={isScanning}
+          />
           <ScanInput ref={scanInputRef} onScan={handleScan} disabled={isScanning} />
 
           <div className="flex flex-wrap items-center gap-3">
