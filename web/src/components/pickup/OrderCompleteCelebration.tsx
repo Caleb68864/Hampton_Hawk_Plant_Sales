@@ -80,6 +80,16 @@ export function OrderCompleteCelebration({
         ))}
       </div>
 
+      {/* Card with solid background for legibility */}
+      <div
+        className="relative rounded-2xl px-10 py-8 max-w-2xl"
+        style={{
+          background: 'var(--joy-paper, #fbf7ee)',
+          border: '1px solid var(--color-gold-300)',
+          boxShadow:
+            '0 30px 80px -20px rgba(68, 29, 85, 0.45), 0 8px 24px -8px rgba(68, 29, 85, 0.25)',
+        }}
+      >
       {/* Stamp */}
       <div
         className="inline-block px-7 py-3.5 mb-3 joy-animate-stamp"
@@ -119,6 +129,7 @@ export function OrderCompleteCelebration({
           ? `Hand to ${customerName}, then scan the next pickup.`
           : 'Hand to the customer, then scan the next pickup.'}
       </p>
+      </div>
     </div>
   );
 }

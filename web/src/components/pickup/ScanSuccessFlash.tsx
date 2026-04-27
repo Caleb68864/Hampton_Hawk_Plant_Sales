@@ -43,7 +43,7 @@ export function ScanSuccessFlash({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 pointer-events-none"
+      className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
       role="status"
       aria-live="polite"
       style={{
@@ -51,6 +51,15 @@ export function ScanSuccessFlash({
           'radial-gradient(600px 280px at 50% 50%, rgba(212, 160, 33, 0.20) 0%, rgba(0,0,0,0.10) 50%, transparent 75%)',
       }}
     >
+      <div
+        className="flex flex-col items-center gap-4 rounded-2xl px-12 py-8"
+        style={{
+          background: 'var(--joy-paper, #fbf7ee)',
+          border: '1px solid var(--color-gold-300)',
+          boxShadow:
+            '0 30px 80px -20px rgba(68, 29, 85, 0.45), 0 8px 24px -8px rgba(68, 29, 85, 0.25)',
+        }}
+      >
       {/* Checkbloom circle */}
       <div
         className="relative w-36 h-36 rounded-full grid place-items-center joy-animate-pop"
@@ -131,6 +140,7 @@ export function ScanSuccessFlash({
           </strong>
         </div>
       )}
+      </div>
     </div>
   );
 }
