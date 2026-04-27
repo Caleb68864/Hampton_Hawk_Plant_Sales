@@ -67,6 +67,11 @@ export interface CreateDraftRequest {
 export interface ScanIntoDraftRequest {
   plantBarcode: string;
   scanId: string;
+  /**
+   * Number of units to add for this scan. Defaults to 1 server-side when
+   * omitted. Used by the multi-quantity scanning UX (set N, scan once).
+   */
+  quantity?: number;
 }
 
 /**

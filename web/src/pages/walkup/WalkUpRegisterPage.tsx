@@ -10,6 +10,9 @@ import {
 } from '@/types/walkupRegister.js';
 import { plantsApi } from '@/api/plants.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
+import { QuantitySelector } from '@/components/pickup/QuantitySelector.js';
+import { ScanSuccessFlash } from '@/components/pickup/ScanSuccessFlash.js';
+import { OrderCompleteCelebration } from '@/components/pickup/OrderCompleteCelebration.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
@@ -64,6 +67,23 @@ export function WalkUpRegisterPage() {
   const [prices, setPrices] = useState<PlantPriceMap>({});
   const scanRef = useRef<ScanInputHandle>(null);
   const initRef = useRef(false);
+
+  // Multi-quantity scanning: volunteer "set N, scan, set N, scan" workflow.
+  // Reset to 1 after each successful scan to match the pickup-screen pattern.
+  const [scanQuantity, setScanQuantity] = useState(1);
+
+  // Joy Pass overlays: scan success flash + sale-complete celebration.
+  // For walkup we omit the `remainingForOrder` pill since the basket grows
+  // (no preset order quantity to count down from).
+  const [showScanFlash, setShowScanFlash] = useState(false);
+  const [scanFlashData, setScanFlashData] = useState<{
+    plantName: string;
+    sku?: string;
+    barcode?: string;
+  } | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationOrderNumber, setCelebrationOrderNumber] = useState<string>('Sale');
+  const pendingNavigateRef = useRef<string | null>(null);
 
   const refocusScan = useCallback(() => {
     // Defer focus to next tick so the scan input is mounted/enabled.
@@ -163,13 +183,35 @@ export function WalkUpRegisterPage() {
       if (!trimmed) return;
       setScanning(true);
       setError(null);
+      // Snapshot pre-scan line state so we can detect which line was touched
+      // and surface the actual plant name in the success flash.
+      const beforeLines = new Map(draft.lines.map((l) => [l.plantCatalogId, l.qtyOrdered]));
+      const requestedQty = scanQuantity;
       try {
         // Generate a fresh idempotency key per scan. The backend uses this to
         // dedupe retries; never reuse it for distinct user actions.
         const scanId = crypto.randomUUID();
-        const next = await walkupRegisterApi.scan(draft.id, { plantBarcode: trimmed, scanId });
+        const next = await walkupRegisterApi.scan(draft.id, {
+          plantBarcode: trimmed,
+          scanId,
+          quantity: requestedQty,
+        });
         await updateDraftAndPersist(next);
         setOverrideTarget(null);
+
+        // Joy Pass: find the line whose qty changed (or appeared) and flash it.
+        const touched = next.lines.find((l) => {
+          const prev = beforeLines.get(l.plantCatalogId) ?? 0;
+          return l.qtyOrdered > prev;
+        });
+        if (touched) {
+          setScanFlashData({
+            plantName: touched.plantName,
+            sku: touched.plantSku,
+            barcode: trimmed,
+          });
+          setShowScanFlash(true);
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Scan failed';
         setError(message);
@@ -178,12 +220,20 @@ export function WalkUpRegisterPage() {
           setOverrideTarget({ plantBarcode: trimmed });
         }
       } finally {
+        // Reset multi-qty back to 1 so the next scan defaults to single,
+        // matching the pickup-screen pattern.
+        setScanQuantity(1);
         setScanning(false);
         refocusScan();
       }
     },
-    [draft, updateDraftAndPersist, refocusScan],
+    [draft, scanQuantity, updateDraftAndPersist, refocusScan],
   );
+
+  const handleScanFlashEnd = useCallback(() => {
+    setShowScanFlash(false);
+    setScanFlashData(null);
+  }, []);
 
   // ---------- Manager override (re-enter via adjustLine) ----------
   const handleManagerOverride = useCallback(async () => {
@@ -304,14 +354,25 @@ export function WalkUpRegisterPage() {
         amountTendered: tenderedNum,
       });
       clearWalkUpDraftId(workstationName);
-      // Navigate to receipt (existing print page).
-      navigate(`/print/order/${closed.id}?returnTo=/station`);
+      // Joy Pass: show the celebration overlay first, then navigate when it
+      // dismisses (auto after ~700ms or on tap/keypress).
+      pendingNavigateRef.current = `/print/order/${closed.id}?returnTo=/station`;
+      setCelebrationOrderNumber(closed.orderNumber || 'Sale');
+      setCloseModal(DEFAULT_CLOSE_MODAL);
+      setShowCelebration(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to close sale');
     } finally {
       setClosing(false);
     }
-  }, [draft, closeModal, clearWalkUpDraftId, workstationName, navigate]);
+  }, [draft, closeModal, clearWalkUpDraftId, workstationName]);
+
+  const handleCelebrationComplete = useCallback(() => {
+    setShowCelebration(false);
+    const target = pendingNavigateRef.current;
+    pendingNavigateRef.current = null;
+    if (target) navigate(target);
+  }, [navigate]);
 
   // ---------- Render ----------
   const lineCount = draft?.lines.reduce((sum, l) => sum + (l.qtyOrdered || 0), 0) ?? 0;
@@ -340,6 +401,29 @@ export function WalkUpRegisterPage() {
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
+      {/* Joy Pass: Scan Success Flash (omits remainingForOrder for walkup -- the
+          basket grows; there is no preset order qty to count down from). */}
+      {showScanFlash && scanFlashData && (
+        <ScanSuccessFlash
+          visible={showScanFlash}
+          plantName={scanFlashData.plantName}
+          sku={scanFlashData.sku}
+          barcode={scanFlashData.barcode}
+          onAnimationEnd={handleScanFlashEnd}
+        />
+      )}
+
+      {/* Joy Pass: Sale Complete Celebration. customerName is undefined for
+          walkup (no customer), which renders the generic "Hand to the customer"
+          copy. Holds ~700ms then navigates to the receipt print page. */}
+      {showCelebration && (
+        <OrderCompleteCelebration
+          visible={showCelebration}
+          orderNumber={celebrationOrderNumber}
+          onComplete={handleCelebrationComplete}
+        />
+      )}
+
       {loading ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500">
           Opening register...
@@ -350,9 +434,16 @@ export function WalkUpRegisterPage() {
           <section className="space-y-4">
             <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
               <label className="block text-sm font-medium text-gray-700">Scan plant barcode</label>
+              {/* Multi-quantity scanning: prominently visible above ScanInput.
+                  Resets to 1 after each successful scan (matches PickupScanPage). */}
+              <QuantitySelector
+                value={scanQuantity}
+                onChange={setScanQuantity}
+                disabled={scanning || !draft}
+              />
               <ScanInput onScan={handleScan} disabled={scanning || !draft} ref={scanRef} />
               <p className="text-xs text-gray-500">
-                Each scan +1 to the ticket. Idempotent on retry. Use the right-rail buttons to close or cancel.
+                Set qty then scan once to add multiple. Idempotent on retry. Use the right-rail buttons to close or cancel.
               </p>
               {overrideTarget && (
                 <div className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2">

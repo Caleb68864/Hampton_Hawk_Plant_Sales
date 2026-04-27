@@ -36,10 +36,16 @@ export const walkupRegisterApi = {
 
   /**
    * Scan a plant barcode into a draft. The client must supply a stable scanId
-   * (crypto.randomUUID()) so the backend can dedupe retries.
+   * (crypto.randomUUID()) so the backend can dedupe retries. Optional
+   * `quantity` drives multi-quantity scanning (set N, scan once); the backend
+   * caps at walk-up availability + on-hand inventory and returns the actual
+   * applied amount in the resulting line. Defaults to 1.
    */
   scan: (draftId: string, data: ScanIntoDraftRequest) =>
-    post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, data),
+    post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, {
+      ...data,
+      quantity: data.quantity && data.quantity > 0 ? data.quantity : 1,
+    }),
 
   /**
    * Adjust a line. The backend may require admin pin/reason if increasing past
