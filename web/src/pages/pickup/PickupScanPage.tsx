@@ -323,13 +323,14 @@ export function PickupScanPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <button
+          <TouchButton
             type="button"
-            className="text-sm text-gray-500 hover:text-gray-700 mb-1"
+            variant="ghost"
+            className="mb-2"
             onClick={() => navigate('/pickup')}
           >
             &larr; Back to Lookup
-          </button>
+          </TouchButton>
           <h1 className="text-2xl font-bold text-gray-800">
             Order {currentOrder.orderNumber}
           </h1>
