@@ -92,7 +92,11 @@ The prior plans should provide:
 
 - authenticated station/mobile accounts
 - `/mobile` PWA shell
+- stable `/mobile` manifest start URL
+- PWA icon assets and install metadata
 - online-only connection state
+- backend unavailable/connection-required UI
+- role-aware mobile workflow cards
 - reusable scanner with manual entry
 - scanner test/demo route or equivalent safe verification harness
 - lookup smoke path for a known test order
@@ -134,6 +138,10 @@ Real-device:
 
 - Android Chrome install/open PWA
 - iPhone Safari install/open PWA
+- PWA launches to `/mobile`
+- signed-in account visible on mobile shell
+- role-aware mobile cards visible/hidden correctly
+- no print controls in mobile shell
 - camera permission allow/deny
 - rear camera selection
 - manual entry while camera works
@@ -151,7 +159,7 @@ End-to-end smoke:
 1. Admin creates or verifies `Pickup1` and a temporary mobile user.
 2. Phone opens installed PWA at `/mobile`.
 3. User logs in.
-4. Mobile shell shows correct account and allowed workflows.
+4. Mobile shell shows correct account, online/backend status, and allowed workflows.
 5. User opens `/mobile/lookup`.
 6. User finds/scans known test order.
 7. User opens `/mobile/pickup/:orderId`.
@@ -164,6 +172,7 @@ End-to-end smoke:
 ## Documentation Deliverables
 - `docs/mobile-sale-day-readiness.md` or equivalent readiness guide.
 - `docs/tests/2026-05-05-mobile-sale-day-readiness/test-plan.md`.
+- Mobile PWA install guide that references the manifest start URL and supported browser expectations.
 - Printable or shareable device setup checklist.
 - Test barcode/order fixture sheet or instructions.
 - Admin account/role setup checklist.
