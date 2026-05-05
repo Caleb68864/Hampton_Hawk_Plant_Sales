@@ -44,10 +44,47 @@ Mobile lookup should not add print controls. Phone users look up the order and t
 
 **Scanner integration** uses the reusable scanner foundation to accept camera or manual decoded order values. Manual entry remains available at all times.
 
+## Contract With Prior Plans
+This plan depends on:
+
+- user authentication and roles
+- mobile Joy shell and online-only PWA behavior
+- reusable camera scanner foundation
+- mobile pickup scan workflow
+
+Mobile lookup is not the scanner foundation and not a print station. It consumes scanner results only for order/customer lookup and routes to mobile pickup when the user is allowed to scan into orders.
+
+The page should reuse existing order lookup normalization helpers where practical so desktop scanner/order-number behavior and mobile scanner/order-number behavior do not drift.
+
+## Role And Permission Rules
+- `Admin` can look up orders and open mobile pickup scanning.
+- `Pickup` can look up orders and open mobile pickup scanning.
+- `LookupPrint` can look up orders if that role is intended for lookup work, but should not open mobile pickup scanning unless it also has `Pickup`.
+- `POS` should not automatically get order pickup access unless the auth spec explicitly grants it.
+- The UI may hide scan-into-order actions, but backend route/API authorization must enforce the same boundary.
+- Mobile lookup has no print controls for any role.
+
 ## Data Flow
 The page accepts typed text, manual entry, or camera-decoded values. It queries existing order/customer APIs where possible, normalizes order barcode values, and either opens a single exact order match or presents a short mobile-friendly result list.
 
 When the user selects an order, the app navigates to `/mobile/pickup/:orderId` if the user's role allows scanning into orders. If not, the user can view the lookup result but cannot perform scan actions.
+
+The lookup page should distinguish three input intentions:
+
+- exact order code or barcode
+- customer/name/order search text
+- unsupported item barcode
+
+Exact order-code matches may auto-open only when there is exactly one safe match and the user's role permits the next action. Search text should show results instead of surprising the user with navigation. Unsupported item barcodes should show a clear wrong-code-type message.
+
+Result cards should include enough information for safe mobile selection:
+
+- order number
+- customer name
+- status
+- pickup/fulfillment progress if available
+- item count if available
+- a clear primary action based on role, such as `Open Scan` or `View Order`
 
 ## Error Handling
 - No match shows a clear not-found state and keeps input ready.
@@ -56,11 +93,32 @@ When the user selects an order, the app navigates to `/mobile/pickup/:orderId` i
 - User without pickup permission should not see scan-into-order actions.
 - Network/backend failure shows retry messaging.
 - Offline state blocks lookup with connection-required messaging.
+- Expired auth redirects to login and returns to `/mobile/lookup` when safe.
+- Backend search errors should not clear the user's typed query.
+- Very broad search results should be capped or paginated for phone usability.
+- Result cards should avoid exposing admin-only actions or print links.
+- If the selected order becomes unavailable or deleted before opening scan, show a recoverable error and return to lookup.
 
 ## Open Questions
 - Decide whether `LookupPrint` role can open mobile pickup scan pages or only lookup. Recommendation: keep lookup and pickup permissions separate.
 - Decide whether mobile lookup should show recent active orders before searching. Recommendation: yes if it helps sale-day flow, but keep the first pass simple.
 - Decide final copy for wrong-code-type scan feedback.
+
+## Verification Notes
+Add focused test coverage for:
+
+- exact order-code match
+- broad text search results
+- no match
+- multiple matches
+- unsupported item barcode feedback
+- lookup-only role cannot open scan
+- pickup/admin role can open scan
+- no print controls render
+- offline state blocks lookup
+- backend error preserves query
+
+Manual verification should include one-handed use at 375px and 430px widths, with enough order/customer text to prove cards wrap cleanly without overlap.
 
 ## Approaches Considered
 **Mobile Print Station** was rejected by product decision: mobile has no print ability.

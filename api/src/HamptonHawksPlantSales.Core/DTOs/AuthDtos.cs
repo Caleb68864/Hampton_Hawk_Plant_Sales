@@ -19,6 +19,13 @@ public record LoginRequest(
     string Password
 );
 
+public record AuthUserResponse(
+    Guid Id,
+    string Username,
+    bool IsActive,
+    IEnumerable<string> Roles
+);
+
 public record UserResponse(
     Guid Id,
     string Username,
