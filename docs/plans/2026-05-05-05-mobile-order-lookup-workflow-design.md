@@ -51,10 +51,20 @@ This plan depends on:
 - mobile Joy shell and online-only PWA behavior
 - reusable camera scanner foundation
 - mobile pickup scan workflow
+- mobile sale-day readiness and hardening for final rollout validation
 
 Mobile lookup is not the scanner foundation and not a print station. It consumes scanner results only for order/customer lookup and routes to mobile pickup when the user is allowed to scan into orders.
 
 The page should reuse existing order lookup normalization helpers where practical so desktop scanner/order-number behavior and mobile scanner/order-number behavior do not drift.
+
+The lookup workflow must be explicit about what can be searched on a phone. Recommended first-pass search inputs:
+
+- exact order number / printed order barcode value
+- customer first/last name
+- pickup code if one exists in current order data
+- seller name only if existing APIs already support it cleanly
+
+Do not silently add broad admin-style order search if it makes phone results noisy or slow. Sale-day readiness depends on lookup behavior being predictable enough to teach quickly.
 
 ## Role And Permission Rules
 - `Admin` can look up orders and open mobile pickup scanning.
@@ -85,6 +95,8 @@ Result cards should include enough information for safe mobile selection:
 - pickup/fulfillment progress if available
 - item count if available
 - a clear primary action based on role, such as `Open Scan` or `View Order`
+
+For readiness testing, the lookup workflow should support a known test order path. That can be documented test data, a seeded fixture in local/dev, or instructions for selecting a real non-production order. The plan should avoid making readiness depend on a fragile customer name or whatever order happened to be imported last.
 
 ## Error Handling
 - No match shows a clear not-found state and keeps input ready.
@@ -117,8 +129,21 @@ Add focused test coverage for:
 - no print controls render
 - offline state blocks lookup
 - backend error preserves query
+- exact order-number scan routes to the same order desktop lookup would find
+- lookup-only role can find but cannot scan into an order
+- readiness smoke test can find a known test order predictably
 
 Manual verification should include one-handed use at 375px and 430px widths, with enough order/customer text to prove cards wrap cleanly without overlap.
+
+The readiness plan will rely on this workflow having a repeatable smoke path:
+
+1. log in as a lookup-capable user
+2. open `/mobile/lookup`
+3. search or scan a known test order code
+4. verify exact match behavior
+5. verify no print controls exist
+6. verify pickup-capable users can continue to `/mobile/pickup/:orderId`
+7. verify lookup-only users cannot scan into the order
 
 ## Approaches Considered
 **Mobile Print Station** was rejected by product decision: mobile has no print ability.

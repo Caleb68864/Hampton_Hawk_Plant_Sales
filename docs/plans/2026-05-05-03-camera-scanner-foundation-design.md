@@ -56,6 +56,7 @@ This plan provides a reusable scanner contract for:
 
 - `2026-05-05-04-mobile-pickup-scan-workflow-design.md`
 - `2026-05-05-05-mobile-order-lookup-workflow-design.md`
+- `2026-05-05-06-mobile-sale-day-readiness-and-hardening-design.md`
 
 The scanner should not call fulfillment, order lookup, inventory, or user APIs directly. Workflow pages consume scanner events and decide what backend request to make.
 
@@ -73,6 +74,8 @@ interface NormalizedScanResult {
 ```
 
 Manual entry should trim obvious whitespace but should not otherwise mutate the value in scanner-level code. Workflow-specific normalization, such as order-number cleanup or item barcode parsing, belongs in the workflow.
+
+For sale-day readiness, the scanner foundation should also provide a small verification harness or documented test route that can prove camera/manual scanning works before volunteers start using the real pickup workflow. This can be a gated `/mobile/scanner-demo` route, a Storybook story, or a documented dev-only page, but the readiness plan needs some safe way to test camera permission, camera selection, manual entry, duplicate cooldown, and QR/1D decode behavior without fulfilling an order.
 
 ## Data Flow
 On start, the scanner requests camera access with rear-camera preferences:
@@ -124,6 +127,20 @@ The consuming workflow pauses scanning while its backend request is pending and 
 - Do not persist scan history in this foundation. Workflows may keep a short in-memory last-result display.
 - Keep the scanner accessible: buttons need labels, scanner status should use an ARIA live region, and manual entry must be reachable by keyboard.
 - Prefer no service-worker interaction. Camera/media streams must never be cached.
+- Emit enough non-sensitive diagnostics for sale-day troubleshooting: scanner status, selected camera label when available, permission state/error type, source (`mobile-camera` or `manual-entry`), and duplicate-suppression status. Do not log decoded customer/order data in browser console by default.
+- Provide a documented list of supported browser/device assumptions, especially HTTPS requirement, localhost development exception, iPhone Safari expectations, Android Chrome expectations, and installed PWA behavior.
+
+## Test Fixtures Needed By Readiness Plan
+The scanner implementation should ship or document a small physical/digital test set:
+
+- a QR code with a harmless test value
+- a Code 128 sample
+- a UPC-A or EAN-13 sample
+- a deliberately unknown value
+- duplicate-scan test instructions
+- manual-entry test values matching the same payload shape
+
+These fixtures should not mutate real orders. If generated files are added, keep them under `docs/tests/` or another clearly documented non-production location.
 
 ## Verification Notes
 Mechanical verification should include a build and focused tests for pure scanner helpers, especially duplicate suppression and payload normalization.

@@ -181,7 +181,7 @@ depends_on: ['SS-02']
 ---
 sub_spec_id: SS-04
 phase: run
-depends_on: ['SS-02']
+depends_on: ['SS-01', 'SS-02']
 ---
 
 ### 4. Frontend Auth Client, Store, Login, and Route Guards
@@ -220,7 +220,7 @@ depends_on: ['SS-02']
 ---
 sub_spec_id: SS-05
 phase: run
-depends_on: ['SS-03', 'SS-04']
+depends_on: ['SS-02', 'SS-03', 'SS-04']
 ---
 
 ### 5. Admin User Management UI and Desktop Integration
