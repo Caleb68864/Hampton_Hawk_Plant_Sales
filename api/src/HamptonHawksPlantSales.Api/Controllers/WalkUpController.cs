@@ -1,5 +1,6 @@
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -9,6 +10,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/walkup")]
+[Authorize(Policy = "POSCapable")]
 public class WalkUpController : ControllerBase
 {
     private readonly IWalkUpService _walkUpService;

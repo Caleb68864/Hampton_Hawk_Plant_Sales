@@ -2,6 +2,7 @@ using FluentValidation;
 using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -11,6 +12,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/settings")]
+[Authorize(Policy = "AdminOnly")]
 public class SettingsController : ControllerBase
 {
     private readonly ISettingsService _settingsService;

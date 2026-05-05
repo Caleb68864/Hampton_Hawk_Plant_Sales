@@ -1,6 +1,7 @@
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.DTOs.Reports;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -10,6 +11,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/reports")]
+[Authorize(Policy = "ReportsCapable")]
 public class ReportsController : ControllerBase
 {
     private readonly IReportService _reportService;
@@ -184,6 +186,7 @@ public class ReportsController : ControllerBase
     /// 5-second polling.
     /// </summary>
     [HttpGet("live-sale-kpi")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<LiveSaleKpiResponse>), 200)]
     public async Task<IActionResult> GetLiveSaleKpi()
     {

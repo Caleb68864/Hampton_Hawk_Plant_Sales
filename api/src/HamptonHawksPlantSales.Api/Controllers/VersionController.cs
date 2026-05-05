@@ -1,4 +1,5 @@
 using HamptonHawksPlantSales.Core.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -8,6 +9,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api")]
+[AllowAnonymous]
 public class VersionController : ControllerBase
 {
     /// <summary>

@@ -1,4 +1,5 @@
 using HamptonHawksPlantSales.Core.DTOs;
+using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
@@ -90,6 +91,68 @@ public class UserService : IUserService
             user.Roles = request.Roles.Select(r => new AppUserRole { AppUserId = user.Id, Role = r }).ToList();
         }
 
+        await _db.SaveChangesAsync();
+        return ToResponse(user);
+    }
+
+    public async Task<UserResponse> DisableAsync(Guid id)
+    {
+        var user = await _db.AppUsers
+            .Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.Id == id)
+            ?? throw new InvalidOperationException($"User {id} not found.");
+
+        if (user.IsActive && user.Roles.Any(r => r.Role == AppRole.Admin))
+        {
+            var activeAdminCount = await _db.AppUsers
+                .Include(u => u.Roles)
+                .CountAsync(u => u.IsActive && u.Roles.Any(r => r.Role == AppRole.Admin));
+
+            if (activeAdminCount <= 1)
+                throw new InvalidOperationException("Cannot disable the last active admin user.");
+        }
+
+        user.IsActive = false;
+        await _db.SaveChangesAsync();
+        return ToResponse(user);
+    }
+
+    public async Task<UserResponse> ResetPasswordAsync(Guid id, string newPassword)
+    {
+        var user = await _db.AppUsers
+            .Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.Id == id)
+            ?? throw new InvalidOperationException($"User {id} not found.");
+
+        user.PasswordHash = _hasher.Hash(newPassword);
+        await _db.SaveChangesAsync();
+        return ToResponse(user);
+    }
+
+    public async Task<UserResponse> AssignRolesAsync(Guid id, IEnumerable<AppRole> roles)
+    {
+        var roleList = roles.ToList();
+
+        var user = await _db.AppUsers
+            .Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.Id == id)
+            ?? throw new InvalidOperationException($"User {id} not found.");
+
+        var wasAdmin = user.Roles.Any(r => r.Role == AppRole.Admin);
+        var willBeAdmin = roleList.Contains(AppRole.Admin);
+
+        if (wasAdmin && !willBeAdmin)
+        {
+            var activeAdminCount = await _db.AppUsers
+                .Include(u => u.Roles)
+                .CountAsync(u => u.IsActive && u.Roles.Any(r => r.Role == AppRole.Admin));
+
+            if (activeAdminCount <= 1)
+                throw new InvalidOperationException("Cannot remove Admin role from the last active admin user.");
+        }
+
+        _db.RemoveRange(user.Roles);
+        user.Roles = roleList.Select(r => new AppUserRole { AppUserId = user.Id, Role = r }).ToList();
         await _db.SaveChangesAsync();
         return ToResponse(user);
     }
