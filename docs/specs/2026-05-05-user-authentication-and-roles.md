@@ -357,7 +357,7 @@ depends_on: ['SS-05']
 - Cookie auth cannot be made reliable in the intended local/Docker/LAN deployment.
 - The implementation requires changing existing desktop route behavior beyond adding login/access-denied wrappers.
 - A migration or bootstrap strategy risks locking the app with no admin user.
-- Existing print routes cannot remain usable without a broader print-auth design decision.
+
 - Replacing admin PIN flows becomes necessary to complete the work.
 
 ## Verification
