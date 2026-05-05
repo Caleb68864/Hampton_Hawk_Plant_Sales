@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import type { CurrentUser, AppRole, SessionStatus } from '../types/auth.ts';
+
+// ── Admin PIN modal ───────────────────────────────────────────────────────────
 
 export interface AdminAuthResult {
   pin: string;
@@ -35,16 +38,28 @@ export function normalizeAdminAuthOptions(options?: AdminAuthOptions): ResolvedA
   };
 }
 
+// ── User session ──────────────────────────────────────────────────────────────
+
 interface AuthState {
+  // PIN modal
   showPinModal: boolean;
   modalOptions: ResolvedAdminAuthOptions;
   pinResolve: ((result: AdminAuthResult | null) => void) | null;
   openPinModal: (options?: AdminAuthOptions) => Promise<AdminAuthResult | null>;
   submitPin: (pin: string, reason: string) => void;
   cancelPin: () => void;
+
+  // User session
+  currentUser: CurrentUser | null;
+  sessionStatus: SessionStatus;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  restoreSession: () => Promise<void>;
+  hasRole: (role: AppRole) => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
+  // ── PIN modal state ─────────────────────────────────────────────────────────
   showPinModal: false,
   modalOptions: normalizeAdminAuthOptions(),
   pinResolve: null,
@@ -76,5 +91,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       pinResolve: null,
       modalOptions: normalizeAdminAuthOptions(),
     });
+  },
+
+  // ── User session state ──────────────────────────────────────────────────────
+  currentUser: null,
+  sessionStatus: 'loading',
+
+  // Dynamic imports prevent auth.js from being resolved at module-load time,
+  // allowing authStore to be imported in node:test without a browser environment.
+  login: async (username, password) => {
+    const { login: apiLogin } = await import('../api/auth.js');
+    const user = await apiLogin({ username, password });
+    set({ currentUser: user, sessionStatus: 'authenticated' });
+  },
+
+  logout: async () => {
+    const { logout: apiLogout } = await import('../api/auth.js');
+    await apiLogout();
+    set({ currentUser: null, sessionStatus: 'unauthenticated' });
+  },
+
+  restoreSession: async () => {
+    try {
+      const { getCurrentUser } = await import('../api/auth.js');
+      const user = await getCurrentUser();
+      set({ currentUser: user, sessionStatus: 'authenticated' });
+    } catch {
+      set({ currentUser: null, sessionStatus: 'unauthenticated' });
+    }
+  },
+
+  hasRole: (role) => {
+    const { currentUser } = get();
+    return currentUser?.roles.includes(role) ?? false;
   },
 }));

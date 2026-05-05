@@ -53,6 +53,8 @@ import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
 import { WalkUpRegisterPage } from '@/pages/walkup/WalkUpRegisterPage.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import { KioskRouteGuard } from '@/routes/KioskRouteGuard.js';
+import { ProtectedRoute } from '@/routes/ProtectedRoute.js';
+import { LoginPage } from '@/pages/auth/LoginPage.js';
 
 function AppShell() {
   const session = useKioskStore((s) => s.session);
@@ -64,6 +66,8 @@ function App() {
     <AudioFeedbackProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
           <Route element={<KioskRouteGuard />}>
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
@@ -119,6 +123,7 @@ function App() {
             <Route path="print/cheatsheet/thermal-labels" element={<PrintCheatsheetThermal />} />
             <Route path="print/labels" element={<PrintPlantLabelsPage />} />
             <Route path="*" element={<NotFoundPage />} />
+          </Route>
           </Route>
         </Routes>
         <AdminPinModal />

@@ -5,6 +5,7 @@ import { getApiErrorMessage } from './errorMessage.js';
 const apiClient = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 apiClient.interceptors.response.use(
