@@ -44,6 +44,20 @@ Mobile lookup should not add print controls. Phone users look up the order and t
 
 **Scanner integration** uses the reusable scanner foundation to accept camera or manual decoded order values. Manual entry remains available at all times.
 
+## Joy Lookup Styling
+Lookup pages consume the mobile design system from `2026-05-05-02-mobile-joy-shell-and-pwa-design.md` and the scanner styling from `2026-05-05-03`. Lookup-specific Joy treatment:
+
+- **Page hero:** small Fraunces 22-26px title ("Find an order"), Manrope eyebrow above ("LOOKUP"), no large display headline — lookup is a working surface, not a greeting.
+- **Search input:** uses the Joy `.scan-input-shell` treatment for parity with the pickup lookup screen (gold-300 border, paper-to-gold-50 inset gradient, monospace input). Placeholder example: "OR-00184 - Patel - Daniel Kim".
+- **Camera scan toggle:** ghost button under the input ("Scan order code instead"). Expanding opens the scanner viewport in the same Joy bracket overlay used in plan 03.
+- **Result cards:** white scene cards (1px rule border, 14px radius, plum-shadow) stacked vertically with 12px gap. Each card shows: order number (Fraunces 18px, hawk-900), customer name (Manrope 600, 15px), status pill (gold-50 background, hawk-700 eyebrow text), progress count (tabular-nums) and the demo's mini progress bar. Primary action button per card respects role: gold "Open scan" for pickup-capable users, ghost "View order" for lookup-only users. Cards lift on press with the demo's `qa-card` treatment (translateY -2px, plum-shadow on, gold->purple left-edge bar reveals).
+- **Exact match auto-open:** brief checkbloom-style transition (smaller, ~80px) before navigating to `/mobile/pickup/:orderId`, signaling "found it" without a full success scene.
+- **No match:** seed empty-state from plan 02. Headline "Nothing matches that filter." copy in the demo Scene 6 voice. Ghost "Clear filters" button. The user's typed query is preserved.
+- **Wrong-code-type scan (item barcode in lookup):** small inline warm-tone toast above the input ("That looks like a plant barcode. Try an order code or search by name.") using the same gold-card palette as pickup's recoverable result, but compressed.
+- **Lookup-only (no scan permission):** result cards omit the gold "Open scan" button and show only ghost "View order". No scan-into-order CTA appears anywhere on the page.
+- **Connection-required and access-denied:** use the shared Joy scenes from plan 02.
+- Tablet (>= 768px): two-column layout — search input + scanner column on the left, scrollable result list on the right.
+
 ## Contract With Prior Plans
 This plan depends on:
 

@@ -52,6 +52,8 @@ This plan sits after the feature work and validates the system end to end. It sh
 
 **Audit and troubleshooting guide** defines how a supervisor verifies which account scanned an item, when it happened, whether it came from camera or manual entry, and what result the backend returned.
 
+**Joy visual review** is a final pass that compares each mobile route to `docs/plans/joy-pass-demo.html` and the design system defined in plan 02. The reviewer confirms that purple/gold palette, Fraunces/Manrope typography, paper background with grain, scene cards, eyebrow labels, button treatments, scan input shell, checkbloom on accepted scan, stamp on order complete, seed empty-states, and the connection-required/access-denied scenes all match. Confetti is intentionally absent on mobile MVP. The review covers 375px, 430px, 768px, and 1024px viewports plus a real phone and a real tablet.
+
 ## Data Flow
 Readiness uses the real production-like flow:
 
@@ -153,6 +155,10 @@ Real-device:
 - app switch/phone lock recovery
 - offline mode
 - backend unavailable mode
+- Joy visual parity vs `docs/plans/joy-pass-demo.html`: header gradient + gold border, paper background + grain, Fraunces display + Manrope body, button treatments, scene cards, scan input shell, checkbloom on accepted scan, stamp on order complete, seed empty-state, connection-required + access-denied scenes
+- iPad / Android tablet: permanent left nav rail, two-column home, two-column pickup/lookup
+- iPhone notch + home indicator: top bar respects safe-area-inset-top, page content respects safe-area-inset-bottom
+- `prefers-reduced-motion`: pop / stamp / ring / page-transition animations are static
 
 End-to-end smoke:
 

@@ -45,7 +45,17 @@ The scanner must not upload images or video frames. It sends only decoded text, 
 
 **`scannerTypes`** defines scan payloads, supported format names, scanner status, scanner errors, camera device metadata, and callback contracts.
 
-**Manual entry control** is always available, whether or not a camera exists. It should emit the same normalized payload shape as camera scanning with `source: "manual-entry"`.
+**Manual entry control** is always available, whether or not a camera exists. It should emit the same normalized payload shape as camera scanning with `source: "manual-entry"`. Manual entry uses the Joy `.scan-input-shell` treatment (gold-300 outer border, paper-to-gold-50 gradient, monospace input with gold focus ring) defined in plan 02.
+
+**Joy scanner styling** owns the visual treatment of camera and manual scanning surfaces. The component does not invent its own colors, fonts, or shadows — it consumes the mobile design system from `2026-05-05-02-mobile-joy-shell-and-pwa-design.md`. Scanner-specific Joy details:
+
+- Camera viewport sits inside a Joy scene card (white surface, 18px radius, plum-shadow). Above the viewport: an eyebrow label (e.g., "POINT AT ORDER BARCODE"). Below: the manual-entry shell.
+- Camera frame overlay: 4 rounded gold-300 corner brackets (2px stroke, 28px arms) at 80% of viewport width. Center reticle is a 1px dashed gold-300 outline rounded rectangle at 240x80 (1D codes) or 200x200 (QR). The reticle gently pulses opacity 0.6 -> 1.0 over 1.6s as a "ready" signal.
+- Status pill above viewport: rounded-full white pill with hawk-200 border showing `Searching...`, `Ready`, `Paused`, or `Camera off`. Uses tabular-nums and the Manrope eyebrow style.
+- Torch and camera-switch controls are 56x56 ghost buttons over a translucent paper backdrop in the bottom corners of the viewport, respecting safe-area insets.
+- On a successful decode, briefly flash the corner brackets to gold-500 for ~120ms before handing off to the workflow's joy moment (the workflow owns the checkbloom; the scanner owns the bracket flash).
+- On `permission denied` / `no camera`, the viewport area is replaced by the Joy seed empty-state pattern with a Fraunces headline and clear next steps. Manual entry remains visible below.
+- All scanner motion respects `prefers-reduced-motion`: reticle pulse and bracket flash become static at their final state.
 
 **Optional scan API helper** can provide a generic lookup contract only if needed. Workflow-specific APIs should remain in their existing domain modules when the scan directly triggers fulfillment or order lookup.
 

@@ -49,6 +49,20 @@ The mobile workflow changes input and layout, not fulfillment semantics. Existin
 
 **Joy feedback layer** adapts existing scan success/error patterns for phones: large accepted/not found/wrong order states, short vibration/audio when supported, and one-hand-friendly controls.
 
+## Joy Pickup Styling
+Pickup pages consume the mobile design system from `2026-05-05-02-mobile-joy-shell-and-pwa-design.md` and the scanner styling from `2026-05-05-03-camera-scanner-foundation-design.md`. Pickup-specific Joy moments:
+
+- **Pickup lookup (entry, `/mobile/pickup`):** mirror demo Scene 2 ("calm, ready"). On phone, a single-column scene with the gold-bordered scan input shell on top, an "OR-XXXX -- Last completed" order card below showing the demo's progress bar (hawk-50 track, gold-to-hawk gradient fill). On tablet, two columns matching `.scan-ready` exactly.
+- **Order header (`/mobile/pickup/:orderId`):** sticky compact card under the app bar. Order number in Fraunces 22px, customer name Manrope 600, eyebrow status pill ("PICKING", "COMPLETE", "BLOCKED") on the right. Progress bar uses the demo's gold->hawk gradient and tabular-nums `3 of 7` count.
+- **Ready-to-scan state:** scanner viewport (Joy bracket overlay) above the manual entry shell. A subtle ribbon pill labels the active order ("Picking for Daniel Kim").
+- **Accepted scan (the high-frequency joy moment):** identical to demo Scene 3. Centered checkbloom (~120px on phone, 148px on tablet), Fraunces 28-32px plant name, Manrope 13px SKU/PL line in `#7a5b85`, gold-bordered remaining-pill below ("Remaining for this order **3**"). Auto-dismiss after ~900ms or when the next scan arrives.
+- **Recoverable result (already fulfilled, wrong order, wrong code type):** warm-tone scene using the demo's `.oos-card` pattern (gold gradient surface, gold-300 border, 64px white-on-gold-100 icon disc, Fraunces 22px headline, Manrope 14px body in `#6b5224`). Primary action is a ghost button to dismiss; gold "override" button only when admin recovery applies.
+- **Blocked / backend error result:** danger ghost variant of the recoverable card (no gold gradient; white surface, hawk-200 border, danger-tinted icon). Manual retry button in primary, "back to lookup" in ghost.
+- **Order complete (closure moment):** mirror demo Scene 4. Centered "All Picked -- Ready" stamp (rotated dashed gold-600 border, Fraunces italic, animated via `stamp 380ms`), Fraunces 36-44px headline ("OR-00184 is on its way."), Manrope body line, primary "Open next order" + ghost "Back to lookup". **Confetti is not rendered on mobile MVP** per plan 02.
+- **Empty / no items left to scan:** seed empty-state from plan 02.
+- **Connection-required during scan:** Joy connection-required scene from plan 02; the in-progress order is preserved and resumes when connection returns.
+- All accepted/blocked/complete moments must announce via ARIA live region for screen readers and respect `prefers-reduced-motion`.
+
 ## Contract With Prior Plans
 This plan depends on:
 
