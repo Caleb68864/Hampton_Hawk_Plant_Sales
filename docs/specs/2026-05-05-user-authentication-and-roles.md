@@ -266,7 +266,7 @@ depends_on: ['SS-02', 'SS-03', 'SS-04']
 ---
 sub_spec_id: SS-06
 phase: run
-depends_on: ['SS-05']
+depends_on: ['SS-02', 'SS-03', 'SS-04', 'SS-05']
 ---
 
 ### 6. End-to-End Auth Hardening and Documentation
