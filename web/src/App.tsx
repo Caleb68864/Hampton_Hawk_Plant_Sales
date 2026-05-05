@@ -48,7 +48,9 @@ import { WalkupVsPreorderPage } from '@/pages/reports/WalkupVsPreorderPage.js';
 import { SellersListPage } from '@/pages/sellers/SellersListPage.js';
 import { SellerDetailPage } from '@/pages/sellers/SellerDetailPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
+import { UserManagementPage } from '@/pages/admin/UserManagementPage.js';
 import { StationHomePage } from '@/pages/station/StationHomePage.js';
+import { RoleRoute } from '@/routes/RoleRoute.js';
 import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
 import { WalkUpRegisterPage } from '@/pages/walkup/WalkUpRegisterPage.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
@@ -72,6 +74,9 @@ function App() {
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route element={<RoleRoute roles={['Admin']} />}>
+                <Route path="admin/users" element={<UserManagementPage />} />
+              </Route>
               <Route path="plants" element={<PlantsListPage />} />
               <Route path="plants/:id" element={<PlantDetailPage />} />
               <Route path="inventory" element={<InventoryPage />} />

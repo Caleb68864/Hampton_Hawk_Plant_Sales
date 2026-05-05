@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { adminApi } from '@/api/admin.js';
 import { ordersApi } from '@/api/orders.js';
 import { settingsApi } from '@/api/settings.js';
@@ -13,6 +13,7 @@ import { getKioskLandingRoute } from '@/routes/kioskRouteConfig.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { buildKioskSessionDraft, getDefaultWorkstationName } from '@/stores/kioskSession.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import type { KioskProfile } from '@/types/kiosk.js';
 import type { AppSettings, PickupAutoJumpMode } from '@/types/settings.js';
 
@@ -22,6 +23,7 @@ const DEBOUNCE_MAX = 500;
 export function SettingsPage() {
   const navigate = useNavigate();
   const { requestAdminAuth } = useAdminAuth();
+  const isAdmin = useAuthStore((s) => s.hasRole('Admin'));
   const fetchSettings = useAppStore((s) => s.fetchSettings);
   const kioskSession = useKioskStore((s) => s.session);
   const activateKiosk = useKioskStore((s) => s.activateKiosk);
@@ -260,6 +262,18 @@ export function SettingsPage() {
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {isAdmin && (
+        <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-3 joy-shadow-plum">
+          <SectionHeading level={3} eyebrow="Admin">User Management</SectionHeading>
+          <p className="text-sm text-gray-600">
+            Create and manage station, mobile, and admin accounts. Changes take effect on next login.
+          </p>
+          <Link to="/admin/users">
+            <TouchButton variant="primary">Manage users →</TouchButton>
+          </Link>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-hawk-200 p-6 space-y-4 joy-shadow-plum">
         <SectionHeading level={3} eyebrow="Global">Sale Status</SectionHeading>
