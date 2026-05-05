@@ -19,6 +19,7 @@ The app is built around real event operations:
 - [Local Development](#local-development)
 - [Build Test and Tooling](#build-test-and-tooling)
 - [Configuration](#configuration)
+- [Authentication and User Roles](#authentication-and-user-roles)
 - [Operational Workflows](#operational-workflows)
 - [Kiosk Mode](#kiosk-mode)
 - [Sale Closed Behavior](#sale-closed-behavior)
@@ -44,6 +45,13 @@ Core capabilities:
 - dashboard and reporting views for supervisors
 
 ## Current Routes
+
+### Authentication routes
+
+| Route | Purpose |
+|---|---|
+| `/login` | Login page — all unauthenticated users are redirected here |
+| `/admin/users` | User management (Admin only) |
 
 ### Main app routes
 
@@ -123,6 +131,7 @@ Project layout:
 
 Current API controllers:
 - `AdminActionsController`
+- `AuthController`
 - `CustomersController`
 - `FulfillmentController`
 - `ImportController`
@@ -132,6 +141,7 @@ Current API controllers:
 - `ReportsController`
 - `SellersController`
 - `SettingsController`
+- `UsersController`
 - `VersionController`
 - `WalkUpController`
 
@@ -293,6 +303,8 @@ Generated output goes to:
 | `ASPNETCORE_ENVIRONMENT` | ASP.NET environment | `Production` in Docker |
 | `ASPNETCORE_URLS` | API listen address | `http://+:8080` |
 | `Cors__AllowedOrigins` | Comma-separated CORS allowlist | `http://localhost:3000` |
+| `Bootstrap__AdminUsername` | Username for the auto-created first admin | (not set — skipped if empty) |
+| `Bootstrap__AdminPassword` | Password for the auto-created first admin | (not set — skipped if empty) |
 
 ### CORS
 
@@ -316,6 +328,59 @@ Equivalent environment variable:
 ```bash
 Cors__AllowedOrigins=https://plantsales.hamptonhawks.org,https://plantsales-admin.hamptonhawks.org
 ```
+
+## Authentication and User Roles
+
+The app requires authenticated accounts. All routes redirect to `/login` for unauthenticated users.
+
+### Roles
+
+| Role | Access |
+|---|---|
+| `Admin` | Full access including user management and settings |
+| `Pickup` | Pickup lookup and scan station |
+| `LookupPrint` | Lookup and print station |
+| `POS` | Walk-up order creation |
+| `Reports` | Dashboard and reporting views |
+
+Users can hold multiple roles. Assign station accounts the minimum role needed for their job.
+
+Recommended station account names match physical devices at the event: `Pickup1`, `Pickup2`, `POS2`, `POS3`, `LookupPrint1`. This makes logs readable during the sale.
+
+### First-Admin Bootstrap
+
+On first startup the API reads `Bootstrap__AdminUsername` and `Bootstrap__AdminPassword` from configuration. If no admin exists it creates one automatically. Repeated restarts with the same values do not create duplicates.
+
+Local Docker Compose default values (change before a real deployment):
+
+```
+Bootstrap__AdminUsername=admin
+Bootstrap__AdminPassword=changeme
+```
+
+For production use, set these via environment variable overrides or a `.env` file. Never leave the default password in production.
+
+### Creating Station Accounts
+
+1. Log in as Admin.
+2. Navigate to **Settings → User Management**.
+3. Click **Create User** and assign a role.
+4. Share credentials with the volunteer or tape them to the device.
+
+### API Authorization
+
+Protected endpoints require an authenticated session (HTTP-only cookie). Unauthenticated requests return `401`. Requests from an authenticated user without the required role return `403`.
+
+Print routes are accessible to authenticated users with desktop roles and do not require separate re-authentication. This keeps existing print workflows intact.
+
+### Configuration Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `Bootstrap__AdminUsername` | Username for the auto-created first admin | (not set) |
+| `Bootstrap__AdminPassword` | Password for the auto-created first admin | (not set) |
+
+If either variable is empty the bootstrap step is skipped. In that case you must seed an admin account via a database migration or a manual insert before the app is usable.
 
 ## Operational Workflows
 
@@ -535,6 +600,27 @@ Printable guide links exposed there:
 ```
 
 ## Troubleshooting
+
+### App redirects to login on every page load
+
+Check:
+- `Bootstrap__AdminUsername` and `Bootstrap__AdminPassword` are set and non-empty in the compose env
+- The database is healthy (admin account must be persisted to be recognized on login)
+- The session cookie domain matches the frontend origin
+
+### Login fails with "Invalid credentials"
+
+Check:
+- The bootstrap admin was created — look for `Bootstrap admin account '...' created.` in API logs
+- If no bootstrap variables are set, create an admin via the database directly
+- Passwords are bcrypt-hashed; plaintext comparison will always fail
+
+### API returns 401 even after login
+
+Check:
+- CORS `AllowedOrigins` includes the exact frontend origin (no trailing slash, correct protocol)
+- `credentials: 'include'` is set on Axios requests
+- The `SameSite` cookie attribute is compatible with your deployment (LAN vs localhost)
 
 ### Web loads but API calls fail
 

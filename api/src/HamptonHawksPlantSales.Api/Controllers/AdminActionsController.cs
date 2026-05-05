@@ -1,6 +1,7 @@
 using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -10,6 +11,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/admin-actions")]
+[Authorize(Policy = "AdminOnly")]
 public class AdminActionsController : ControllerBase
 {
     private readonly IAdminService _adminService;

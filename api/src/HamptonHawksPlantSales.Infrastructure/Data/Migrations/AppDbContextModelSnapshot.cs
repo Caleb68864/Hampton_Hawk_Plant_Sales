@@ -111,6 +111,63 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("NormalizedUsername")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedUsername")
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
+
+                    b.ToTable("AppUsers");
+                });
+
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUserRole", b =>
+                {
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("AppUserId", "Role");
+
+                    b.ToTable("AppUserRoles");
+                });
+
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -639,6 +696,17 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.ToTable("Sellers");
                 });
 
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUserRole", b =>
+                {
+                    b.HasOne("HamptonHawksPlantSales.Core.Models.AppUser", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.FulfillmentEvent", b =>
                 {
                     b.HasOne("HamptonHawksPlantSales.Core.Models.Order", "Order")
@@ -743,6 +811,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUser", b =>
+                {
+                    b.Navigation("Roles");
                 });
 
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.ImportBatch", b =>

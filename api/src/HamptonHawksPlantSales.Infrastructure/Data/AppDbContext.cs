@@ -7,6 +7,8 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<AppUserRole> AppUserRoles => Set<AppUserRole>();
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
     public DbSet<PlantCatalog> PlantCatalogs => Set<PlantCatalog>();
     public DbSet<Inventory> Inventories => Set<Inventory>();

@@ -49,6 +49,34 @@ The scanner must not upload images or video frames. It sends only decoded text, 
 
 **Optional scan API helper** can provide a generic lookup contract only if needed. Workflow-specific APIs should remain in their existing domain modules when the scan directly triggers fulfillment or order lookup.
 
+## Contract With Other Plans
+This plan depends on the mobile shell route/layout foundation from `2026-05-05-02-mobile-joy-shell-and-pwa-design.md`. It should not create its own mobile navigation or auth model.
+
+This plan provides a reusable scanner contract for:
+
+- `2026-05-05-04-mobile-pickup-scan-workflow-design.md`
+- `2026-05-05-05-mobile-order-lookup-workflow-design.md`
+- `2026-05-05-06-mobile-sale-day-readiness-and-hardening-design.md`
+
+The scanner should not call fulfillment, order lookup, inventory, or user APIs directly. Workflow pages consume scanner events and decide what backend request to make.
+
+The normalized scan event shape should be stable before pickup/lookup work begins:
+
+```ts
+type ScanSource = "mobile-camera" | "manual-entry";
+
+interface NormalizedScanResult {
+  code: string;
+  format?: string;
+  source: ScanSource;
+  scannedAtUtc: string;
+}
+```
+
+Manual entry should trim obvious whitespace but should not otherwise mutate the value in scanner-level code. Workflow-specific normalization, such as order-number cleanup or item barcode parsing, belongs in the workflow.
+
+For sale-day readiness, the scanner foundation should also provide a small verification harness or documented test route that can prove camera/manual scanning works before volunteers start using the real pickup workflow. This can be a gated `/mobile/scanner-demo` route, a Storybook story, or a documented dev-only page, but the readiness plan needs some safe way to test camera permission, camera selection, manual entry, duplicate cooldown, and QR/1D decode behavior without fulfilling an order.
+
 ## Data Flow
 On start, the scanner requests camera access with rear-camera preferences:
 
@@ -84,6 +112,53 @@ The consuming workflow pauses scanning while its backend request is pending and 
 - Same value within a cooldown window, such as 1000ms, is ignored.
 - Scanner does not submit while a backend request is in flight.
 - Camera tracks must stop on unmount, stop scan, route changes, and permission failures.
+- Camera tracks must also stop on browser tab/page visibility loss when appropriate, especially in installed PWA mode.
+- If a phone locks, app switches away, or Safari suspends the page, scanner state should recover cleanly on return rather than leaving a stale "scanning" UI.
+- If camera permission is blocked at the browser/OS level, the UI should say what to do next without trapping the user.
+- Secure context requirements must be explicit: camera scanning is supported on HTTPS and localhost development only.
+
+## Implementation Guardrails
+- Prefer `decodeFromConstraints` for initial rear-camera startup.
+- Use `decodeFromVideoDevice` only after camera selection when the user switches devices.
+- Keep the default format list restricted for performance.
+- Do not enable continuous backend submission. Scanner emits results; workflow pages pause or resume scanner intentionally.
+- Avoid 4K constraints. Ideal 1280x720 is the target.
+- Do not add image upload, frame capture upload, or server-side barcode decoding.
+- Do not persist scan history in this foundation. Workflows may keep a short in-memory last-result display.
+- Keep the scanner accessible: buttons need labels, scanner status should use an ARIA live region, and manual entry must be reachable by keyboard.
+- Prefer no service-worker interaction. Camera/media streams must never be cached.
+- Emit enough non-sensitive diagnostics for sale-day troubleshooting: scanner status, selected camera label when available, permission state/error type, source (`mobile-camera` or `manual-entry`), and duplicate-suppression status. Do not log decoded customer/order data in browser console by default.
+- Provide a documented list of supported browser/device assumptions, especially HTTPS requirement, localhost development exception, iPhone Safari expectations, Android Chrome expectations, and installed PWA behavior.
+
+## Test Fixtures Needed By Readiness Plan
+The scanner implementation should ship or document a small physical/digital test set:
+
+- a QR code with a harmless test value
+- a Code 128 sample
+- a UPC-A or EAN-13 sample
+- a deliberately unknown value
+- duplicate-scan test instructions
+- manual-entry test values matching the same payload shape
+
+These fixtures should not mutate real orders. If generated files are added, keep them under `docs/tests/` or another clearly documented non-production location.
+
+## Verification Notes
+Mechanical verification should include a build and focused tests for pure scanner helpers, especially duplicate suppression and payload normalization.
+
+Human/device verification should cover:
+
+- Android Chrome rear camera
+- iPhone Safari rear camera
+- Installed PWA mode
+- Desktop browser with webcam
+- permission denied
+- no camera available
+- manual entry with camera working
+- manual entry with camera unavailable
+- duplicate scan cooldown
+- route change/unmount cleanup
+- tab/app switch cleanup and recovery
+- UPC-A, EAN-13, Code 128, and QR code samples
 
 ## Open Questions
 - Decide whether to include a scanner demo/test route under `/mobile/scanner-demo` for verification only.

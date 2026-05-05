@@ -10,6 +10,7 @@ using HamptonHawksPlantSales.Infrastructure.Data;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportAdapters;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportReading;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -42,8 +43,43 @@ builder.Services.AddCors(options =>
 
         policy.WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
+});
+
+// Authentication (cookie-based browser sessions)
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "HH.Session";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
+        options.SlidingExpiration = true;
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+
+// Authorization with role policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("PickupCapable", policy => policy.RequireRole("Admin", "Pickup"));
+    options.AddPolicy("LookupCapable", policy => policy.RequireRole("Admin", "LookupPrint", "Pickup"));
+    options.AddPolicy("POSCapable", policy => policy.RequireRole("Admin", "POS"));
+    options.AddPolicy("ReportsCapable", policy => policy.RequireRole("Admin", "Reports"));
 });
 
 // Health checks
@@ -81,6 +117,7 @@ builder.Services.AddSingleton<IImportFormatAdapter, CanonicalPlantsAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, CanonicalInventoryAdapter>();
 builder.Services.AddSingleton<FormatAdapterRegistry>();
 builder.Services.AddScoped<IImportService, ImportService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFulfillmentService, FulfillmentService>();
 builder.Services.AddScoped<IInventoryProtectionService, InventoryProtectionService>();
@@ -123,6 +160,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseSerilogRequestLogging();
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapControllers();
 

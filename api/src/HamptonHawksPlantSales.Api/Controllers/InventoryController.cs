@@ -1,6 +1,7 @@
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -10,6 +11,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/inventory")]
+[Authorize(Policy = "AdminOnly")]
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _inventoryService;

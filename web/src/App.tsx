@@ -48,11 +48,15 @@ import { WalkupVsPreorderPage } from '@/pages/reports/WalkupVsPreorderPage.js';
 import { SellersListPage } from '@/pages/sellers/SellersListPage.js';
 import { SellerDetailPage } from '@/pages/sellers/SellerDetailPage.js';
 import { SettingsPage } from '@/pages/SettingsPage.js';
+import { UserManagementPage } from '@/pages/admin/UserManagementPage.js';
 import { StationHomePage } from '@/pages/station/StationHomePage.js';
+import { RoleRoute } from '@/routes/RoleRoute.js';
 import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
 import { WalkUpRegisterPage } from '@/pages/walkup/WalkUpRegisterPage.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import { KioskRouteGuard } from '@/routes/KioskRouteGuard.js';
+import { ProtectedRoute } from '@/routes/ProtectedRoute.js';
+import { LoginPage } from '@/pages/auth/LoginPage.js';
 
 function AppShell() {
   const session = useKioskStore((s) => s.session);
@@ -64,10 +68,15 @@ function App() {
     <AudioFeedbackProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
           <Route element={<KioskRouteGuard />}>
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route element={<RoleRoute roles={['Admin']} />}>
+                <Route path="admin/users" element={<UserManagementPage />} />
+              </Route>
               <Route path="plants" element={<PlantsListPage />} />
               <Route path="plants/:id" element={<PlantDetailPage />} />
               <Route path="inventory" element={<InventoryPage />} />
@@ -119,6 +128,7 @@ function App() {
             <Route path="print/cheatsheet/thermal-labels" element={<PrintCheatsheetThermal />} />
             <Route path="print/labels" element={<PrintPlantLabelsPage />} />
             <Route path="*" element={<NotFoundPage />} />
+          </Route>
           </Route>
         </Routes>
         <AdminPinModal />

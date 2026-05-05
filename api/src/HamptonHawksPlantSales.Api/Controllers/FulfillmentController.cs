@@ -2,6 +2,7 @@ using HamptonHawksPlantSales.Api.Filters;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
@@ -11,6 +12,7 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/orders")]
+[Authorize(Policy = "PickupCapable")]
 public class FulfillmentController : ControllerBase
 {
     private readonly IFulfillmentService _fulfillmentService;
