@@ -23,6 +23,8 @@ services:
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=hampton_hawks_plant_sales;Username=plantapp;Password=plantapp
       APP_ADMIN_PIN: "1234"
       INVENTORY_NEGATIVE_ADJUST_THRESHOLD: "10"
+      Bootstrap__AdminUsername: "admin"
+      Bootstrap__AdminPassword: "changeme"
     depends_on:
       postgres:
         condition: service_healthy
