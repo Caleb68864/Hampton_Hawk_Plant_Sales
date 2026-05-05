@@ -32,8 +32,8 @@ export function validateUserForm(values: UserFormValues, requirePassword: boolea
 
   if (requirePassword && !values.password.trim()) {
     errors.password = 'Password is required.';
-  } else if (values.password && values.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters.';
+  } else if (values.password && values.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters.';
   }
 
   if (values.roles.length === 0) {

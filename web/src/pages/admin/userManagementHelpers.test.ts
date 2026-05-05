@@ -6,7 +6,7 @@ import {
   stationUserPresets,
   ALL_ROLES,
   type UserFormValues,
-} from './userManagementHelpers.js';
+} from './userManagementHelpers.ts';
 
 function validForm(): UserFormValues {
   return {
@@ -53,7 +53,7 @@ test('validateUserForm does not require password when requirePassword=false (edi
   assert.equal(errors.password, undefined);
 });
 
-test('validateUserForm rejects passwords shorter than 6 characters', () => {
+test('validateUserForm rejects passwords shorter than 8 characters', () => {
   const errors = validateUserForm({ ...validForm(), password: 'abc' }, true);
   assert.ok(typeof errors.password === 'string');
 });

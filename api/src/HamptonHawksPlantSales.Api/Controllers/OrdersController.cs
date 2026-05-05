@@ -13,6 +13,10 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/orders")]
+// Bare [Authorize] (any authenticated user) is intentional: orders are read and
+// mutated by Pickup, LookupPrint, POS, and Admin roles across multiple workflows.
+// Per-action policies would either duplicate the union or under-cover legitimate
+// callers; sub-spec 3 of the auth spec requires authentication, not a single role.
 [Authorize]
 public class OrdersController : ControllerBase
 {
