@@ -155,11 +155,25 @@ depends_on: ['SS-02']
 
 **Files:**
 - `api/src/HamptonHawksPlantSales.Api/Controllers/UsersController.cs` (new)
-- Existing API controllers under `api/src/HamptonHawksPlantSales.Api/Controllers/`
-- `api/src/HamptonHawksPlantSales.Core/DTOs/UserDtos.cs` (new, or merged into `AuthDtos.cs` if cleaner)
-- `api/src/HamptonHawksPlantSales.Core/Validators/*User*Validator.cs` (new)
-- `api/src/HamptonHawksPlantSales.Core/Interfaces/IUserService.cs`
-- `api/src/HamptonHawksPlantSales.Infrastructure/Services/UserService.cs`
+- `api/src/HamptonHawksPlantSales.Api/Controllers/AdminActionsController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/CustomersController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/FulfillmentController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/ImportController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/InventoryController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/OrdersController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/PlantsController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/ReportsController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/ScanSessionsController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/SellersController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/SettingsController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/VersionController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/WalkUpController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Api/Controllers/WalkUpRegisterController.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Core/DTOs/UserDtos.cs` (new)
+- `api/src/HamptonHawksPlantSales.Core/Validators/UserCreateValidator.cs` (new)
+- `api/src/HamptonHawksPlantSales.Core/Validators/UserResetPasswordValidator.cs` (new)
+- `api/src/HamptonHawksPlantSales.Core/Interfaces/IUserService.cs` (modify)
+- `api/src/HamptonHawksPlantSales.Infrastructure/Services/UserService.cs` (modify)
 - `api/tests/HamptonHawksPlantSales.Tests/Services/UsersControllerTests.cs` (new)
 - `api/tests/HamptonHawksPlantSales.Tests/Auth/ControllerAuthorizationTests.cs` (new)
 
