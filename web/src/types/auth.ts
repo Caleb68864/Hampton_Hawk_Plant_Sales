@@ -1,4 +1,4 @@
-export type AppRole = 'Admin' | 'Volunteer';
+export type AppRole = 'Admin' | 'Volunteer' | 'Pickup' | 'LookupPrint' | 'POS';
 
 export interface CurrentUser {
   id: number;
