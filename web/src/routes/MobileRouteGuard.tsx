@@ -1,6 +1,7 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore.js';
 import { hasMobileAccess } from './mobileRouteConfig.js';
+import { MobileLayout } from '../layouts/MobileLayout.js';
 
 export function MobileRouteGuard() {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -14,5 +15,5 @@ export function MobileRouteGuard() {
     return <Navigate to="/mobile/access-denied" replace />;
   }
 
-  return <Outlet />;
+  return <MobileLayout />;
 }
