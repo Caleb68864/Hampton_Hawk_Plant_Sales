@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/print.css";
+@import "./styles/mobile-theme.css";
 
 @theme {
   /* Hampton Hawks brand purple palette */

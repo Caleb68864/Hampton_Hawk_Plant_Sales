@@ -1,0 +1,130 @@
+/* Mobile Joy Theme Layer — tokens, typography, and background primitives */
+
+/* ================= MOBILE TOKEN ALIASES ================= */
+:root {
+  --mobile-surface: var(--joy-paper);
+  --mobile-surface-elevated: var(--color-gold-50);
+  --mobile-rule: var(--joy-rule);
+  --mobile-touch-min: 56px;
+  --mobile-radius: 16px;
+  --mobile-radius-sm: 10px;
+  --mobile-radius-full: 9999px;
+}
+
+/* ================= TYPOGRAPHY UTILITIES ================= */
+
+.mobile-type-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  line-height: 1.1;
+  font-size: 36px;
+}
+
+@media (min-width: 390px) {
+  .mobile-type-display { font-size: 40px; }
+}
+
+@media (min-width: 430px) {
+  .mobile-type-display { font-size: clamp(44px, 10vw, 52px); }
+}
+
+@media (min-width: 768px) {
+  .mobile-type-display { font-size: 64px; }
+}
+
+.mobile-type-section-title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 500;
+  line-height: 1.2;
+  font-size: 22px;
+}
+
+@media (min-width: 390px) {
+  .mobile-type-section-title { font-size: 26px; }
+}
+
+.mobile-type-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.mobile-type-eyebrow {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  color: var(--color-hawk-700);
+}
+
+.mobile-type-scan {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+}
+
+@media (min-width: 390px) {
+  .mobile-type-scan { font-size: 24px; }
+}
+
+.mobile-type-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================= PAGE BACKGROUND PRIMITIVES ================= */
+
+.mobile-page-bg {
+  background-color: var(--mobile-surface);
+  position: relative;
+  min-height: 100%;
+}
+
+.mobile-page-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(rgba(68, 29, 85, 0.045) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.75;
+}
+
+.mobile-page-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(ellipse 600px 600px at top left, color-mix(in srgb, var(--color-hawk-50) 60%, transparent), transparent 70%),
+    radial-gradient(ellipse 600px 600px at bottom right, color-mix(in srgb, var(--color-gold-50) 50%, transparent), transparent 70%);
+}
+
+@media (min-width: 768px) {
+  .mobile-page-bg::after {
+    background-image:
+      radial-gradient(ellipse 900px 900px at top left, color-mix(in srgb, var(--color-hawk-50) 60%, transparent), transparent 70%),
+      radial-gradient(ellipse 900px 900px at bottom right, color-mix(in srgb, var(--color-gold-50) 50%, transparent), transparent 70%);
+  }
+}
+
+.mobile-page-bg > * {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-page-bg::after,
+  .mobile-page-bg::before {
+    transition: none !important;
+    animation: none !important;
+  }
+}
