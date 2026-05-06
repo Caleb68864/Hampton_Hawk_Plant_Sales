@@ -13,6 +13,11 @@ web/node_modules/
 # PDFs
 *.pdf
 
+# Local agent / tooling artifacts
+/.claude-terminal/
+/.claude/scheduled_tasks.lock
+/.forge-factory-saved-blockers/
+
 # Local-only docs (planning, specs, factory artifacts, postmortems, ops notes)
 /docs/backlog/
 /docs/factory/
