@@ -521,6 +521,18 @@ Current kiosk landing routes:
 - pickup kiosk: `/pickup`
 - lookup and print kiosk: `/lookup-print`
 
+## Mobile Shell
+
+The mobile shell is a phone-first surface for sale-day station work. It lives entirely under `/mobile/*` and shares the desktop authentication, session, and role system. Desktop and kiosk routes are unchanged.
+
+- **Routes:** all mobile surfaces are under `/mobile/*` (`/mobile`, `/mobile/pickup`, `/mobile/lookup`, `/mobile/unavailable`). The shared `/login` is reused — there is no `/mobile/login` fork; `LoginPage.tsx` renders on the paper background with the mobile primary button when reached from a phone.
+- **Online-only:** the mobile shell is online-only. Browser offline triggers a Joy connection-required scene; backend unavailable triggers a Joy retry scene. Scans, lookups, and order writes are never queued or cached for offline use, and there is no "save for later" affordance.
+- **No print:** mobile has no print workflow. Order sheets, seller packets, and labels remain a desktop / kiosk concern.
+- **Install (PWA):** a manifest at `web/public/manifest.webmanifest` advertises `start_url: /mobile`, `display: standalone`, hawk-purple `theme_color`, and paper `background_color`, plus 192/512/maskable icons generated from `web/public/hawk-logo.png`. Adding the app to a home screen launches into `/mobile`.
+- **Camera scanning:** not implemented in this mobile shell. The camera scanner work in a later spec will require HTTPS to access `getUserMedia`.
+
+Mobile-specific design lives in `web/src/styles/mobile-theme.css` (paper background, dot-grain overlay, mobile token aliases, Fraunces / Manrope typography utilities) and `web/src/components/mobile/*` (top bar, drawer, tablet rail, scenes, joy moments, scan input shell). All mobile routes consume these primitives instead of restyling.
+
 ## Sale Closed Behavior
 
 The current app behavior treats sale-closed mode as a hard stop for pickup scanning.
