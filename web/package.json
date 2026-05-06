@@ -11,7 +11,9 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "docs": "typedoc",
-    "test": "node --test --experimental-strip-types src/api/client.test.ts src/api/orders.test.ts src/api/errorMessage.test.ts src/components/shared/globalQuickFindMatch.test.ts src/components/shared/globalQuickFindFallback.test.ts src/components/pickup/scanFeedbackText.test.ts src/utils/errorMessaging.test.ts src/utils/barcode.test.ts src/pages/print/studentPickListSummary.test.ts src/utils/orderLookup.test.ts"
+    "test": "node --test --experimental-strip-types src/api/client.test.ts src/api/orders.test.ts src/api/errorMessage.test.ts src/components/shared/globalQuickFindMatch.test.ts src/components/shared/globalQuickFindFallback.test.ts src/components/pickup/scanFeedbackText.test.ts src/utils/errorMessaging.test.ts src/utils/barcode.test.ts src/pages/print/studentPickListSummary.test.ts src/utils/orderLookup.test.ts",
+    "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs",
+    "postinstall": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.2.9",
@@ -29,6 +31,8 @@
     "@eslint/js": "^9.39.1",
     "@storybook/react": "^10.2.14",
     "@storybook/react-vite": "^10.2.14",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -37,14 +41,13 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^26.0.0",
+    "sharp": "^0.34.5",
     "storybook": "^10.2.14",
     "typedoc": "^0.28.17",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1",
-    "vitest": "^3.0.0",
-    "@testing-library/react": "^16.0.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "jsdom": "^26.0.0"
+    "vitest": "^3.0.0"
   }
 }

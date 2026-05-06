@@ -1,0 +1,40 @@
+{
+  "name": "Hampton Hawks Plant Sales",
+  "short_name": "Hawk Plants",
+  "description": "Mobile plant sales station for Hampton Hawks",
+  "start_url": "/mobile",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2d1152",
+  "background_color": "#faf7f2",
+  "scope": "/",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "shortcuts": [
+    {
+      "name": "Mobile Home",
+      "url": "/mobile",
+      "description": "Go to mobile station home"
+    }
+  ]
+}

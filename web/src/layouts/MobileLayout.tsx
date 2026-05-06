@@ -4,12 +4,32 @@ import { MobileTopBar } from '../components/mobile/MobileTopBar.js';
 import { MobileDrawer } from '../components/mobile/MobileDrawer.js';
 import { MobileTabletRail } from '../components/mobile/MobileTabletRail.js';
 import { MobilePageTransition } from '../components/mobile/MobilePageTransition.js';
+import { MobileConnectionRequiredScene } from '../components/mobile/MobileConnectionRequiredScene.js';
+import { MobileBackendUnavailableScene } from '../components/mobile/MobileBackendUnavailableScene.js';
+import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
+import { useBackendAvailability } from '../hooks/useBackendAvailability.js';
 
 const STATION_NAME = 'Hampton Hawks';
 
 export function MobileLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const stationName = STATION_NAME;
+  const { online } = useOnlineStatus();
+  const { available } = useBackendAvailability();
+
+  const connectionStatus = !online ? 'offline' : !available ? 'checking' : 'online';
+
+  if (!online) {
+    return (
+      <MobileConnectionRequiredScene
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+
+  if (!available) {
+    return <MobileBackendUnavailableScene />;
+  }
 
   return (
     <div
@@ -23,7 +43,7 @@ export function MobileLayout() {
       <MobileTopBar
         onMenuOpen={() => setDrawerOpen(true)}
         stationName={stationName}
-        connectionStatus="checking"
+        connectionStatus={connectionStatus}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
