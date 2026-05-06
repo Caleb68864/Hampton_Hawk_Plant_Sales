@@ -9,3 +9,6 @@ web/node_modules/
 
 # Crash artifacts
 *.stackdump
+
+# PDFs
+*.pdf
