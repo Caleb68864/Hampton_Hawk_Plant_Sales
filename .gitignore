@@ -12,3 +12,13 @@ web/node_modules/
 
 # PDFs
 *.pdf
+
+# Local-only docs (planning, specs, factory artifacts, postmortems, ops notes)
+/docs/backlog/
+/docs/factory/
+/docs/gap-analysis/
+/docs/plans/
+/docs/specs/
+/docs/tests/
+/docs/dark-factory-postmortem-2026-04-26.md
+/docs/lan-access-setup.md
