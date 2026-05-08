@@ -62,7 +62,7 @@ import { MobileRouteGuard } from '@/routes/MobileRouteGuard.js';
 import { MobileHomePage } from '@/pages/mobile/MobileHomePage.js';
 import { MobilePickupLookupPage } from '@/pages/mobile/MobilePickupLookupPage.js';
 import { MobilePickupScanPage } from '@/pages/mobile/MobilePickupScanPage.js';
-import { MobileLookupPlaceholderPage } from '@/pages/mobile/MobileLookupPlaceholderPage.js';
+import { MobileOrderLookupPage } from '@/pages/mobile/MobileOrderLookupPage.js';
 import { MobileScannerDemoPage } from '@/pages/mobile/MobileScannerDemoPage.js';
 
 function AppShell() {
@@ -145,7 +145,7 @@ function App() {
                 <Route index element={<MobileHomePage />} />
                 <Route path="pickup" element={<MobilePickupLookupPage />} />
                 <Route path="pickup/:orderId" element={<MobilePickupScanPage />} />
-                <Route path="lookup" element={<MobileLookupPlaceholderPage />} />
+                <Route path="lookup" element={<MobileOrderLookupPage />} />
                 <Route path="scanner-demo" element={<MobileScannerDemoPage />} />
               </Route>
             </Route>
