@@ -60,7 +60,8 @@ import { LoginPage } from '@/pages/auth/LoginPage.js';
 import { AccessDeniedPage } from '@/pages/auth/AccessDeniedPage.js';
 import { MobileRouteGuard } from '@/routes/MobileRouteGuard.js';
 import { MobileHomePage } from '@/pages/mobile/MobileHomePage.js';
-import { MobilePickupPlaceholderPage } from '@/pages/mobile/MobilePickupPlaceholderPage.js';
+import { MobilePickupLookupPage } from '@/pages/mobile/MobilePickupLookupPage.js';
+import { MobilePickupScanPage } from '@/pages/mobile/MobilePickupScanPage.js';
 import { MobileLookupPlaceholderPage } from '@/pages/mobile/MobileLookupPlaceholderPage.js';
 import { MobileScannerDemoPage } from '@/pages/mobile/MobileScannerDemoPage.js';
 
@@ -142,8 +143,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<MobileRouteGuard />}>
                 <Route index element={<MobileHomePage />} />
-                <Route path="pickup" element={<MobilePickupPlaceholderPage />} />
-                <Route path="pickup/:orderId" element={<MobilePickupPlaceholderPage />} />
+                <Route path="pickup" element={<MobilePickupLookupPage />} />
+                <Route path="pickup/:orderId" element={<MobilePickupScanPage />} />
                 <Route path="lookup" element={<MobileLookupPlaceholderPage />} />
                 <Route path="scanner-demo" element={<MobileScannerDemoPage />} />
               </Route>
