@@ -64,6 +64,7 @@ import { MobilePickupLookupPage } from '@/pages/mobile/MobilePickupLookupPage.js
 import { MobilePickupScanPage } from '@/pages/mobile/MobilePickupScanPage.js';
 import { MobileOrderLookupPage } from '@/pages/mobile/MobileOrderLookupPage.js';
 import { MobileScannerDemoPage } from '@/pages/mobile/MobileScannerDemoPage.js';
+import { MobileConnectPage } from '@/pages/MobileConnectPage.js';
 
 function AppShell() {
   const session = useKioskStore((s) => s.session);
@@ -80,6 +81,7 @@ function App() {
           <Route element={<KioskRouteGuard />}>
             <Route element={<AppShell />}>
               <Route index element={<DashboardPage />} />
+              <Route path="connect-mobile" element={<MobileConnectPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route element={<RoleRoute roles={['Admin']} />}>
                 <Route path="admin/users" element={<UserManagementPage />} />

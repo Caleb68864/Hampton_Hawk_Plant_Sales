@@ -43,12 +43,21 @@ echo ============================================
 echo.
 echo   Local:
 echo     Web:      http://localhost:3000
+echo     Mobile:   http://localhost:3000/mobile
+echo     Connect:  http://localhost:3000/connect-mobile  (QR for phone)
 echo     Swagger:  http://localhost:8080/swagger
 echo.
 if not defined HOST_IP goto :skip_lan
 echo   LAN (other devices on your network^):
 echo     Web:      http://!HOST_IP!:3000
+echo     Mobile:   http://!HOST_IP!:3000/mobile
+echo     Connect:  http://!HOST_IP!:3000/connect-mobile  (open this on desktop,
+echo                                                      scan QR from phone)
 echo     Swagger:  http://!HOST_IP!:8080/swagger
+echo.
+echo   NOTE: camera scanning on phone requires HTTPS or localhost.
+echo         Plain HTTP over LAN works for manual entry only.
+echo         See /connect-mobile page for HTTPS tunnel options.
 echo.
 :skip_lan
 echo ============================================

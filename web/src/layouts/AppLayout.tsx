@@ -15,6 +15,7 @@ const navLinks = [
   { to: '/imports', label: 'Imports' },
   { to: '/reports', label: 'Reports' },
   { to: '/settings', label: 'Settings' },
+  { to: '/connect-mobile', label: 'Connect Mobile' },
   { to: '/docs', label: 'Docs' },
 ];
 
