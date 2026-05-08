@@ -2,7 +2,12 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-COPY package.json ./
+# Copy package manifests + lockfile + scripts referenced by lifecycle hooks.
+# The package.json `postinstall` script runs scripts/generate-pwa-icons.mjs,
+# so scripts/ must be present before `npm install` (or install must skip
+# lifecycle scripts).
+COPY package.json package-lock.json* ./
+COPY scripts ./scripts
 RUN npm install
 COPY . .
 RUN rm -rf node_modules/.cache
