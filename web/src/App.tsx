@@ -64,6 +64,7 @@ import { MobilePickupLookupPage } from '@/pages/mobile/MobilePickupLookupPage.js
 import { MobilePickupScanPage } from '@/pages/mobile/MobilePickupScanPage.js';
 import { MobileOrderLookupPage } from '@/pages/mobile/MobileOrderLookupPage.js';
 import { MobileScannerDemoPage } from '@/pages/mobile/MobileScannerDemoPage.js';
+import { MobileAccountPage } from '@/pages/mobile/MobileAccountPage.js';
 import { MobileConnectPage } from '@/pages/MobileConnectPage.js';
 
 function AppShell() {
@@ -149,6 +150,7 @@ function App() {
                 <Route path="pickup/:orderId" element={<MobilePickupScanPage />} />
                 <Route path="lookup" element={<MobileOrderLookupPage />} />
                 <Route path="scanner-demo" element={<MobileScannerDemoPage />} />
+                <Route path="account" element={<MobileAccountPage />} />
               </Route>
             </Route>
           </Route>
