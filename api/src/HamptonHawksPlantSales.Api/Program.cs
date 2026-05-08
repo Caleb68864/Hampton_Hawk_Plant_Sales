@@ -117,6 +117,7 @@ builder.Services.AddSingleton<IImportFormatAdapter, CanonicalPlantsAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, CanonicalInventoryAdapter>();
 builder.Services.AddSingleton<FormatAdapterRegistry>();
 builder.Services.AddScoped<IImportService, ImportService>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFulfillmentService, FulfillmentService>();
@@ -125,6 +126,7 @@ builder.Services.AddScoped<IWalkUpService, WalkUpService>();
 builder.Services.AddScoped<IWalkUpRegisterService, WalkUpRegisterService>();
 builder.Services.AddScoped<IScanSessionService, ScanSessionService>();
 builder.Services.AddHostedService<ScanSessionExpiryHostedService>();
+builder.Services.AddHostedService<AuthBootstrapService>();
 builder.Services.AddScoped<AdminPinActionFilter>();
 
 // Controllers + JSON serialization
