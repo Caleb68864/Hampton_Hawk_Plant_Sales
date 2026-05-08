@@ -12,6 +12,8 @@ export interface MobileWorkflow {
 const PICKUP_ROLES: AppRole[] = ['Pickup', 'Admin'];
 const LOOKUP_ROLES: AppRole[] = ['LookupPrint', 'Pickup', 'Admin'];
 
+const ADMIN_ONLY: AppRole[] = ['Admin'];
+
 const ALL_WORKFLOWS: MobileWorkflow[] = [
   {
     id: 'pickup',
@@ -27,11 +29,20 @@ const ALL_WORKFLOWS: MobileWorkflow[] = [
     enabled: true,
     role: LOOKUP_ROLES,
   },
+  {
+    id: 'scanner-demo',
+    label: 'Scanner demo',
+    path: '/mobile/scanner-demo',
+    enabled: false,
+    role: ADMIN_ONLY,
+  },
 ];
 
 export function getMobileWorkflows(user: CurrentUser | null): MobileWorkflow[] {
   if (!user) return [];
-  return ALL_WORKFLOWS.filter((w) => w.role.some((r) => user.roles.includes(r)));
+  return ALL_WORKFLOWS.filter(
+    (w) => w.enabled && w.role.some((r) => user.roles.includes(r))
+  );
 }
 
 export function hasMobileAccess(user: CurrentUser | null): boolean {

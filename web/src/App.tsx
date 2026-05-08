@@ -62,6 +62,7 @@ import { MobileRouteGuard } from '@/routes/MobileRouteGuard.js';
 import { MobileHomePage } from '@/pages/mobile/MobileHomePage.js';
 import { MobilePickupPlaceholderPage } from '@/pages/mobile/MobilePickupPlaceholderPage.js';
 import { MobileLookupPlaceholderPage } from '@/pages/mobile/MobileLookupPlaceholderPage.js';
+import { MobileScannerDemoPage } from '@/pages/mobile/MobileScannerDemoPage.js';
 
 function AppShell() {
   const session = useKioskStore((s) => s.session);
@@ -144,6 +145,7 @@ function App() {
                 <Route path="pickup" element={<MobilePickupPlaceholderPage />} />
                 <Route path="pickup/:orderId" element={<MobilePickupPlaceholderPage />} />
                 <Route path="lookup" element={<MobileLookupPlaceholderPage />} />
+                <Route path="scanner-demo" element={<MobileScannerDemoPage />} />
               </Route>
             </Route>
           </Route>

@@ -48,6 +48,24 @@ describe('getMobileWorkflows', () => {
     expect(ids.filter((id) => id === 'pickup')).toHaveLength(1);
     expect(ids.filter((id) => id === 'lookup')).toHaveLength(1);
   });
+
+  it('scanner-demo is filtered out for non-admin Pickup user (Admin role required)', () => {
+    const workflows = getMobileWorkflows(makeUser(['Pickup']));
+    const ids = workflows.map((w) => w.id);
+    expect(ids).not.toContain('scanner-demo');
+  });
+
+  it('scanner-demo is filtered out for LookupPrint user (Admin role required)', () => {
+    const workflows = getMobileWorkflows(makeUser(['LookupPrint']));
+    const ids = workflows.map((w) => w.id);
+    expect(ids).not.toContain('scanner-demo');
+  });
+
+  it('scanner-demo is not returned by getMobileWorkflows even for Admin because enabled: false', () => {
+    const workflows = getMobileWorkflows(makeUser(['Admin']));
+    const ids = workflows.map((w) => w.id);
+    expect(ids).not.toContain('scanner-demo');
+  });
 });
 
 describe('hasMobileAccess', () => {

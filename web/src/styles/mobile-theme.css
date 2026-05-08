@@ -128,3 +128,93 @@
     animation: none !important;
   }
 }
+
+/* ================= SCANNER VIEWPORT PRIMITIVES ================= */
+
+@keyframes mobile-scanner-reticle-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1.0; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes mobile-scanner-corner-flash {
+  0% { border-color: var(--color-gold-500, #c9910a); }
+  100% { border-color: var(--color-gold-300, #f0c84a); }
+}
+
+.mobile-scanner-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-gold-300, #f0c84a);
+  pointer-events: none;
+}
+
+.mobile-scanner-corner--tl {
+  top: 10%;
+  left: 10%;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+}
+.mobile-scanner-corner--tr {
+  top: 10%;
+  right: 10%;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 6px;
+}
+.mobile-scanner-corner--bl {
+  bottom: 10%;
+  left: 10%;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 6px;
+}
+.mobile-scanner-corner--br {
+  bottom: 10%;
+  right: 10%;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 6px;
+}
+
+.mobile-scanner-corner.is-flash {
+  border-color: var(--color-gold-500, #c9910a);
+  animation: mobile-scanner-corner-flash 120ms linear;
+}
+
+.mobile-scanner-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed var(--color-gold-300, #f0c84a);
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.6;
+  animation: mobile-scanner-reticle-pulse 1.6s ease-in-out infinite;
+}
+
+.mobile-scanner-status-pill {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  padding: 6px 12px;
+  border-radius: var(--mobile-radius-full, 9999px);
+  background: rgba(10, 0, 20, 0.55);
+  color: #fff;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-scanner-reticle {
+    animation: none;
+    opacity: 1;
+  }
+  .mobile-scanner-corner.is-flash {
+    animation: none;
+  }
+}
