@@ -11,6 +11,8 @@ This bundle covers everything volunteers and supervisors need to set up and oper
 5. [Test Fixtures](./05-test-fixtures.md) — Synthetic barcodes and order values for pre-sale smoke testing (dev/disposable only).
    - [Printable Fixture Cards](./05-test-fixtures-printable.html) — Print-ready HTML with per-fixture cards and symbolic barcodes.
 6. [Fallback Playbook](./06-fallback-playbook.md) — Volunteer and supervisor actions for every sale-day failure mode.
+7. [Audit & Troubleshooting Guide](./07-audit-troubleshooting.md) — How supervisors query the scan audit log, identify event actors and outcomes, and investigate anomalies.
+8. [Hardening Verification Log](./08-hardening-verification.md) — Results of the pre-sale hardening pass: print-import check, service-worker cache audit, and behavioral test status.
 
 ## Before Sale Day
 
