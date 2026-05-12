@@ -1,4 +1,4 @@
-import { useRef, type FC, type ReactNode } from 'react';
+import { type FC, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
 interface MobilePageTransitionProps {
@@ -7,17 +7,6 @@ interface MobilePageTransitionProps {
 
 export const MobilePageTransition: FC<MobilePageTransitionProps> = ({ children }) => {
   const location = useLocation();
-  const keyRef = useRef<string>(location.key);
-  const isFirstRender = useRef(true);
-
-  const isNew = keyRef.current !== location.key;
-  if (isNew) {
-    keyRef.current = location.key;
-  }
-
-  if (isFirstRender.current) {
-    isFirstRender.current = false;
-  }
 
   return (
     <div
