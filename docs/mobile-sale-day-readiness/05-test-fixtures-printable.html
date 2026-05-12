@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Fixture Cards — Hampton Hawks Plant Sales</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; background: #f5f5f5; padding: 16px; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    .subtitle { color: #666; margin-bottom: 16px; font-size: 11px; }
+    .warning { background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; font-size: 11px; }
+    .warning strong { display: block; margin-bottom: 4px; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1.5px solid #ccc; border-radius: 8px; padding: 14px; break-inside: avoid; page-break-inside: avoid; }
+    .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .fixture-num { background: #1a56db; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; }
+    .fixture-name { font-weight: bold; font-size: 13px; }
+    .badge { display: inline-block; font-size: 9px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 3px; padding: 1px 5px; margin-left: 4px; color: #92400e; vertical-align: middle; }
+    .barcode-type { font-size: 10px; color: #555; margin-bottom: 6px; }
+    .barcode-value { font-family: 'Courier New', monospace; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 4px; padding: 4px 8px; font-size: 11px; margin-bottom: 8px; word-break: break-all; }
+    .svg-wrap { text-align: center; margin-bottom: 8px; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; padding: 8px; }
+    .expected { font-size: 10px; color: #374151; }
+    .expected strong { color: #111; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .no-print { display: none; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Test Fixture Cards — Hampton Hawks Plant Sales</h1>
+<p class="subtitle">DISPOSABLE / DEV ONLY &mdash; Print and use for pre-sale device testing. Discard after testing.</p>
+
+<div class="warning">
+  <strong>⚠ DEV/TEST DATA ONLY</strong>
+  All barcodes and order IDs on this sheet are synthetic test values. No real customer data is represented.
+  Remove or gate seed data behind an environment flag before going to production.
+</div>
+
+<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:8px 18px;background:#1a56db;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">
+  Print / Save as PDF
+</button>
+
+<div class="grid">
+
+  <!-- Fixture 1: QR Code -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">1</div>
+      <div class="fixture-name">QR Code — Walk-Up Item <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: QR Code</div>
+    <div class="barcode-value">TEST-WU-QR-00001</div>
+    <div class="svg-wrap">
+      <!-- QR code rendered as a simple placeholder SVG grid (symbolic) -->
+      <svg width="80" height="80" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-label="QR code placeholder for TEST-WU-QR-00001">
+        <!-- Position detection patterns -->
+        <rect x="0" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="2" width="3" height="3" fill="#000"/>
+        <rect x="14" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="15" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="16" y="2" width="3" height="3" fill="#000"/>
+        <rect x="0" y="14" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="15" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="16" width="3" height="3" fill="#000"/>
+        <!-- Data area placeholder -->
+        <rect x="8" y="0" width="1" height="1" fill="#000"/><rect x="10" y="0" width="1" height="1" fill="#000"/>
+        <rect x="8" y="2" width="1" height="1" fill="#000"/><rect x="12" y="2" width="1" height="1" fill="#000"/>
+        <rect x="9" y="4" width="1" height="1" fill="#000"/><rect x="11" y="4" width="1" height="1" fill="#000"/>
+        <rect x="8" y="6" width="1" height="1" fill="#000"/><rect x="10" y="6" width="1" height="1" fill="#000"/>
+        <rect x="0" y="8" width="1" height="1" fill="#000"/><rect x="2" y="8" width="1" height="1" fill="#000"/>
+        <rect x="6" y="8" width="1" height="1" fill="#000"/><rect x="8" y="8" width="1" height="1" fill="#000"/>
+        <rect x="10" y="8" width="1" height="1" fill="#000"/><rect x="12" y="8" width="1" height="1" fill="#000"/>
+        <rect x="14" y="8" width="1" height="1" fill="#000"/><rect x="16" y="8" width="1" height="1" fill="#000"/>
+        <rect x="20" y="8" width="1" height="1" fill="#000"/>
+        <rect x="8" y="10" width="1" height="1" fill="#000"/><rect x="10" y="10" width="1" height="1" fill="#000"/>
+        <rect x="12" y="10" width="1" height="1" fill="#000"/><rect x="14" y="10" width="1" height="1" fill="#000"/>
+        <rect x="8" y="12" width="1" height="1" fill="#000"/><rect x="11" y="12" width="1" height="1" fill="#000"/>
+        <rect x="13" y="12" width="1" height="1" fill="#000"/>
+        <rect x="8" y="14" width="1" height="1" fill="#000"/><rect x="10" y="14" width="1" height="1" fill="#000"/>
+        <rect x="12" y="14" width="1" height="1" fill="#000"/><rect x="20" y="14" width="1" height="1" fill="#000"/>
+        <rect x="8" y="16" width="1" height="1" fill="#000"/><rect x="15" y="16" width="1" height="1" fill="#000"/>
+        <rect x="17" y="16" width="1" height="1" fill="#000"/><rect x="19" y="16" width="1" height="1" fill="#000"/>
+        <rect x="8" y="18" width="1" height="1" fill="#000"/><rect x="10" y="18" width="1" height="1" fill="#000"/>
+        <rect x="14" y="18" width="1" height="1" fill="#000"/><rect x="16" y="18" width="1" height="1" fill="#000"/>
+        <rect x="8" y="20" width="1" height="1" fill="#000"/><rect x="12" y="20" width="1" height="1" fill="#000"/>
+        <rect x="18" y="20" width="1" height="1" fill="#000"/>
+        <text x="10.5" y="13" text-anchor="middle" font-size="1.8" fill="#555">QR</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real QR in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Item card appears; walk-up item name and price shown.</div>
+  </div>
+
+  <!-- Fixture 2: Code 128 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">2</div>
+      <div class="fixture-name">Code 128 — Preorder Label <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: Code 128</div>
+    <div class="barcode-value">TEST-PO-C128-00002</div>
+    <div class="svg-wrap">
+      <!-- Code 128 symbolic bar pattern -->
+      <svg width="160" height="50" viewBox="0 0 160 50" xmlns="http://www.w3.org/2000/svg" aria-label="Code 128 placeholder for TEST-PO-C128-00002">
+        <!-- Quiet zone + bars pattern (symbolic) -->
+        <rect x="10" y="5" width="2" height="30" fill="#000"/>
+        <rect x="13" y="5" width="1" height="30" fill="#000"/>
+        <rect x="15" y="5" width="3" height="30" fill="#000"/>
+        <rect x="19" y="5" width="1" height="30" fill="#000"/>
+        <rect x="21" y="5" width="2" height="30" fill="#000"/>
+        <rect x="24" y="5" width="1" height="30" fill="#000"/>
+        <rect x="26" y="5" width="3" height="30" fill="#000"/>
+        <rect x="30" y="5" width="1" height="30" fill="#000"/>
+        <rect x="32" y="5" width="2" height="30" fill="#000"/>
+        <rect x="35" y="5" width="1" height="30" fill="#000"/>
+        <rect x="37" y="5" width="3" height="30" fill="#000"/>
+        <rect x="41" y="5" width="1" height="30" fill="#000"/>
+        <rect x="43" y="5" width="2" height="30" fill="#000"/>
+        <rect x="46" y="5" width="1" height="30" fill="#000"/>
+        <rect x="48" y="5" width="3" height="30" fill="#000"/>
+        <rect x="52" y="5" width="2" height="30" fill="#000"/>
+        <rect x="55" y="5" width="1" height="30" fill="#000"/>
+        <rect x="57" y="5" width="2" height="30" fill="#000"/>
+        <rect x="60" y="5" width="3" height="30" fill="#000"/>
+        <rect x="64" y="5" width="1" height="30" fill="#000"/>
+        <rect x="66" y="5" width="2" height="30" fill="#000"/>
+        <rect x="69" y="5" width="1" height="30" fill="#000"/>
+        <rect x="71" y="5" width="3" height="30" fill="#000"/>
+        <rect x="75" y="5" width="1" height="30" fill="#000"/>
+        <rect x="77" y="5" width="2" height="30" fill="#000"/>
+        <rect x="80" y="5" width="1" height="30" fill="#000"/>
+        <rect x="82" y="5" width="3" height="30" fill="#000"/>
+        <rect x="86" y="5" width="1" height="30" fill="#000"/>
+        <rect x="88" y="5" width="2" height="30" fill="#000"/>
+        <rect x="91" y="5" width="3" height="30" fill="#000"/>
+        <rect x="95" y="5" width="1" height="30" fill="#000"/>
+        <rect x="97" y="5" width="2" height="30" fill="#000"/>
+        <rect x="100" y="5" width="1" height="30" fill="#000"/>
+        <rect x="102" y="5" width="3" height="30" fill="#000"/>
+        <rect x="106" y="5" width="2" height="30" fill="#000"/>
+        <rect x="109" y="5" width="1" height="30" fill="#000"/>
+        <rect x="111" y="5" width="2" height="30" fill="#000"/>
+        <rect x="114" y="5" width="3" height="30" fill="#000"/>
+        <rect x="118" y="5" width="1" height="30" fill="#000"/>
+        <rect x="120" y="5" width="2" height="30" fill="#000"/>
+        <rect x="123" y="5" width="1" height="30" fill="#000"/>
+        <rect x="125" y="5" width="3" height="30" fill="#000"/>
+        <rect x="129" y="5" width="2" height="30" fill="#000"/>
+        <rect x="132" y="5" width="1" height="30" fill="#000"/>
+        <rect x="134" y="5" width="2" height="30" fill="#000"/>
+        <rect x="137" y="5" width="1" height="30" fill="#000"/>
+        <rect x="139" y="5" width="3" height="30" fill="#000"/>
+        <rect x="143" y="5" width="1" height="30" fill="#000"/>
+        <rect x="145" y="5" width="2" height="30" fill="#000"/>
+        <rect x="148" y="5" width="1" height="30" fill="#000"/>
+        <text x="80" y="46" text-anchor="middle" font-size="8" fill="#000">TEST-PO-C128-00002</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real Code 128 in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Preorder detail screen; "Test Customer Two" visible.</div>
+  </div>
+
+  <!-- Fixture 3: UPC-A -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">3</div>
+      <div class="fixture-name">UPC-A — Retail Plant Tag <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: UPC-A (12 digits)</div>
+    <div class="barcode-value">012345678905</div>
+    <div class="svg-wrap">
+      <svg width="120" height="50" viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg" aria-label="UPC-A placeholder for 012345678905">
+        <rect x="8" y="5" width="2" height="32" fill="#000"/>
+        <rect x="11" y="5" width="1" height="32" fill="#000"/>
+        <rect x="13" y="5" width="2" height="32" fill="#000"/>
+        <rect x="17" y="5" width="3" height="30" fill="#000"/>
+        <rect x="21" y="5" width="1" height="30" fill="#000"/>
+        <rect x="23" y="5" width="2" height="30" fill="#000"/>
+        <rect x="27" y="5" width="2" height="30" fill="#000"/>
+        <rect x="30" y="5" width="1" height="30" fill="#000"/>
+        <rect x="33" y="5" width="3" height="30" fill="#000"/>
+        <rect x="37" y="5" width="1" height="30" fill="#000"/>
+        <rect x="39" y="5" width="2" height="30" fill="#000"/>
+        <rect x="42" y="5" width="1" height="30" fill="#000"/>
+        <!-- Center guard -->
+        <rect x="56" y="5" width="1" height="32" fill="#000"/>
+        <rect x="58" y="5" width="1" height="32" fill="#000"/>
+        <rect x="60" y="5" width="1" height="32" fill="#000"/>
+        <rect x="63" y="5" width="2" height="30" fill="#000"/>
+        <rect x="66" y="5" width="1" height="30" fill="#000"/>
+        <rect x="68" y="5" width="3" height="30" fill="#000"/>
+        <rect x="72" y="5" width="1" height="30" fill="#000"/>
+        <rect x="74" y="5" width="2" height="30" fill="#000"/>
+        <rect x="78" y="5" width="2" height="30" fill="#000"/>
+        <rect x="81" y="5" width="1" height="30" fill="#000"/>
+        <rect x="83" y="5" width="3" height="30" fill="#000"/>
+        <rect x="87" y="5" width="1" height="30" fill="#000"/>
+        <rect x="89" y="5" width="2" height="30" fill="#000"/>
+        <rect x="93" y="5" width="2" height="30" fill="#000"/>
+        <!-- End guard -->
+        <rect x="99" y="5" width="1" height="32" fill="#000"/>
+        <rect x="101" y="5" width="2" height="32" fill="#000"/>
+        <rect x="104" y="5" width="1" height="32" fill="#000"/>
+        <text x="60" y="46" text-anchor="middle" font-size="8" fill="#000">0 12345 67890 5</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real UPC-A in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Plant name and price displayed; no format error.</div>
+  </div>
+
+  <!-- Fixture 4: EAN-13 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">4</div>
+      <div class="fixture-name">EAN-13 — Imported Plant Tag <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: EAN-13 (13 digits)</div>
+    <div class="barcode-value">0123456789012</div>
+    <div class="svg-wrap">
+      <svg width="130" height="50" viewBox="0 0 130 50" xmlns="http://www.w3.org/2000/svg" aria-label="EAN-13 placeholder for 0123456789012">
+        <rect x="12" y="5" width="2" height="32" fill="#000"/>
+        <rect x="15" y="5" width="1" height="32" fill="#000"/>
+        <rect x="17" y="5" width="2" height="32" fill="#000"/>
+        <rect x="20" y="5" width="3" height="30" fill="#000"/>
+        <rect x="24" y="5" width="1" height="30" fill="#000"/>
+        <rect x="26" y="5" width="2" height="30" fill="#000"/>
+        <rect x="30" y="5" width="2" height="30" fill="#000"/>
+        <rect x="33" y="5" width="3" height="30" fill="#000"/>
+        <rect x="37" y="5" width="1" height="30" fill="#000"/>
+        <rect x="39" y="5" width="2" height="30" fill="#000"/>
+        <rect x="43" y="5" width="1" height="30" fill="#000"/>
+        <rect x="45" y="5" width="2" height="30" fill="#000"/>
+        <!-- Center guard -->
+        <rect x="60" y="5" width="1" height="32" fill="#000"/>
+        <rect x="62" y="5" width="1" height="32" fill="#000"/>
+        <rect x="64" y="5" width="1" height="32" fill="#000"/>
+        <rect x="67" y="5" width="2" height="30" fill="#000"/>
+        <rect x="70" y="5" width="1" height="30" fill="#000"/>
+        <rect x="72" y="5" width="3" height="30" fill="#000"/>
+        <rect x="76" y="5" width="1" height="30" fill="#000"/>
+        <rect x="78" y="5" width="2" height="30" fill="#000"/>
+        <rect x="81" y="5" width="2" height="30" fill="#000"/>
+        <rect x="84" y="5" width="3" height="30" fill="#000"/>
+        <rect x="88" y="5" width="1" height="30" fill="#000"/>
+        <rect x="90" y="5" width="2" height="30" fill="#000"/>
+        <rect x="94" y="5" width="1" height="30" fill="#000"/>
+        <rect x="96" y="5" width="2" height="30" fill="#000"/>
+        <!-- End guard -->
+        <rect x="108" y="5" width="1" height="32" fill="#000"/>
+        <rect x="110" y="5" width="2" height="32" fill="#000"/>
+        <rect x="113" y="5" width="1" height="32" fill="#000"/>
+        <text x="65" y="46" text-anchor="middle" font-size="8" fill="#000">0 123456 789012</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real EAN-13 in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Plant name displayed; no format error.</div>
+  </div>
+
+  <!-- Fixture 5: Unknown code -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">5</div>
+      <div class="fixture-name">Unknown Code — Error Handling <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: Code 39 (unsupported format)</div>
+    <div class="barcode-value">*TEST-UNKNOWN*</div>
+    <div class="svg-wrap">
+      <svg width="140" height="50" viewBox="0 0 140 50" xmlns="http://www.w3.org/2000/svg" aria-label="Code 39 placeholder">
+        <rect x="8" y="5" width="1" height="30" fill="#000"/>
+        <rect x="11" y="5" width="3" height="30" fill="#000"/>
+        <rect x="16" y="5" width="1" height="30" fill="#000"/>
+        <rect x="19" y="5" width="3" height="30" fill="#000"/>
+        <rect x="24" y="5" width="1" height="30" fill="#000"/>
+        <rect x="27" y="5" width="1" height="30" fill="#000"/>
+        <rect x="30" y="5" width="3" height="30" fill="#000"/>
+        <rect x="35" y="5" width="1" height="30" fill="#000"/>
+        <rect x="38" y="5" width="3" height="30" fill="#000"/>
+        <rect x="43" y="5" width="1" height="30" fill="#000"/>
+        <rect x="46" y="5" width="1" height="30" fill="#000"/>
+        <rect x="49" y="5" width="3" height="30" fill="#000"/>
+        <rect x="54" y="5" width="1" height="30" fill="#000"/>
+        <rect x="57" y="5" width="3" height="30" fill="#000"/>
+        <rect x="62" y="5" width="1" height="30" fill="#000"/>
+        <rect x="65" y="5" width="1" height="30" fill="#000"/>
+        <rect x="68" y="5" width="3" height="30" fill="#000"/>
+        <rect x="73" y="5" width="1" height="30" fill="#000"/>
+        <rect x="76" y="5" width="3" height="30" fill="#000"/>
+        <rect x="81" y="5" width="1" height="30" fill="#000"/>
+        <rect x="84" y="5" width="1" height="30" fill="#000"/>
+        <rect x="87" y="5" width="3" height="30" fill="#000"/>
+        <rect x="92" y="5" width="1" height="30" fill="#000"/>
+        <rect x="95" y="5" width="1" height="30" fill="#000"/>
+        <rect x="98" y="5" width="3" height="30" fill="#000"/>
+        <rect x="103" y="5" width="1" height="30" fill="#000"/>
+        <rect x="106" y="5" width="3" height="30" fill="#000"/>
+        <rect x="111" y="5" width="1" height="30" fill="#000"/>
+        <rect x="114" y="5" width="1" height="30" fill="#000"/>
+        <rect x="117" y="5" width="3" height="30" fill="#000"/>
+        <rect x="122" y="5" width="1" height="30" fill="#000"/>
+        <rect x="125" y="5" width="3" height="30" fill="#000"/>
+        <rect x="130" y="5" width="1" height="30" fill="#000"/>
+        <text x="70" y="46" text-anchor="middle" font-size="8" fill="#000">*TEST-UNKNOWN*</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real Code 39 in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> "Unrecognized barcode format" error; app does not crash.</div>
+  </div>
+
+  <!-- Fixture 6: Duplicate scan -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">6</div>
+      <div class="fixture-name">Duplicate Scan — Warning <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: QR Code</div>
+    <div class="barcode-value">TEST-WU-QR-DUP-00006</div>
+    <div class="svg-wrap">
+      <svg width="80" height="80" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-label="QR placeholder for duplicate scan test">
+        <rect x="0" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="2" width="3" height="3" fill="#000"/>
+        <rect x="14" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="15" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="16" y="2" width="3" height="3" fill="#000"/>
+        <rect x="0" y="14" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="15" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="16" width="3" height="3" fill="#000"/>
+        <rect x="8" y="1" width="1" height="1" fill="#000"/><rect x="10" y="1" width="1" height="1" fill="#000"/>
+        <rect x="9" y="3" width="1" height="1" fill="#000"/><rect x="11" y="3" width="1" height="1" fill="#000"/>
+        <rect x="8" y="5" width="1" height="1" fill="#000"/><rect x="12" y="5" width="1" height="1" fill="#000"/>
+        <rect x="0" y="9" width="1" height="1" fill="#000"/><rect x="3" y="9" width="1" height="1" fill="#000"/>
+        <rect x="7" y="9" width="1" height="1" fill="#000"/><rect x="9" y="9" width="1" height="1" fill="#000"/>
+        <rect x="11" y="9" width="1" height="1" fill="#000"/><rect x="13" y="9" width="1" height="1" fill="#000"/>
+        <rect x="15" y="9" width="1" height="1" fill="#000"/><rect x="19" y="9" width="1" height="1" fill="#000"/>
+        <rect x="8" y="11" width="1" height="1" fill="#000"/><rect x="10" y="11" width="1" height="1" fill="#000"/>
+        <rect x="8" y="13" width="1" height="1" fill="#000"/><rect x="12" y="13" width="1" height="1" fill="#000"/>
+        <rect x="9" y="15" width="1" height="1" fill="#000"/><rect x="14" y="15" width="1" height="1" fill="#000"/>
+        <rect x="8" y="17" width="1" height="1" fill="#000"/><rect x="11" y="17" width="1" height="1" fill="#000"/>
+        <rect x="9" y="19" width="1" height="1" fill="#000"/><rect x="13" y="19" width="1" height="1" fill="#000"/>
+        <text x="10.5" y="13" text-anchor="middle" font-size="1.8" fill="#555">QR</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real QR in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> 1st scan succeeds; 2nd scan shows "Already fulfilled" warning; no double-decrement.</div>
+  </div>
+
+  <!-- Fixture 7: Manual entry -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">7</div>
+      <div class="fixture-name">Manual Entry — Walk-Up <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: Manual keyboard entry (no camera required)</div>
+    <div class="barcode-value">TEST-MANUAL-00007</div>
+    <div class="svg-wrap" style="background:#f9fafb;padding:12px;">
+      <div style="border:2px solid #6b7280;border-radius:6px;padding:6px 10px;background:#fff;font-family:monospace;font-size:12px;color:#111;">
+        TEST-MANUAL-00007
+      </div>
+      <div style="font-size:10px;color:#888;margin-top:4px;">Type this value into the manual entry field</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Same item card as camera scan path; item returned successfully.</div>
+  </div>
+
+  <!-- Fixture 8: Order lookup -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">8</div>
+      <div class="fixture-name">Known Order Lookup <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: QR Code</div>
+    <div class="barcode-value">TEST-ORD-LOOKUP-00008</div>
+    <div class="svg-wrap">
+      <svg width="80" height="80" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-label="QR placeholder for order lookup test">
+        <rect x="0" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="2" width="3" height="3" fill="#000"/>
+        <rect x="14" y="0" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="15" y="1" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="16" y="2" width="3" height="3" fill="#000"/>
+        <rect x="0" y="14" width="7" height="7" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="1" y="15" width="5" height="5" fill="none" stroke="#000" stroke-width="0.5"/>
+        <rect x="2" y="16" width="3" height="3" fill="#000"/>
+        <rect x="8" y="0" width="2" height="1" fill="#000"/><rect x="11" y="0" width="1" height="1" fill="#000"/>
+        <rect x="8" y="2" width="1" height="1" fill="#000"/><rect x="10" y="2" width="2" height="1" fill="#000"/>
+        <rect x="9" y="4" width="2" height="1" fill="#000"/><rect x="12" y="4" width="1" height="1" fill="#000"/>
+        <rect x="0" y="8" width="2" height="1" fill="#000"/><rect x="4" y="8" width="1" height="1" fill="#000"/>
+        <rect x="7" y="8" width="2" height="1" fill="#000"/><rect x="10" y="8" width="1" height="1" fill="#000"/>
+        <rect x="13" y="8" width="2" height="1" fill="#000"/><rect x="16" y="8" width="1" height="1" fill="#000"/>
+        <rect x="8" y="10" width="2" height="1" fill="#000"/><rect x="11" y="10" width="1" height="1" fill="#000"/>
+        <rect x="8" y="12" width="1" height="1" fill="#000"/><rect x="10" y="12" width="2" height="1" fill="#000"/>
+        <rect x="8" y="14" width="2" height="1" fill="#000"/><rect x="12" y="14" width="1" height="1" fill="#000"/>
+        <rect x="8" y="16" width="1" height="1" fill="#000"/><rect x="14" y="16" width="2" height="1" fill="#000"/>
+        <rect x="8" y="18" width="2" height="1" fill="#000"/><rect x="11" y="18" width="1" height="1" fill="#000"/>
+        <rect x="9" y="20" width="1" height="1" fill="#000"/><rect x="13" y="20" width="2" height="1" fill="#000"/>
+        <text x="10.5" y="13" text-anchor="middle" font-size="1.8" fill="#555">QR</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real QR in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Order detail for "Test Customer Eight"; at least one line item visible.</div>
+  </div>
+
+  <!-- Fixture 9: Item fulfillment -->
+  <div class="card">
+    <div class="card-header">
+      <div class="fixture-num">9</div>
+      <div class="fixture-name">Known Item Fulfillment <span class="badge">DEV ONLY</span></div>
+    </div>
+    <div class="barcode-type">Type: Code 128</div>
+    <div class="barcode-value">TEST-ITEM-FULFILL-00009</div>
+    <div class="svg-wrap">
+      <svg width="160" height="50" viewBox="0 0 160 50" xmlns="http://www.w3.org/2000/svg" aria-label="Code 128 placeholder for fulfillment test">
+        <rect x="10" y="5" width="2" height="30" fill="#000"/>
+        <rect x="13" y="5" width="1" height="30" fill="#000"/>
+        <rect x="15" y="5" width="3" height="30" fill="#000"/>
+        <rect x="19" y="5" width="1" height="30" fill="#000"/>
+        <rect x="21" y="5" width="2" height="30" fill="#000"/>
+        <rect x="25" y="5" width="3" height="30" fill="#000"/>
+        <rect x="29" y="5" width="1" height="30" fill="#000"/>
+        <rect x="31" y="5" width="2" height="30" fill="#000"/>
+        <rect x="34" y="5" width="1" height="30" fill="#000"/>
+        <rect x="36" y="5" width="3" height="30" fill="#000"/>
+        <rect x="40" y="5" width="2" height="30" fill="#000"/>
+        <rect x="43" y="5" width="1" height="30" fill="#000"/>
+        <rect x="45" y="5" width="3" height="30" fill="#000"/>
+        <rect x="49" y="5" width="1" height="30" fill="#000"/>
+        <rect x="51" y="5" width="2" height="30" fill="#000"/>
+        <rect x="54" y="5" width="1" height="30" fill="#000"/>
+        <rect x="56" y="5" width="3" height="30" fill="#000"/>
+        <rect x="60" y="5" width="2" height="30" fill="#000"/>
+        <rect x="63" y="5" width="1" height="30" fill="#000"/>
+        <rect x="65" y="5" width="2" height="30" fill="#000"/>
+        <rect x="68" y="5" width="3" height="30" fill="#000"/>
+        <rect x="72" y="5" width="1" height="30" fill="#000"/>
+        <rect x="74" y="5" width="2" height="30" fill="#000"/>
+        <rect x="77" y="5" width="3" height="30" fill="#000"/>
+        <rect x="81" y="5" width="1" height="30" fill="#000"/>
+        <rect x="83" y="5" width="2" height="30" fill="#000"/>
+        <rect x="86" y="5" width="1" height="30" fill="#000"/>
+        <rect x="88" y="5" width="3" height="30" fill="#000"/>
+        <rect x="92" y="5" width="2" height="30" fill="#000"/>
+        <rect x="95" y="5" width="1" height="30" fill="#000"/>
+        <rect x="97" y="5" width="2" height="30" fill="#000"/>
+        <rect x="100" y="5" width="3" height="30" fill="#000"/>
+        <rect x="104" y="5" width="1" height="30" fill="#000"/>
+        <rect x="106" y="5" width="2" height="30" fill="#000"/>
+        <rect x="109" y="5" width="1" height="30" fill="#000"/>
+        <rect x="111" y="5" width="3" height="30" fill="#000"/>
+        <rect x="115" y="5" width="2" height="30" fill="#000"/>
+        <rect x="118" y="5" width="1" height="30" fill="#000"/>
+        <rect x="120" y="5" width="2" height="30" fill="#000"/>
+        <rect x="123" y="5" width="3" height="30" fill="#000"/>
+        <rect x="127" y="5" width="1" height="30" fill="#000"/>
+        <rect x="129" y="5" width="2" height="30" fill="#000"/>
+        <rect x="132" y="5" width="1" height="30" fill="#000"/>
+        <rect x="134" y="5" width="3" height="30" fill="#000"/>
+        <rect x="138" y="5" width="2" height="30" fill="#000"/>
+        <rect x="141" y="5" width="1" height="30" fill="#000"/>
+        <rect x="143" y="5" width="2" height="30" fill="#000"/>
+        <rect x="146" y="5" width="1" height="30" fill="#000"/>
+        <text x="80" y="46" text-anchor="middle" font-size="8" fill="#000">TEST-ITEM-FULFILL-00009</text>
+      </svg>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Symbolic placeholder — generate real Code 128 in dev tooling</div>
+    </div>
+    <div class="expected"><strong>Expected:</strong> Scan → "Fulfill" → success message; on-hand qty decrements by 1 in test DB.</div>
+  </div>
+
+</div>
+
+<div style="margin-top:24px;font-size:10px;color:#888;border-top:1px solid #e5e7eb;padding-top:12px;">
+  <strong>Hampton Hawks Plant Sales</strong> — Test Fixture Sheet |
+  DISPOSABLE / DEV ONLY — All values synthetic. Remove seed data before production. |
+  See <code>docs/mobile-sale-day-readiness/05-test-fixtures.md</code> for full fixture details.
+</div>
+
+</body>
+</html>
