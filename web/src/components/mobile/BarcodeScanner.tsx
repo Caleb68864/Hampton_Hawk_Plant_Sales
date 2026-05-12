@@ -9,6 +9,7 @@ export interface BarcodeScannerProps {
   paused?: boolean;
   eyebrow?: string;
   reticleShape?: '1d' | 'qr';
+  hideManualEntry?: boolean;
 }
 
 const RETICLE_DIM_1D = { width: 240, height: 80 };
@@ -61,6 +62,7 @@ export function BarcodeScanner({
   paused = false,
   eyebrow = 'Scanner',
   reticleShape = '1d',
+  hideManualEntry = false,
 }: BarcodeScannerProps) {
   const scanner = useBarcodeScanner({ onScan, paused });
   const { status, error, devices, torchSupported, torchOn, start, stop, switchDevice, toggleTorch, lastResult } =
@@ -200,20 +202,22 @@ export function BarcodeScanner({
         </div>
       )}
 
-      <form className="mobile-scanner__manual" onSubmit={handleManualSubmit}>
-        <ScanInputShell
-          label="Manual entry"
-          hint="Type or paste a code, then press Enter."
-          value={manualValue}
-          onChange={(e) => setManualValue(e.currentTarget.value)}
-          placeholder="Order or barcode"
-          inputMode="text"
-          aria-label="Manual scan entry"
-        />
-        <button type="submit" className="mobile-scanner__manual-submit" disabled={paused || !manualValue.trim()}>
-          Submit
-        </button>
-      </form>
+      {!hideManualEntry && (
+        <form className="mobile-scanner__manual" onSubmit={handleManualSubmit}>
+          <ScanInputShell
+            label="Manual entry"
+            hint="Type or paste a code, then press Enter."
+            value={manualValue}
+            onChange={(e) => setManualValue(e.currentTarget.value)}
+            placeholder="Order or barcode"
+            inputMode="text"
+            aria-label="Manual scan entry"
+          />
+          <button type="submit" className="mobile-scanner__manual-submit" disabled={paused || !manualValue.trim()}>
+            Submit
+          </button>
+        </form>
+      )}
 
       <style>{`
         .mobile-scanner {

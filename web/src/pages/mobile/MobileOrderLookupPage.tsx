@@ -278,6 +278,7 @@ export function MobileOrderLookupPage() {
                   eyebrow="Scan order code"
                   onScan={handleCameraScan}
                   paused={isNavigating}
+                  hideManualEntry
                 />
               </div>
             )}

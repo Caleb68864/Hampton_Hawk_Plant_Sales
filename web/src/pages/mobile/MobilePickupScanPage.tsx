@@ -343,6 +343,7 @@ export function MobilePickupScanPageInner() {
               eyebrow={`Picking for ${order.customerDisplayName}`}
               onScan={handleCameraScan}
               paused={inFlight || scene.kind === 'accepted'}
+              hideManualEntry
             />
 
             {wrongCodeType && (

@@ -29,7 +29,6 @@ export const MobileTabletRail: FC<MobileTabletRailProps> = ({ stationName = 'Ham
       style={{
         width: 220,
         flexShrink: 0,
-        display: 'flex',
         flexDirection: 'column',
         background: 'var(--color-hawk-50, #f5f3ff)',
         borderRight: '1px solid var(--color-hawk-200, #e5e7eb)',

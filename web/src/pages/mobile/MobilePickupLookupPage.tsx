@@ -144,6 +144,7 @@ export function MobilePickupLookupPage() {
           eyebrow="Scan order code"
           onScan={handleCameraScan}
           paused={isNavigating}
+          hideManualEntry
         />
 
         <form
