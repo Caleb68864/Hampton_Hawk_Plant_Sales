@@ -67,6 +67,22 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
 
+  const createHiddenVideo = useCallback((): HTMLVideoElement => {
+    const videoEl = document.createElement('video');
+    videoEl.setAttribute('playsinline', 'true');
+    videoEl.muted = true;
+    videoEl.autoplay = true;
+    videoEl.style.position = 'fixed';
+    videoEl.style.left = '-9999px';
+    videoEl.style.top = '0';
+    videoEl.style.width = '1px';
+    videoEl.style.height = '1px';
+    videoEl.style.opacity = '0';
+    videoEl.style.pointerEvents = 'none';
+    document.body.appendChild(videoEl);
+    return videoEl;
+  }, []);
+
   const stopTracks = useCallback(() => {
     const videoEl = videoElRef.current;
     if (videoEl?.srcObject) {
@@ -74,6 +90,10 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       stream.getTracks().forEach((track) => track.stop());
       videoEl.srcObject = null;
     }
+    if (videoEl && videoEl.parentElement) {
+      videoEl.parentElement.removeChild(videoEl);
+    }
+    videoElRef.current = null;
   }, []);
 
   const stop = useCallback(() => {
@@ -103,8 +123,10 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
     [cooldownMs, onScan]
   );
   const ignoreDecodeErr = (err: unknown) => {
-    const n = (err as Error).name;
-    if (n !== 'NotFoundException' && n !== 'ChecksumException' && n !== 'FormatException') {
+    const e = err as Error;
+    const msg = e?.message ?? String(err);
+    const known = /NotFoundException|ChecksumException|FormatException|No MultiFormat Readers/i;
+    if (!known.test(e?.name ?? '') && !known.test(msg)) {
       console.error('Decode error:', err);
     }
   };
@@ -125,8 +147,7 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         label: d.label || ('Camera ' + d.deviceId.slice(0, 8)),
       }));
       setDevices(cameraDevices);
-      const videoEl = document.createElement('video');
-      videoEl.setAttribute('playsinline', 'true');
+      const videoEl = createHiddenVideo();
       videoElRef.current = videoEl;
       const constraints: MediaStreamConstraints = { video: { facingMode: 'environment' }, audio: false };
       const controls = await reader.decodeFromConstraints(constraints, videoEl, (result, err) => {
@@ -153,14 +174,13 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       setStatus('error');
       setError({ kind, message: e.message });
     }
-  }, [handleResult]);
+  }, [handleResult, createHiddenVideo]);
   const switchDevice = useCallback(
     async (deviceId: string) => {
       stop();
       setSelectedDeviceId(deviceId);
       const reader = new BrowserMultiFormatReader(DECODE_HINTS);
-      const videoEl = document.createElement('video');
-      videoEl.setAttribute('playsinline', 'true');
+      const videoEl = createHiddenVideo();
       videoElRef.current = videoEl;
       try {
         const devControls = await reader.decodeFromVideoDevice(deviceId, videoEl, (result, err) => {
@@ -175,7 +195,7 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         setError({ kind: 'unknown', message: e.message });
       }
     },
-    [handleResult, stop]
+    [handleResult, stop, createHiddenVideo]
   );
 
   const toggleTorch = useCallback(async () => {

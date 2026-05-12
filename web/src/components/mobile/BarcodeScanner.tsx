@@ -92,6 +92,14 @@ export function BarcodeScanner({
     const allVideos = Array.from(document.querySelectorAll('video'));
     const live = allVideos.find((v) => v.srcObject instanceof MediaStream && v.parentElement !== mount);
     if (live) {
+      // Clear the off-screen positioning styles the hook applied to keep the
+      // video hidden before adoption. Without this the element stays at
+      // left:-9999px / opacity:0 inside the visible card and the preview is black.
+      live.style.position = '';
+      live.style.left = '';
+      live.style.top = '';
+      live.style.opacity = '';
+      live.style.pointerEvents = '';
       live.style.width = '100%';
       live.style.height = '100%';
       live.style.objectFit = 'cover';

@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AudioFeedbackProvider } from '@/components/shared/AudioFeedback.js';
 import { AdminPinModal } from '@/components/shared/AdminPinModal.js';
+import { BuildBadge } from '@/components/shared/BuildBadge.js';
 import { AppLayout } from '@/layouts/AppLayout.js';
 import { KioskLayout } from '@/layouts/KioskLayout.js';
 import { DashboardPage } from '@/pages/DashboardPage.js';
@@ -156,6 +157,7 @@ function App() {
           </Route>
         </Routes>
         <AdminPinModal />
+        <BuildBadge />
       </BrowserRouter>
     </AudioFeedbackProvider>
   );

@@ -1,0 +1,10 @@
+{
+  "vault_path": "vault",
+  "chronicler": {
+    "enabled": true,
+    "auto_archive": true,
+    "auto_digest": false,
+    "monthly_budget_usd": 5,
+    "model": "haiku"
+  }
+}
