@@ -159,32 +159,55 @@ public class OrderService : IOrderService
 
         bool isOverride = false;
 
-        if (order.IsWalkUp)
-        {
+        // Only walk-up orders are subject to the availability invariant, so only they
+        // need the lock scope; preorder lines keep the cheaper unlocked insert.
+        var needsWalkUpLock = order.IsWalkUp;
+        if (needsWalkUpLock)
             isOverride = TryAdminOverride(adminPin, adminReason);
 
-            if (!isOverride)
-            {
-                var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
-                if (!allowed)
-                    throw new ValidationException(errorMessage!);
-            }
-        }
+        var transaction = needsWalkUpLock ? await WalkUpRowLocks.BeginAsync(_db) : null;
+        OrderLine line;
 
-        var line = new OrderLine
+        try
         {
-            OrderId = orderId,
-            PlantCatalogId = request.PlantCatalogId,
-            QtyOrdered = request.QtyOrdered,
-            Notes = request.Notes
-        };
+            if (needsWalkUpLock)
+            {
+                await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
 
-        _db.OrderLines.Add(line);
+                if (!isOverride)
+                {
+                    var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
+                    if (!allowed)
+                        throw new ValidationException(errorMessage!);
+                }
+            }
 
-        if (isOverride)
-            order.HasIssue = true;
+            line = new OrderLine
+            {
+                OrderId = orderId,
+                PlantCatalogId = request.PlantCatalogId,
+                QtyOrdered = request.QtyOrdered,
+                Notes = request.Notes
+            };
 
-        await _db.SaveChangesAsync();
+            _db.OrderLines.Add(line);
+
+            if (isOverride)
+                order.HasIssue = true;
+
+            await _db.SaveChangesAsync();
+
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+        finally
+        {
+            if (transaction != null) await transaction.DisposeAsync();
+        }
 
         if (isOverride)
         {

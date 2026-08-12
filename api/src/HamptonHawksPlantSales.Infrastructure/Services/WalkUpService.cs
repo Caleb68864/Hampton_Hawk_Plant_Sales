@@ -74,27 +74,48 @@ public class WalkUpService : IWalkUpService
 
         var isOverride = TryAdminOverride(adminPin, adminReason);
 
-        if (!isOverride)
+        // Validate-then-insert must happen under the row locks, otherwise two registers
+        // can both clear the availability check for the last unit and both commit.
+        var transaction = await WalkUpRowLocks.BeginAsync(_db);
+        OrderLine line;
+
+        try
         {
-            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
-            if (!allowed)
-                throw new ValidationException(errorMessage!);
+            await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
+
+            if (!isOverride)
+            {
+                var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
+                if (!allowed)
+                    throw new ValidationException(errorMessage!);
+            }
+
+            line = new OrderLine
+            {
+                OrderId = orderId,
+                PlantCatalogId = request.PlantCatalogId,
+                QtyOrdered = request.QtyOrdered,
+                Notes = request.Notes
+            };
+
+            _db.OrderLines.Add(line);
+
+            if (isOverride)
+                order.HasIssue = true;
+
+            await _db.SaveChangesAsync();
+
+            if (transaction != null) await transaction.CommitAsync();
         }
-
-        var line = new OrderLine
+        catch
         {
-            OrderId = orderId,
-            PlantCatalogId = request.PlantCatalogId,
-            QtyOrdered = request.QtyOrdered,
-            Notes = request.Notes
-        };
-
-        _db.OrderLines.Add(line);
-
-        if (isOverride)
-            order.HasIssue = true;
-
-        await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
+        }
+        finally
+        {
+            if (transaction != null) await transaction.DisposeAsync();
+        }
 
         if (isOverride)
         {
@@ -125,35 +146,53 @@ public class WalkUpService : IWalkUpService
 
         var isOverride = TryAdminOverride(adminPin, adminReason);
 
-        if (!isOverride)
+        var transaction = await WalkUpRowLocks.BeginAsync(_db);
+
+        try
         {
-            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered, orderId);
-            if (!allowed)
-                throw new ValidationException(errorMessage!);
+            await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
+
+            if (!isOverride)
+            {
+                var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered, orderId);
+                if (!allowed)
+                    throw new ValidationException(errorMessage!);
+            }
+
+            if (request.QtyOrdered < line.QtyFulfilled)
+                throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
+
+            if (line.QtyFulfilled > 0 && request.PlantCatalogId != line.PlantCatalogId)
+                throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
+
+            line.PlantCatalogId = request.PlantCatalogId;
+            line.QtyOrdered = request.QtyOrdered;
+            line.Notes = request.Notes;
+
+            if (isOverride)
+            {
+                order.HasIssue = true;
+                await _adminService.LogActionAsync(
+                    "WalkUpOverride",
+                    "OrderLine",
+                    lineId,
+                    adminReason!,
+                    $"Updated walk-up line exceeding available inventory for plant {request.PlantCatalogId}, qty={request.QtyOrdered}");
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (transaction != null) await transaction.CommitAsync();
         }
-
-        if (request.QtyOrdered < line.QtyFulfilled)
-            throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
-
-        if (line.QtyFulfilled > 0 && request.PlantCatalogId != line.PlantCatalogId)
-            throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
-
-        line.PlantCatalogId = request.PlantCatalogId;
-        line.QtyOrdered = request.QtyOrdered;
-        line.Notes = request.Notes;
-
-        if (isOverride)
+        catch
         {
-            order.HasIssue = true;
-            await _adminService.LogActionAsync(
-                "WalkUpOverride",
-                "OrderLine",
-                lineId,
-                adminReason!,
-                $"Updated walk-up line exceeding available inventory for plant {request.PlantCatalogId}, qty={request.QtyOrdered}");
+            if (transaction != null) await transaction.RollbackAsync();
+            throw;
         }
-
-        await _db.SaveChangesAsync();
+        finally
+        {
+            if (transaction != null) await transaction.DisposeAsync();
+        }
 
         if (line.PlantCatalog.Id != request.PlantCatalogId)
             await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
