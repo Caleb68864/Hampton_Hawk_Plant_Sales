@@ -121,7 +121,7 @@ export function DashboardPage() {
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Quick Links</h2>
         <div className="flex flex-wrap gap-3">
           <QuickLink to="/orders/new" label="New Order" />
-          <QuickLink to="/walkup/new" label="Walk-Up Order" />
+          <QuickLink to="/walkup/register" label="Walk-Up Order" />
           <QuickLink to="/pickup" label="Pickup Station" />
           <QuickLink to="/imports" label="Import Data" />
           <QuickLink to="/reports" label="Reports" />

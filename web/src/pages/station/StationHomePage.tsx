@@ -48,14 +48,6 @@ const modeCards: StationModeCard[] = [
     colorClass: 'border-amber-300 bg-amber-50 text-amber-900',
   },
   {
-    title: 'Old Walk-Up Form (legacy)',
-    mode: 'walkup',
-    icon: '🛍️',
-    instruction: 'Legacy form-based walk-up order. Secondary fallback only -- use the Register for new sales.',
-    to: '/walkup/new',
-    colorClass: 'border-gray-300 bg-gray-50 text-gray-700',
-  },
-  {
     title: 'Admin Tools',
     mode: 'admin',
     icon: '🛠️',

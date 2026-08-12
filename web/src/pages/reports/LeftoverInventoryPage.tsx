@@ -84,8 +84,10 @@ export function LeftoverInventoryPage() {
 
     if (selectedItems.length === 0) return;
 
-    const serialized = encodeURIComponent(JSON.stringify(selectedItems));
-    navigate(`/walkup/new?prefill=${serialized}`, {
+    // The retired walk-up form accepted a ?prefill payload; the register builds its
+    // basket by scanning instead, so the selection is carried in router state only.
+    // The register ignores it today -- the volunteer scans the leftovers directly.
+    navigate('/walkup/register', {
       state: { preselectedItems: selectedItems },
     });
   }
@@ -106,7 +108,7 @@ export function LeftoverInventoryPage() {
             Create Walk-Up from Selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
           </TouchButton>
           <Link
-            to="/walkup/new"
+            to="/walkup/register"
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             Create Cash & Carry Sale

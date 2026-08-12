@@ -273,7 +273,7 @@ export function GlobalQuickFind() {
                 <button
                   type="button"
                   className="rounded-md border border-hawk-300 bg-hawk-50 p-3 text-left text-sm font-medium text-hawk-800"
-                  onClick={() => navigate('/walkup/new')}
+                  onClick={() => navigate('/walkup/register')}
                 >
                   Create walk-up
                 </button>
