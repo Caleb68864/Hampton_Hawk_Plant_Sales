@@ -71,6 +71,10 @@ export function useScanWorkflow(
 
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  // Holds the scan id of the most recent submission that did not complete, so a
+  // retry of that same barcode+quantity reuses it instead of counting twice.
+  const pendingScanRef = useRef<{ key: string; scanId: string } | null>(null);
+
   const loadOrder = useCallback(async () => {
     if (mode !== 'order' || !id) return;
     setState((s) => ({ ...s, isLoading: true, networkError: null }));
@@ -135,9 +139,23 @@ export function useScanWorkflow(
       // Multi-quantity scanning: pass the volunteer-set quantity through.
       // Defaults to 1 so callers that don't care about multi-qty stay unchanged.
       const qty = quantity > 0 ? quantity : 1;
+
+      // Retry-stable scan id. A submission that fails (timeout, dropped LAN) may
+      // still have been applied server-side, so re-scanning the same barcode and
+      // quantity reuses the id and the server recognises the replay. The id is
+      // cleared on any completed response, so a deliberate second scan of the same
+      // item gets a fresh id and fulfills normally.
+      const attemptKey = `${lookupBarcode}|${qty}`;
+      const scanId =
+        pendingScanRef.current?.key === attemptKey
+          ? pendingScanRef.current.scanId
+          : crypto.randomUUID();
+      pendingScanRef.current = { key: attemptKey, scanId };
+
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
-        const result = await fulfillmentApi.scan(id, { barcode: lookupBarcode, quantity: qty });
+        const result = await fulfillmentApi.scan(id, { barcode: lookupBarcode, quantity: qty, scanId });
+        pendingScanRef.current = null;
         const { plantName } = getScanDisplayFields(result);
         const entry: ScanHistoryEntry = {
           barcode,

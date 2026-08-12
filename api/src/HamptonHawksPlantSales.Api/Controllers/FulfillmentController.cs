@@ -35,7 +35,8 @@ public class FulfillmentController : ControllerBase
         // Multi-quantity scan: forward request.Quantity to the service. The
         // service coerces non-positive values to 1 and caps the applied count
         // at the line's remaining quantity, so the controller stays thin.
-        var result = await _fulfillmentService.ScanAsync(id, request.Barcode, request.Quantity);
+        // ScanId (optional) lets the service recognise a retried scan as a replay.
+        var result = await _fulfillmentService.ScanAsync(id, request.Barcode, request.Quantity, request.ScanId);
         return Ok(ApiResponse<ScanResponse>.Ok(result));
     }
 

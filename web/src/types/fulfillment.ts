@@ -14,6 +14,13 @@ export interface ScanRequest {
    * workflow drives this from the QuantitySelector on PickupScanPage.
    */
   quantity?: number;
+  /**
+   * Stable id for this physical scan, reused when retrying a submission that
+   * failed or timed out. The backend treats a repeat of an id it has already
+   * accepted on this order as a replay and does not fulfill a second unit.
+   * Optional: omitting it preserves the previous at-least-once behaviour.
+   */
+  scanId?: string;
 }
 
 export interface ScanResponse {

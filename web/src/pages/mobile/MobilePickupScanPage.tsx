@@ -27,6 +27,13 @@ const ACCEPTED_SCENE_DURATION_MS = 900;
 interface PendingScan {
   barcode: string;
   source: ScanSource;
+  /**
+   * Identifies this physical scan. Retry re-submits the same PendingScan, so the
+   * id survives the retry and the server recognises the second request as a replay
+   * instead of fulfilling another unit. A genuinely new scan builds a new object
+   * and therefore a new id.
+   */
+  scanId: string;
 }
 
 type SceneState =
@@ -156,6 +163,7 @@ export function MobilePickupScanPageInner() {
         const response = await fulfillmentApi.scan(orderId, {
           barcode: pending.barcode,
           quantity: 1,
+          scanId: pending.scanId,
         });
 
         const result = response.result;
@@ -223,7 +231,7 @@ export function MobilePickupScanPageInner() {
     const trimmed = manualValue.trim();
     if (!trimmed) return;
     setManualValue('');
-    void submitScan({ barcode: trimmed, source: 'manual-entry' });
+    void submitScan({ barcode: trimmed, source: 'manual-entry', scanId: crypto.randomUUID() });
   };
 
   const [wrongCodeType, setWrongCodeType] = useState(false);
@@ -248,7 +256,7 @@ export function MobilePickupScanPageInner() {
         return;
       }
       setWrongCodeType(false);
-      void submitScan({ barcode: result.code, source: result.source });
+      void submitScan({ barcode: result.code, source: result.source, scanId: crypto.randomUUID() });
     },
     [order, submitScan],
   );

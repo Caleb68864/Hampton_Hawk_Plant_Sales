@@ -19,12 +19,22 @@ public class FulfillmentService : IFulfillmentService
         _adminService = adminService;
     }
 
-    public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode, int quantity = 1)
+    public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode, int quantity = 1, string? scanId = null)
     {
         // Multi-quantity scanning (volunteer "set N, scan once" workflow):
         // coerce non-positive values to 1 so a malformed client cannot zero-out
         // a scan. The internal path caps at the line's remaining quantity.
         if (quantity <= 0) quantity = 1;
+
+        var normalizedScanId = string.IsNullOrWhiteSpace(scanId) ? null : scanId.Trim();
+
+        // Replay check before any work: a resubmission of a scan we already applied
+        // returns the original outcome rather than fulfilling another unit.
+        if (normalizedScanId != null)
+        {
+            var replay = await TryReplayScanAsync(orderId, normalizedScanId);
+            if (replay != null) return replay;
+        }
 
         const int maxAttempts = 3;
 
@@ -32,7 +42,7 @@ public class FulfillmentService : IFulfillmentService
         {
             try
             {
-                return await ScanInternalAsync(orderId, barcode, quantity);
+                return await ScanInternalAsync(orderId, barcode, quantity, normalizedScanId);
             }
             catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
             {
@@ -47,7 +57,7 @@ public class FulfillmentService : IFulfillmentService
         // Final attempt without catch filter so unexpected errors still bubble up.
         try
         {
-            return await ScanInternalAsync(orderId, barcode, quantity);
+            return await ScanInternalAsync(orderId, barcode, quantity, normalizedScanId);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -75,7 +85,45 @@ public class FulfillmentService : IFulfillmentService
         }
     }
 
-    private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode, int quantity)
+    /// <summary>
+    /// Returns the outcome of an already-applied scan with this id, or null if this id
+    /// has not been seen on this order. Reports the line's current state rather than a
+    /// snapshot, so the client's view stays truthful even if later scans have landed.
+    /// </summary>
+    private async Task<ScanResponse?> TryReplayScanAsync(Guid orderId, string scanId)
+    {
+        var priorEvent = await _db.FulfillmentEvents
+            .AsNoTracking()
+            .Where(e => e.OrderId == orderId && e.IdempotencyKey == scanId && e.DeletedAt == null)
+            .FirstOrDefaultAsync();
+
+        if (priorEvent == null) return null;
+
+        var plant = priorEvent.PlantCatalogId.HasValue
+            ? await _db.PlantCatalogs.AsNoTracking().FirstOrDefaultAsync(p => p.Id == priorEvent.PlantCatalogId.Value)
+            : null;
+
+        var line = priorEvent.PlantCatalogId.HasValue
+            ? await _db.OrderLines.AsNoTracking().FirstOrDefaultAsync(l =>
+                l.OrderId == orderId && l.PlantCatalogId == priorEvent.PlantCatalogId.Value && l.DeletedAt == null)
+            : null;
+
+        return new ScanResponse
+        {
+            Result = priorEvent.Result,
+            OrderId = orderId,
+            Plant = plant == null ? null : new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
+            Line = line == null ? null : new ScanLineInfo
+            {
+                QtyOrdered = line.QtyOrdered,
+                QtyFulfilled = line.QtyFulfilled,
+                QtyRemaining = line.QtyOrdered - line.QtyFulfilled
+            },
+            OrderRemainingItems = await GetOrderRemainingItems(orderId)
+        };
+    }
+
+    private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode, int quantity, string? scanId = null)
     {
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
@@ -164,6 +212,22 @@ public class FulfillmentService : IFulfillmentService
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, orderLineCheck);
             }
 
+            // Re-check the replay guard under the locks: two retries of the same scan can
+            // both clear the pre-transaction check, and only one may apply.
+            if (scanId != null)
+            {
+                var alreadyApplied = await _db.FulfillmentEvents
+                    .AsNoTracking()
+                    .AnyAsync(e => e.OrderId == orderId && e.IdempotencyKey == scanId && e.DeletedAt == null);
+
+                if (alreadyApplied)
+                {
+                    if (transaction != null) await transaction.RollbackAsync();
+                    return await TryReplayScanAsync(orderId, scanId)
+                        ?? BuildScanResponse(FulfillmentResult.Accepted, orderId, plant, lockedOrderLine);
+                }
+            }
+
             // Re-check conditions after acquiring locks — values are fresh from the locked DB rows.
             if (lockedOrderLine.QtyFulfilled >= lockedOrderLine.QtyOrdered)
             {
@@ -218,6 +282,7 @@ public class FulfillmentService : IFulfillmentService
                 Barcode = barcode,
                 Result = FulfillmentResult.Accepted,
                 Quantity = applied,
+                IdempotencyKey = scanId,
                 Message = $"Scanned {applied}x '{plant.Name}'. Fulfilled {lockedOrderLine.QtyFulfilled}/{lockedOrderLine.QtyOrdered}."
             };
             _db.FulfillmentEvents.Add(evt);
