@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -489,7 +489,7 @@ public class WalkUpServiceTests
         var plantAvail = availability.FirstOrDefault(a => a.PlantCatalogId == plant.Id);
         plantAvail.Should().NotBeNull();
         plantAvail!.OnHandQty.Should().Be(10);
-        plantAvail.PreorderRemaining.Should().Be(3);
+        plantAvail.OutstandingCommitments.Should().Be(3);
         plantAvail.AvailableForWalkup.Should().Be(7);
     }
 
@@ -514,7 +514,7 @@ public class WalkUpServiceTests
         var plantAvail = availability.FirstOrDefault(a => a.PlantCatalogId == plant.Id);
         plantAvail.Should().NotBeNull();
         plantAvail!.OnHandQty.Should().Be(20);
-        plantAvail.PreorderRemaining.Should().Be(0);
+        plantAvail.OutstandingCommitments.Should().Be(0);
         plantAvail.AvailableForWalkup.Should().Be(20);
     }
 
@@ -545,7 +545,7 @@ public class WalkUpServiceTests
         var plantAvail = availability.FirstOrDefault(a => a.PlantCatalogId == plant.Id);
         plantAvail.Should().NotBeNull();
         plantAvail!.OnHandQty.Should().Be(2);
-        plantAvail.PreorderRemaining.Should().Be(5);
+        plantAvail.OutstandingCommitments.Should().Be(5);
         plantAvail.AvailableForWalkup.Should().Be(0);
     }
 
@@ -576,14 +576,19 @@ public class WalkUpServiceTests
         var plantAvail = availability.FirstOrDefault(a => a.PlantCatalogId == plant.Id);
         plantAvail.Should().NotBeNull();
         plantAvail!.OnHandQty.Should().Be(10);
-        plantAvail.PreorderRemaining.Should().Be(3); // 5 - 2
+        plantAvail.OutstandingCommitments.Should().Be(3); // 5 - 2
         plantAvail.AvailableForWalkup.Should().Be(7); // 10 - 3
     }
 
+    // Previously asserted that walk-up orders were not deducted. Corrected: an
+    // unfulfilled walk-up line holds stock exactly as a preorder line does, and
+    // excluding it is what allowed the same plant to be sold repeatedly. Fulfilled
+    // walk-up lines (how the register records a sale) still deduct nothing, because
+    // the sale already came out of OnHandQty.
     [Fact]
-    public async Task GetAllAvailability_WalkUpOrdersNotDeducted()
+    public async Task GetAllAvailability_UnfulfilledWalkUpOrdersAreDeducted()
     {
-        // Arrange: walk-up orders should NOT count as preorder deductions
+        // Arrange: an open walk-up order holding stock that has not been handed over
         using var db = CreateDb();
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-EP15-WU", sku: "EP15-WU", name: "WalkUp Test Plant");
         var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
@@ -605,11 +610,11 @@ public class WalkUpServiceTests
         // Act
         var availability = await protectionService.GetAllAvailabilityAsync();
 
-        // Assert: walk-up orders should not reduce availability
+        // Assert: the 4 unfulfilled walk-up units are committed, leaving 6
         var plantAvail = availability.FirstOrDefault(a => a.PlantCatalogId == plant.Id);
         plantAvail.Should().NotBeNull();
         plantAvail!.OnHandQty.Should().Be(10);
-        plantAvail.PreorderRemaining.Should().Be(0);
-        plantAvail.AvailableForWalkup.Should().Be(10);
+        plantAvail.OutstandingCommitments.Should().Be(4);
+        plantAvail.AvailableForWalkup.Should().Be(6);
     }
 }

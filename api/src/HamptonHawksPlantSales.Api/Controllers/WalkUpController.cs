@@ -94,7 +94,7 @@ public class WalkUpController : ControllerBase
                     PlantName = string.Empty,
                     PlantSku = string.Empty,
                     OnHandQty = 0,
-                    PreorderRemaining = 0,
+                    OutstandingCommitments = 0,
                     AvailableForWalkup = 0
                 };
             }

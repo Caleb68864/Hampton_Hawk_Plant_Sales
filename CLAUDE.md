@@ -59,7 +59,25 @@ One `IEntityTypeConfiguration<T>` per entity in `Infrastructure/Data/Configurati
 Use `BeginTransactionAsync()` + raw SQL `SELECT ... FOR UPDATE` for row-level locking on concurrent operations (scan fulfillment).
 
 ### Walk-Up Inventory Protection
-`IInventoryProtectionService` calculates: `AvailableForWalkup = OnHandQty - SUM(preorder unfulfilled qty)`. Both `/api/walkup/` and `/api/orders/` routes must enforce this for walk-up orders.
+`IInventoryProtectionService` calculates:
+`AvailableForWalkup = OnHandQty - SUM(unfulfilled qty across ALL non-cancelled orders)`.
+Both `/api/walkup/` and `/api/orders/` routes must enforce this for walk-up orders.
+
+Deduct **every** outstanding commitment, preorder and walk-up alike -- not just
+preorders. A walk-up line does not decrement `OnHandQty` until fulfillment, so
+counting only preorders made walk-up demand invisible to its own availability
+check and the same unit could be sold repeatedly (confirmed against Postgres:
+three sequential adds against one unit on hand all succeeded).
+
+Deduct only the *unfulfilled* remainder. Fulfilled quantities already came out of
+`OnHandQty`, and subtracting them again would double-count. This is what lets one
+formula serve both flows: the walk-up register decrements inventory at scan time
+and writes `QtyOrdered == QtyFulfilled`, so its sales contribute nothing to the
+deduction.
+
+Walk-up order writes take row locks before validating -- see `WalkUpRowLocks`.
+Serializable conflicts are expected under concurrent registers and are retried
+with jittered backoff rather than surfaced to the volunteer.
 
 ### Naming Conventions
 - C# Backend: PascalCase for public members, camelCase for JSON serialization

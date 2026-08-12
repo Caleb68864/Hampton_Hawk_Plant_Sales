@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Tests.Helpers;
@@ -120,8 +120,14 @@ public class InventoryProtectionServiceTests
         available.Should().Be(40);
     }
 
+    // This test previously asserted the opposite -- that walk-up lines were excluded
+    // from the deduction, matching the original spec. That rule was wrong: a walk-up
+    // line does not decrement OnHandQty until fulfillment, so excluding it made
+    // walk-up demand invisible to the walk-up availability check and the same unit
+    // could be sold to buyer after buyer. Verified against Postgres before the change:
+    // three sequential adds against one unit on hand all succeeded.
     [Fact]
-    public async Task CalculateAvailableForWalkup_WalkupOrdersExcluded()
+    public async Task CalculateAvailableForWalkup_UnfulfilledWalkupOrdersAlsoDeducted()
     {
         // Arrange
         using var db = MockDbContextFactory.Create();
@@ -133,7 +139,7 @@ public class InventoryProtectionServiceTests
         var preorder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
         var preorderLine = TestDataBuilder.CreateOrderLine(preorder.Id, plant.Id, qtyOrdered: 10, qtyFulfilled: 0);
 
-        // Walk-up order -- should be excluded from preorder remaining
+        // Walk-up order -- its unfulfilled units are committed stock too
         var walkupOrder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: true);
         var walkupLine = TestDataBuilder.CreateOrderLine(walkupOrder.Id, plant.Id, qtyOrdered: 15, qtyFulfilled: 0);
 
@@ -149,8 +155,8 @@ public class InventoryProtectionServiceTests
         // Act
         var available = await service.GetAvailableForWalkupAsync(plant.Id);
 
-        // Assert: 50 - 10 = 40 (walk-up order's 15 is excluded)
-        available.Should().Be(40);
+        // Assert: 50 - 10 preorder - 15 walk-up = 25
+        available.Should().Be(25);
     }
 
 
@@ -187,7 +193,7 @@ public class InventoryProtectionServiceTests
         var availability = result.Single();
         availability.PlantCatalogId.Should().Be(activePlant.Id);
         availability.OnHandQty.Should().Be(12);
-        availability.PreorderRemaining.Should().Be(5);
+        availability.OutstandingCommitments.Should().Be(5);
         availability.AvailableForWalkup.Should().Be(7);
     }
 
