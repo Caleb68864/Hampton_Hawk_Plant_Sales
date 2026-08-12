@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -109,7 +109,7 @@ public class WalkUpService : IWalkUpService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
         finally
@@ -186,7 +186,7 @@ public class WalkUpService : IWalkUpService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
         finally

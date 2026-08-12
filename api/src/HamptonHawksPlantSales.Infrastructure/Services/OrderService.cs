@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -165,49 +165,58 @@ public class OrderService : IOrderService
         if (needsWalkUpLock)
             isOverride = TryAdminOverride(adminPin, adminReason);
 
-        var transaction = needsWalkUpLock ? await WalkUpRowLocks.BeginAsync(_db) : null;
-        OrderLine line;
-
-        try
+        // Serializable conflicts are expected when two stations touch the same plant,
+        // so retry rather than surfacing the raw abort to the volunteer.
+        var line = await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
         {
-            if (needsWalkUpLock)
-            {
-                await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
+            var transaction = needsWalkUpLock ? await WalkUpRowLocks.BeginAsync(_db) : null;
 
-                if (!isOverride)
+            try
+            {
+                if (needsWalkUpLock)
                 {
-                    var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
-                    if (!allowed)
-                        throw new ValidationException(errorMessage!);
+                    await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
+
+                    if (!isOverride)
+                    {
+                        var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
+                        if (!allowed)
+                            throw new ValidationException(errorMessage!);
+                    }
                 }
+
+                var newLine = new OrderLine
+                {
+                    OrderId = orderId,
+                    PlantCatalogId = request.PlantCatalogId,
+                    QtyOrdered = request.QtyOrdered,
+                    Notes = request.Notes
+                };
+
+                _db.OrderLines.Add(newLine);
+
+                if (isOverride)
+                {
+                    var tracked = await _db.Orders.FirstAsync(o => o.Id == orderId);
+                    tracked.HasIssue = true;
+                }
+
+                await _db.SaveChangesAsync();
+
+                if (transaction != null) await transaction.CommitAsync();
+
+                return newLine;
             }
-
-            line = new OrderLine
+            catch
             {
-                OrderId = orderId,
-                PlantCatalogId = request.PlantCatalogId,
-                QtyOrdered = request.QtyOrdered,
-                Notes = request.Notes
-            };
-
-            _db.OrderLines.Add(line);
-
-            if (isOverride)
-                order.HasIssue = true;
-
-            await _db.SaveChangesAsync();
-
-            if (transaction != null) await transaction.CommitAsync();
-        }
-        catch
-        {
-            if (transaction != null) await transaction.RollbackAsync();
-            throw;
-        }
-        finally
-        {
-            if (transaction != null) await transaction.DisposeAsync();
-        }
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
 
         if (isOverride)
         {
@@ -491,7 +500,7 @@ public class OrderService : IOrderService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
 
@@ -553,7 +562,7 @@ public class OrderService : IOrderService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
 
