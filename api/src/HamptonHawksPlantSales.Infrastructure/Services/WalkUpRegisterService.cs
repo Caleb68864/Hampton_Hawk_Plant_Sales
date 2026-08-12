@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -54,6 +54,16 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
 
+        // Registers contend on the same plant row constantly during a busy sale, so
+        // serialization conflicts are routine. Retry them: the scanId keeps a retry
+        // from double-selling, and a volunteer must never be shown a database abort.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            ScanIntoDraftInternalAsync(orderId, barcode, scanId, request.Quantity));
+    }
+
+    private async Task<OrderResponse> ScanIntoDraftInternalAsync(
+        Guid orderId, string barcode, string scanId, int requestedQuantity)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -69,7 +79,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             if (plant == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"No plant found for barcode '{barcode}'.");
             }
 
@@ -105,7 +115,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             // Multi-quantity scanning: coerce non-positive to 1 so the API stays
             // backward compatible for callers that omit/send 0.
-            var requestedAdd = request.Quantity <= 0 ? 1 : request.Quantity;
+            var requestedAdd = requestedQuantity <= 0 ? 1 : requestedQuantity;
 
             var currentQty = existingLine?.QtyFulfilled ?? 0;
             var requestedTotal = currentQty + requestedAdd;
@@ -113,7 +123,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedTotal, orderId);
             if (!allowed)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException(errorMessage ?? "Walk-up availability exceeded.");
             }
 
@@ -122,7 +132,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             if (inventory == null || inventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
             }
 
@@ -132,7 +142,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             var appliedAdd = Math.Min(requestedAdd, inventory.OnHandQty);
             if (appliedAdd <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
             }
 
@@ -164,7 +174,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -237,7 +247,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                     var hasOverride = !string.IsNullOrWhiteSpace(adminReason);
                     if (!hasOverride)
                     {
-                        if (transaction != null) await transaction.RollbackAsync();
+                        await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                         throw new ValidationException(errorMessage ?? "Walk-up availability exceeded; admin override required.");
                     }
                 }
@@ -247,7 +257,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                     // Out of stock — even override cannot create negative inventory unless admin reason provided.
                     if (string.IsNullOrWhiteSpace(adminReason))
                     {
-                        if (transaction != null) await transaction.RollbackAsync();
+                        await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                         throw new ValidationException("Insufficient inventory to increase line quantity.");
                     }
                 }
@@ -279,7 +289,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -342,7 +352,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -434,7 +444,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
