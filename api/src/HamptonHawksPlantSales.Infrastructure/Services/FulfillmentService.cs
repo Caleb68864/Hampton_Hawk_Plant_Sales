@@ -516,9 +516,13 @@ public class FulfillmentService : IFulfillmentService
                 throw new KeyNotFoundException("Order line or inventory not found for undo.");
             }
 
-            // Decrement fulfilled, increment inventory
-            orderLine.QtyFulfilled = Math.Max(0, orderLine.QtyFulfilled - 1);
-            inventory.OnHandQty += 1;
+            // Reverse the whole event, not a single unit: a multi-quantity scan is one
+            // event with Quantity = N, and it is retired below in full. Clamp to what
+            // the line actually holds so undo can never drive QtyFulfilled negative or
+            // restore more stock than the scan took.
+            var reversed = Math.Min(Math.Max(1, eventToUndo.Quantity), orderLine.QtyFulfilled);
+            orderLine.QtyFulfilled -= reversed;
+            inventory.OnHandQty += reversed;
 
             // Soft-delete the accepted event
             eventToUndo.DeletedAt = DateTimeOffset.UtcNow;
@@ -530,8 +534,9 @@ public class FulfillmentService : IFulfillmentService
                 OrderId = orderId,
                 PlantCatalogId = lastAccepted.PlantCatalogId,
                 Barcode = lastAccepted.Barcode,
-                Result = FulfillmentResult.Accepted,
-                Message = $"UNDO: Reversed scan of '{plant?.Name ?? "unknown"}'. Fulfilled {orderLine.QtyFulfilled}/{orderLine.QtyOrdered}."
+                Result = FulfillmentResult.Undone,
+                Quantity = reversed,
+                Message = $"UNDO: Reversed scan of {reversed}x '{plant?.Name ?? "unknown"}'. Fulfilled {orderLine.QtyFulfilled}/{orderLine.QtyOrdered}."
             };
             _db.FulfillmentEvents.Add(undoEvent);
 

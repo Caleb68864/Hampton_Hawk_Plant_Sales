@@ -571,11 +571,64 @@ public class FulfillmentServiceTests
 
         // Assert: a new undo FulfillmentEvent was created
         var undoEvent = await db.FulfillmentEvents
-            .Where(e => e.OrderId == order.Id && e.Result == FulfillmentResult.Accepted && e.DeletedAt == null)
+            .Where(e => e.OrderId == order.Id && e.Result == FulfillmentResult.Undone && e.DeletedAt == null)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
         undoEvent.Should().NotBeNull();
         undoEvent!.Message.Should().Contain("UNDO");
+    }
+
+    [Fact]
+    public async Task UndoLastScan_MultiQuantityScan_ReversesWholeEvent()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "TEST-MQ", sku: "SKU-UNDO-MQ");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.InProgress);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 5, qtyFulfilled: 0);
+        var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        db.Inventories.Add(inventory);
+        await db.SaveChangesAsync();
+        var (service, _) = CreateService(db);
+
+        var scan = await service.ScanAsync(order.Id, "TEST-MQ", quantity: 4);
+        scan.Result.Should().Be(FulfillmentResult.Accepted);
+        (await db.OrderLines.FindAsync(line.Id))!.QtyFulfilled.Should().Be(4);
+
+        await service.UndoLastScanAsync(order.Id, "wrong quantity", "tester");
+
+        (await db.OrderLines.FindAsync(line.Id))!.QtyFulfilled.Should().Be(0,
+            "the single event carried Quantity=4 and is retired in full");
+        (await db.Inventories.FindAsync(inventory.Id))!.OnHandQty.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task UndoLastScan_Twice_DoesNotUndoTheUndo()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "TEST-2X", sku: "SKU-UNDO-2X");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.InProgress);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 3, qtyFulfilled: 0);
+        var inventory = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        db.Inventories.Add(inventory);
+        await db.SaveChangesAsync();
+        var (service, _) = CreateService(db);
+
+        await service.ScanAsync(order.Id, "TEST-2X");
+        await service.UndoLastScanAsync(order.Id, "first undo", "tester");
+
+        var act = () => service.UndoLastScanAsync(order.Id, "second undo", "tester");
+        await act.Should().ThrowAsync<KeyNotFoundException>("the only accepted scan was already reversed");
+        (await db.Inventories.FindAsync(inventory.Id))!.OnHandQty.Should().Be(10, "undo must not manufacture stock");
     }
 
     [Fact]
