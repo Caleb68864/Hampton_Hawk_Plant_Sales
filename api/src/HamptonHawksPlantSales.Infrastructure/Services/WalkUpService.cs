@@ -56,7 +56,7 @@ public class WalkUpService : IWalkUpService
         var order = new Order
         {
             CustomerId = customerId,
-            OrderNumber = await GenerateOrderNumber(),
+            OrderNumber = await WalkUpOrderNumbers.NextAsync(_db),
             IsWalkUp = true,
             Status = OrderStatus.Open
         };
@@ -216,12 +216,6 @@ public class WalkUpService : IWalkUpService
             throw new ValidationException("Admin reason is required for override.");
 
         return true;
-    }
-
-    private async Task<string> GenerateOrderNumber()
-    {
-        var count = await _db.Orders.CountAsync();
-        return $"WLK-{count + 1:D5}";
     }
 
     private static string GeneratePickupCode()

@@ -26,18 +26,32 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
     public async Task<OrderResponse> CreateDraftAsync(CreateDraftRequest request)
     {
-        var order = new Order
+        // Two registers can allocate the same number in the same instant; the unique
+        // index rejects the loser, and re-probing gets it the next free number.
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
         {
-            CustomerId = null,
-            OrderNumber = await GenerateOrderNumberAsync(),
-            IsWalkUp = true,
-            Status = OrderStatus.Draft
-        };
+            var order = new Order
+            {
+                CustomerId = null,
+                OrderNumber = await WalkUpOrderNumbers.NextAsync(_db),
+                IsWalkUp = true,
+                Status = OrderStatus.Draft
+            };
 
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+            _db.Orders.Add(order);
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && WalkUpOrderNumbers.IsUniqueViolation(ex))
+            {
+                _db.Entry(order).State = EntityState.Detached;
+                continue;
+            }
 
-        return await GetOrderResponseAsync(order.Id);
+            return await GetOrderResponseAsync(order.Id);
+        }
     }
 
     public async Task<OrderResponse> ScanIntoDraftAsync(Guid orderId, ScanIntoDraftRequest request)
@@ -464,12 +478,6 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             .ToListAsync();
 
         return orders.Select(MapToResponse).ToList();
-    }
-
-    private async Task<string> GenerateOrderNumberAsync()
-    {
-        var count = await _db.Orders.CountAsync();
-        return $"WLK-{count + 1:D5}";
     }
 
     private async Task<OrderResponse> GetOrderResponseAsync(Guid orderId, bool includeDeleted = false)

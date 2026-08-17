@@ -54,6 +54,21 @@ public class WalkUpRegisterServiceTests
     }
 
     [Fact]
+    public async Task CreateDraft_AfterCancel_DoesNotReuseCancelledOrderNumber()
+    {
+        using var db = CreateDb();
+        var (service, _, _) = CreateService(db);
+
+        var first = await service.CreateDraftAsync(new CreateDraftRequest());
+        await service.CancelDraftAsync(first.Id, "Customer left");
+        var second = await service.CreateDraftAsync(new CreateDraftRequest());
+
+        // Cancelled drafts are soft-deleted and drop out of the filtered count, but the
+        // unique index on OrderNumber still sees them.
+        second.OrderNumber.Should().NotBe(first.OrderNumber);
+    }
+
+    [Fact]
     public async Task Scan_NewLine_DecrementsInventoryAndCreatesLine()
     {
         using var db = CreateDb();
