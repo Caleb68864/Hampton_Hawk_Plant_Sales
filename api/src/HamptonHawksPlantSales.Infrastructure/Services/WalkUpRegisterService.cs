@@ -204,6 +204,15 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (request.NewQty < 0)
             throw new ValidationException("NewQty must be zero or greater.");
 
+        // Same contention as scanning: retry serialization conflicts rather than
+        // surfacing a database abort to the volunteer.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            AdjustLineInternalAsync(orderId, lineId, request, adminReason));
+    }
+
+    private async Task<OrderResponse> AdjustLineInternalAsync(
+        Guid orderId, Guid lineId, AdjustLineRequest request, string? adminReason)
+    {
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
@@ -315,6 +324,12 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (string.IsNullOrWhiteSpace(adminReason))
             throw new ValidationException("Admin reason is required for void line.");
 
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            VoidLineInternalAsync(orderId, lineId, adminReason));
+    }
+
+    private async Task<OrderResponse> VoidLineInternalAsync(Guid orderId, Guid lineId, string adminReason)
+    {
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
@@ -398,6 +413,12 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (string.IsNullOrWhiteSpace(adminReason))
             throw new ValidationException("Admin reason is required for cancel draft.");
 
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            CancelDraftInternalAsync(orderId, adminReason));
+    }
+
+    private async Task<OrderResponse> CancelDraftInternalAsync(Guid orderId, string adminReason)
+    {
         var draft = await _db.Orders
             .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
