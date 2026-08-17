@@ -23,7 +23,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 const PAGE_SIZE = 20;
 const LOOKUP_PATH = '/mobile/lookup';
 
-type AxiosLikeError = { response?: { status?: number } } & Error;
+type AxiosLikeError = { status?: number; response?: { status?: number } } & Error;
 
 type LookupState =
   | { kind: 'idle' }
@@ -36,7 +36,7 @@ type LookupState =
 
 function isAuthExpired(err: unknown): boolean {
   const e = err as AxiosLikeError | undefined;
-  return !!e && typeof e === 'object' && e.response?.status === 401;
+  return !!e && typeof e === 'object' && (e.status === 401 || e.response?.status === 401);
 }
 
 function isNetworkLikeError(err: unknown): boolean {

@@ -8,10 +8,27 @@ interface ApiErrorResponse {
 }
 
 interface ApiErrorLike {
-  response?: ApiErrorResponse;
+  response?: ApiErrorResponse & { status?: number };
   request?: unknown;
   code?: string;
   message?: string;
+}
+
+/**
+ * The error every API helper rejects with. Carries the volunteer-facing message plus
+ * the HTTP status and axios code so callers can still branch on "session expired"
+ * (401 -> login) or "never reached the server" without re-parsing the message.
+ */
+export interface ApiError extends Error {
+  status?: number;
+  code?: string;
+}
+
+export function toApiError(error: ApiErrorLike): ApiError {
+  const wrapped: ApiError = new Error(getApiErrorMessage(error));
+  wrapped.status = error.response?.status;
+  wrapped.code = error.code;
+  return wrapped;
 }
 
 // Axios codes for "the request never came back". On sale day these are the common

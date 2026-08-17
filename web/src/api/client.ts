@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { ApiResponse } from '../types/api.js';
-import { getApiErrorMessage } from './errorMessage.js';
+import { toApiError } from './errorMessage.js';
 
 // Sale-day networking is a field LAN, not a datacenter: a dropped AP association
 // leaves a socket open with nothing on the other end. Without a ceiling the request
@@ -19,8 +19,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
-      const message = getApiErrorMessage(error);
-      return Promise.reject(new Error(message));
+      return Promise.reject(toApiError(error));
     }
     return Promise.reject(error);
   },
