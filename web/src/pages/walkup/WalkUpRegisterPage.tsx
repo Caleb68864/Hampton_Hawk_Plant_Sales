@@ -5,6 +5,7 @@ import {
   type DraftOrder,
   type DraftOrderLine,
   type PlantPriceMap,
+  unpricedLineCount,
   grandTotal,
   lineSubtotal,
 } from '@/types/walkupRegister.js';
@@ -99,12 +100,16 @@ export function WalkUpRegisterPage() {
         .filter((id) => !(id in prices));
       if (missing.length > 0) {
         try {
+          // A failed fetch is left out of the map (not cached as null) so the next
+          // draft update retries it; only a catalog price of null is cached as null.
           const fetched = await Promise.all(
-            missing.map((id) => plantsApi.getById(id).then((p) => [id, p.price] as const).catch(() => [id, null] as const)),
+            missing.map((id) => plantsApi.getById(id).then((p) => [id, p.price ?? null] as const).catch(() => undefined)),
           );
           setPrices((prev) => {
             const merged: PlantPriceMap = { ...prev };
-            for (const [id, price] of fetched) merged[id] = price ?? null;
+            for (const entry of fetched) {
+              if (entry) merged[entry[0]] = entry[1];
+            }
             return merged;
           });
         } catch {
@@ -325,6 +330,7 @@ export function WalkUpRegisterPage() {
 
   // ---------- Close sale ----------
   const total = useMemo(() => grandTotal(draft, prices), [draft, prices]);
+  const unpricedCount = useMemo(() => unpricedLineCount(draft, prices), [draft, prices]);
 
   const openCloseModal = useCallback(() => {
     setCloseModal({
@@ -511,6 +517,11 @@ export function WalkUpRegisterPage() {
               <p className="text-xs uppercase tracking-wide text-gray-500">Grand Total</p>
               <p className="text-4xl font-bold text-hawk-900 tabular-nums">{formatMoney(total)}</p>
               <p className="text-xs text-gray-500">{lineCount} item{lineCount === 1 ? '' : 's'}</p>
+              {unpricedCount > 0 && (
+                <p className="text-xs font-medium text-amber-700" role="status">
+                  {unpricedCount} line{unpricedCount === 1 ? '' : 's'} without a price — not included in the total.
+                </p>
+              )}
             </div>
             <TouchButton
               variant="primary"
