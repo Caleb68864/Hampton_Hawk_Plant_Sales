@@ -122,8 +122,10 @@ export function MobileOrderLookupPage() {
         if (partition.exact && canScan) {
           // Scan-permitted user with single exact match — auto-navigate.
           setState({ kind: 'navigating', orderId: partition.exact.id });
-          // Brief Joy moment, then navigate.
+          // Brief Joy moment, then navigate -- unless a newer lookup superseded
+          // this one (or the page went away) in the meantime.
           window.setTimeout(() => {
+            if (requestId !== requestIdRef.current) return;
             navigate(`/mobile/pickup/${partition.exact!.id}`);
           }, 350);
           return;
@@ -163,6 +165,13 @@ export function MobileOrderLookupPage() {
     },
     [navigate, canScan],
   );
+
+  // Invalidate any in-flight lookup (and its pending auto-navigate) on unmount.
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, []);
 
   // Debounced search on typed value.
   useEffect(() => {
