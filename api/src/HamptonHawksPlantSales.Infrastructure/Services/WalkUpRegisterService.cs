@@ -117,10 +117,11 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             // backward compatible for callers that omit/send 0.
             var requestedAdd = requestedQuantity <= 0 ? 1 : requestedQuantity;
 
-            var currentQty = existingLine?.QtyFulfilled ?? 0;
-            var requestedTotal = currentQty + requestedAdd;
-
-            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedTotal, orderId);
+            // Validate only the units being added. The register already took this
+            // line's earlier units out of OnHandQty at scan time, so availability
+            // reflects them; checking the cumulative total would count them twice
+            // and refuse the sale once the line reached half the stock.
+            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedAdd, orderId);
             if (!allowed)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
@@ -137,8 +138,8 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             }
 
             // Cap the additive amount at remaining on-hand inventory. Walk-up
-            // availability has already been validated above for the requested
-            // total, so on-hand is the remaining ceiling.
+            // availability has already been validated above for the units being
+            // added, so on-hand is the remaining ceiling.
             var appliedAdd = Math.Min(requestedAdd, inventory.OnHandQty);
             if (appliedAdd <= 0)
             {
@@ -239,8 +240,9 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             }
             else
             {
-                // Increasing quantity — must validate walk-up availability
-                var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(line.PlantCatalogId, request.NewQty, orderId);
+                // Increasing quantity — validate the increment, not the new total:
+                // the line's current units already left OnHandQty at scan time.
+                var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(line.PlantCatalogId, diff, orderId);
 
                 if (!allowed)
                 {
