@@ -396,6 +396,22 @@ public class OrderServiceTests
         result.Should().BeNull();
     }
 
+    [Fact]
+    public async Task CreateAsync_WithDuplicateOrderNumber_ThrowsValidation()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("Dup Customer");
+        db.Customers.Add(customer);
+        db.Orders.Add(new Order { Customer = customer, OrderNumber = "ORD-DUP" });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var act = () => service.CreateAsync(new CreateOrderRequest { CustomerId = customer.Id, OrderNumber = "ORD-DUP" });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
+            .WithMessage("*already exists*");
+    }
+
     // ===== EP-18: Create order with customer, seller, and line items =====
 
     [Fact]

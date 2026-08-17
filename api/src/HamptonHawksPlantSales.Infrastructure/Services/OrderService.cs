@@ -97,7 +97,16 @@ public class OrderService : IOrderService
     {
         var orderNumber = string.IsNullOrWhiteSpace(request.OrderNumber)
             ? await GenerateOrderNumber()
-            : request.OrderNumber;
+            : request.OrderNumber.Trim();
+
+        // OrderNumber carries an unfiltered unique index; a caller-supplied duplicate
+        // would otherwise surface as a raw DbUpdateException / HTTP 500.
+        if (!string.IsNullOrWhiteSpace(request.OrderNumber)
+            && await _db.Orders.IgnoreQueryFilters().AnyAsync(o => o.OrderNumber == orderNumber))
+        {
+            throw new ValidationException($"Order number '{orderNumber}' already exists.");
+        }
+
         var order = new Order
         {
             CustomerId = request.CustomerId,
