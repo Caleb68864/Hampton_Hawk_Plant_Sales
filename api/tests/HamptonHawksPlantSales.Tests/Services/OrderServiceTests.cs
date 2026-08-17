@@ -412,6 +412,41 @@ public class OrderServiceTests
             .WithMessage("*already exists*");
     }
 
+    [Fact]
+    public async Task CreateAsync_WalkUpWithLines_EnforcesWalkUpAvailability()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("WalkUp Create");
+        var plant = TestDataBuilder.CreatePlant(name: "Scarce", sku: "SCARCE", barcode: "BC-SCARCE");
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, onHandQty: 2));
+        await db.SaveChangesAsync();
+
+        // Real protection service: 2 on hand, nothing committed -> 3 must be refused.
+        var admin = new Mock<IAdminService>();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+        var service = new OrderService(db, new InventoryProtectionService(db), admin.Object, config);
+
+        var act = () => service.CreateAsync(new CreateOrderRequest
+        {
+            CustomerId = customer.Id,
+            IsWalkUp = true,
+            Lines = new List<CreateOrderLineRequest> { new() { PlantCatalogId = plant.Id, QtyOrdered = 3 } }
+        });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        db.Orders.Count().Should().Be(0, "nothing may be persisted when the availability check fails");
+
+        var ok = await service.CreateAsync(new CreateOrderRequest
+        {
+            CustomerId = customer.Id,
+            IsWalkUp = true,
+            Lines = new List<CreateOrderLineRequest> { new() { PlantCatalogId = plant.Id, QtyOrdered = 2 } }
+        });
+        ok.Lines.Should().HaveCount(1);
+    }
+
     // ===== EP-18: Create order with customer, seller, and line items =====
 
     [Fact]

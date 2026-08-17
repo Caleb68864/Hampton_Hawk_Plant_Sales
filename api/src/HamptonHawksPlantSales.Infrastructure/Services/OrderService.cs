@@ -116,21 +116,62 @@ public class OrderService : IOrderService
             IsWalkUp = request.IsWalkUp
         };
 
-        if (request.Lines != null)
+        var lines = request.Lines ?? new List<CreateOrderLineRequest>();
+        foreach (var line in lines)
         {
-            foreach (var line in request.Lines)
+            order.OrderLines.Add(new OrderLine
             {
-                order.OrderLines.Add(new OrderLine
-                {
-                    PlantCatalogId = line.PlantCatalogId,
-                    QtyOrdered = line.QtyOrdered,
-                    Notes = line.Notes
-                });
-            }
+                PlantCatalogId = line.PlantCatalogId,
+                QtyOrdered = line.QtyOrdered,
+                Notes = line.Notes
+            });
         }
 
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+        // Walk-up lines are subject to the availability invariant on every route,
+        // including create-with-lines. Same lock/validate/retry scope as AddLineAsync
+        // so two stations cannot both claim the last unit.
+        var needsWalkUpLock = request.IsWalkUp && lines.Count > 0;
+        if (!needsWalkUpLock)
+        {
+            _db.Orders.Add(order);
+            await _db.SaveChangesAsync();
+            return (await GetByIdAsync(order.Id))!;
+        }
+
+        var requestedByPlant = lines
+            .GroupBy(l => l.PlantCatalogId)
+            .Select(g => new { PlantCatalogId = g.Key, Qty = g.Sum(l => l.QtyOrdered) })
+            .OrderBy(x => x.PlantCatalogId) // fixed lock order across callers
+            .ToList();
+
+        await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
+        {
+            var transaction = await WalkUpRowLocks.BeginAsync(_db);
+            try
+            {
+                foreach (var item in requestedByPlant)
+                {
+                    await WalkUpRowLocks.AcquireAsync(_db, item.PlantCatalogId, order.Id);
+                    var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(item.PlantCatalogId, item.Qty);
+                    if (!allowed)
+                        throw new ValidationException(errorMessage!);
+                }
+
+                _db.Orders.Add(order);
+                await _db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
 
         return (await GetByIdAsync(order.Id))!;
     }
