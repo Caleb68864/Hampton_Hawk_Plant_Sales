@@ -140,6 +140,47 @@ describe('useBarcodeScanner', () => {
     expect(state.trackStop).toHaveBeenCalled();
   });
 
+  it('(e) latest onScan is used even though the decode callback was registered once at start()', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ onScan }: { onScan: (r: unknown) => void }) => useBarcodeScanner({ onScan }),
+      { initialProps: { onScan: first } },
+    );
+
+    await act(async () => { await result.current.start(); });
+    rerender({ onScan: second });
+
+    act(() => { state.cb!(makeScanResult('NEW')); });
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('(f) backgrounding releases the camera and returning re-acquires it', async () => {
+    const onScan = vi.fn();
+    const { result } = renderHook(() => useBarcodeScanner({ onScan }));
+
+    await act(async () => { await result.current.start(); });
+    expect(result.current.status).toBe('active');
+
+    const setVisibility = (value: DocumentVisibilityState) => {
+      Object.defineProperty(document, 'visibilityState', { value, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    act(() => { setVisibility('hidden'); });
+    expect(state.trackStop).toHaveBeenCalled();
+    expect(state.controlsStop).toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
+
+    state.cb = null;
+    await act(async () => { setVisibility('visible'); });
+
+    expect(result.current.status).toBe('active');
+    expect(state.cb).not.toBeNull();
+  });
+
   it('insecure-context: start() short-circuits without calling decodeFromConstraints', async () => {
     vi.stubGlobal('isSecureContext', false);
 

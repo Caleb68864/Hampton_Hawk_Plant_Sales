@@ -64,8 +64,17 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
   const prevCodeRef = useRef<string | null>(null);
   const prevAtMsRef = useRef<number>(0);
   const pausedRef = useRef(paused);
+  // The zxing decode callback is registered once at start() and keeps whatever
+  // handleResult it closed over. Route through a ref so a caller's latest onScan
+  // (which may close over freshly loaded state, e.g. the current order) is the one
+  // that runs, without restarting the camera on every render.
+  const onScanRef = useRef(onScan);
+  // Whether the camera was live when the page was hidden, so it can be brought
+  // back on return instead of leaving a dead preview.
+  const resumeOnVisibleRef = useRef(false);
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 
   const createHiddenVideo = useCallback((): HTMLVideoElement => {
     const videoEl = document.createElement('video');
@@ -118,9 +127,9 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         scannedAtUtc: new Date(now).toISOString(),
       };
       setLastResult(normalized);
-      onScan(normalized);
+      onScanRef.current(normalized);
     },
-    [cooldownMs, onScan]
+    [cooldownMs]
   );
   const ignoreDecodeErr = (err: unknown) => {
     const e = err as Error;
@@ -216,11 +225,21 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') stopTracks();
+      if (document.visibilityState === 'hidden') {
+        // Release the camera while backgrounded, but remember to re-acquire it:
+        // stopping only the tracks left status 'active' with no stream behind it,
+        // so a volunteer who locked the phone came back to a black preview and
+        // had to reload the page.
+        resumeOnVisibleRef.current = controlsRef.current !== null;
+        stop();
+      } else if (document.visibilityState === 'visible' && resumeOnVisibleRef.current) {
+        resumeOnVisibleRef.current = false;
+        void start();
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [stopTracks]);
+  }, [start, stop]);
 
   useEffect(() => {
     return () => {
