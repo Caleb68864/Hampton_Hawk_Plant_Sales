@@ -130,7 +130,7 @@ public class ImportServiceTests
         Assert.Equal(new[] { 2, 3 }, lines.Select(l => l.QtyOrdered).ToArray());
     }
 
-    [Fact]
+    [RequiresRepoFileFact("rpcustorderspdf.pdf")]
     public async Task OrderImport_Pdf_ExtractsCustomerAndLineItems()
     {
         using var db = MockDbContextFactory.Create();
@@ -260,8 +260,8 @@ public class ImportServiceTests
     {
         using var db = MockDbContextFactory.Create();
         var service = new ImportService(db);
-        var pdfPath = FindFromRepoRoot("rpcustorderspdf.pdf");
-        using var stream = File.OpenRead(pdfPath);
+        // The extension check runs before the stream is read, so no real PDF is needed.
+        using var stream = new MemoryStream();
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ImportAsync(ImportType.Plants, "plants.pdf", stream));
 
