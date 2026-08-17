@@ -357,7 +357,11 @@ public class OrderService : IOrderService
     public async Task<int> DeleteAllOrdersAsync()
     {
         // Hard delete all orders and their dependents. Used only from the admin danger-zone action.
+        // Every table with a FK to Orders must be cleared first: FulfillmentEvents, OrderLines,
+        // and ScanSessionMembers (Restrict FK -- once any scan session has run, leaving it out
+        // aborts the whole wipe with a 23503).
         using var tx = await _db.Database.BeginTransactionAsync();
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"ScanSessionMembers\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"FulfillmentEvents\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"OrderLines\"");
         var count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Orders\"");
