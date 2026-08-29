@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { inventoryApi } from '@/api/inventory.js';
+import { useDialog } from '@/hooks/useDialog.js';
 import { SearchBar } from '@/components/shared/SearchBar.js';
 import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
@@ -35,6 +36,11 @@ export function InventoryPage() {
   const [adjusting, setAdjusting] = useState(false);
   const adjustingRef = useRef(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const adjustDialog = useDialog({
+    isOpen: adjustModal.item !== null,
+    onClose: adjusting ? undefined : closeAdjustModal,
+    labelledBy: 'adjust-inventory-title',
+  });
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -230,8 +236,8 @@ export function InventoryPage() {
 
       {adjustModal.item && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeAdjustModal}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-gray-900">Adjust Inventory</h2>
+          <div {...adjustDialog} className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 outline-none" onClick={(e) => e.stopPropagation()}>
+            <h2 id="adjust-inventory-title" className="text-lg font-semibold text-gray-900">Adjust Inventory</h2>
             <p className="mt-1 text-sm text-gray-600">{adjustModal.item.plantName} (Current: {adjustModal.item.onHandQty})</p>
             <div className="mt-4 space-y-3">
               <div>
