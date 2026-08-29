@@ -16,7 +16,8 @@ export interface UpdateInventoryRequest {
 }
 
 export interface AdjustInventoryRequest {
-  plantCatalogId: string;
+  /** The API binds this as `PlantId` (plant catalog id). */
+  plantId: string;
   deltaQty: number;
   reason: string;
   adminPin?: string;

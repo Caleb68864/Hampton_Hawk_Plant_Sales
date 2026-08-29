@@ -104,7 +104,7 @@ export function InventoryPage() {
     setError(null);
     try {
       await inventoryApi.adjust({
-        plantCatalogId: adjustModal.item.plantCatalogId,
+        plantId: adjustModal.item.plantCatalogId,
         deltaQty: delta,
         reason: adjustModal.reason.trim(),
       });

@@ -61,7 +61,8 @@ describe('InventoryPage adjust modal', () => {
     // The button reports the busy state and is disabled while the call is in flight.
     expect(screen.getByRole('button', { name: 'Applying…' })).toBeDisabled();
     expect(mockAdjust).toHaveBeenCalledTimes(1);
-    expect(mockAdjust).toHaveBeenCalledWith({ plantCatalogId: 'plant-1', deltaQty: 3, reason: 'Recount' });
+    // The API binds PlantId; sending plantCatalogId was rejected with 'Plant ID is required.'
+    expect(mockAdjust).toHaveBeenCalledWith({ plantId: 'plant-1', deltaQty: 3, reason: 'Recount' });
 
     await act(async () => { pending.resolve({ ...item, onHandQty: 13 }); });
     await waitFor(() => expect(screen.queryByText('Adjust Inventory')).not.toBeInTheDocument());
