@@ -10,7 +10,7 @@ import { fulfillmentApi } from '@/api/fulfillment.js';
 import { scanSessionsApi } from '@/api/scanSessions.js';
 import type { ScanHistoryEntry } from '@/components/pickup/ScanHistoryList.js';
 import { getScanDisplayFields, getScanResultMessage } from '@/components/pickup/scanFeedbackText.js';
-import { normalizeScannedBarcode } from '@/utils/barcode.js';
+import { toScanLookupValue } from '@/utils/barcode.js';
 
 // SS-13: useScanWorkflow is parameterized for two operating modes.
 // - 'order': legacy per-order pickup scan flow (PickupScanPage). API calls
@@ -134,8 +134,7 @@ export function useScanWorkflow(
   const scan = useCallback(
     async (barcode: string, quantity: number = 1): Promise<ScanResponse | null> => {
       if (mode !== 'order' || !id) return null;
-      const normalized = normalizeScannedBarcode(barcode);
-      const lookupBarcode = normalized || barcode;
+      const lookupBarcode = toScanLookupValue(barcode) || barcode;
       // Multi-quantity scanning: pass the volunteer-set quantity through.
       // Defaults to 1 so callers that don't care about multi-qty stay unchanged.
       const qty = quantity > 0 ? quantity : 1;
@@ -187,8 +186,7 @@ export function useScanWorkflow(
   const scanInSession = useCallback(
     async (barcode: string, quantity: number = 1): Promise<ScanSessionScanResponse | null> => {
       if (mode !== 'session' || !id) return null;
-      const normalized = normalizeScannedBarcode(barcode);
-      const lookupBarcode = normalized || barcode;
+      const lookupBarcode = toScanLookupValue(barcode) || barcode;
       // Multi-quantity session scanning: pass the volunteer-set quantity. The
       // backend distributes it across pending lines (oldest order first).
       const qty = quantity > 0 ? quantity : 1;

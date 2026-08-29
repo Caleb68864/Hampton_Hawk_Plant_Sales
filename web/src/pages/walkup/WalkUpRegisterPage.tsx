@@ -20,6 +20,7 @@ import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeBu
 import { useAuthStore } from '@/stores/authStore.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
+import { toScanLookupValue } from '@/utils/barcode.js';
 
 /**
  * Walk-Up Cash Register page.
@@ -195,7 +196,10 @@ export function WalkUpRegisterPage() {
   const handleScan = useCallback(
     async (barcode: string) => {
       if (!draft) return;
-      const trimmed = barcode.trim();
+      // Printed labels are the SKU zero-padded to 12 digits and the server
+      // matches exactly; strip the padding the same way the pickup scan does,
+      // otherwise a label that scans at pickup is "not found" at the register.
+      const trimmed = toScanLookupValue(barcode);
       if (!trimmed) return;
       setScanning(true);
       setError(null);

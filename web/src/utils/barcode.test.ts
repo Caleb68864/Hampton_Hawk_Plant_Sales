@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlantBarcode, normalizeScannedBarcode } from './barcode.ts';
+import { buildPlantBarcode, normalizeScannedBarcode, toScanLookupValue } from './barcode.ts';
+
+test('toScanLookupValue turns a printed 12-digit label back into its SKU', () => {
+  assert.equal(toScanLookupValue(buildPlantBarcode('47')), '47');
+  assert.equal(toScanLookupValue(' 000000000047\n'), '47');
+});
+
+test('toScanLookupValue passes non-padded reads through trimmed', () => {
+  assert.equal(toScanLookupValue('  PL-HYD  '), 'PL-HYD');
+  assert.equal(toScanLookupValue('101'), '101');
+});
+
+test('toScanLookupValue returns empty string for blank input', () => {
+  assert.equal(toScanLookupValue(''), '');
+  assert.equal(toScanLookupValue('   '), '');
+  assert.equal(toScanLookupValue(null), '');
+});
 
 test('buildPlantBarcode pads short numeric SKUs to 12 digits', () => {
   assert.equal(buildPlantBarcode('101'), '000000000101');
