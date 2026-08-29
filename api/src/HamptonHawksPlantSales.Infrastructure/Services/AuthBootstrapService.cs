@@ -60,16 +60,30 @@ public class AuthBootstrapService : IHostedService
         }
         else
         {
-            // Restore soft-deleted admin and ensure they have the Admin role
-            existing.DeletedAt = null;
-            existing.IsActive = true;
-            existing.PasswordHash = hasher.Hash(password);
+            // The bootstrap password is only ever used to *create* the account. An
+            // admin who rotated it must not have it silently reverted on the next
+            // container restart. Here we only make sure the account is usable:
+            // undeleted, active, and holding the Admin role.
+            var changed = false;
+
+            if (existing.DeletedAt != null) { existing.DeletedAt = null; changed = true; }
+            if (!existing.IsActive) { existing.IsActive = true; changed = true; }
 
             if (!existing.Roles.Any(r => r.Role == AppRole.Admin))
+            {
                 existing.Roles.Add(new AppUserRole { AppUserId = existing.Id, Role = AppRole.Admin });
+                changed = true;
+            }
 
-            await db.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Bootstrap admin account '{Username}' updated.", username);
+            if (changed)
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Bootstrap admin account '{Username}' exists; restored active/admin state. Password left unchanged.", username);
+            }
+            else
+            {
+                _logger.LogInformation("Bootstrap admin account '{Username}' exists and is active; nothing to do.", username);
+            }
         }
     }
 
