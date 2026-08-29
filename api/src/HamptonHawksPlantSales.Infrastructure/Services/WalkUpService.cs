@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -53,26 +53,48 @@ public class WalkUpService : IWalkUpService
             customerId = customer.Id;
         }
 
-        var order = new Order
+        // Two registers can allocate the same number in the same instant; the unique
+        // index rejects the loser, and re-probing gets it the next free number.
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
         {
-            CustomerId = customerId,
-            OrderNumber = await WalkUpOrderNumbers.NextAsync(_db),
-            IsWalkUp = true,
-            Status = OrderStatus.Open
-        };
+            var order = new Order
+            {
+                CustomerId = customerId,
+                OrderNumber = await WalkUpOrderNumbers.NextAsync(_db),
+                IsWalkUp = true,
+                Status = OrderStatus.Open
+            };
 
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+            _db.Orders.Add(order);
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && WalkUpOrderNumbers.IsUniqueViolation(ex))
+            {
+                _db.Entry(order).State = EntityState.Detached;
+                continue;
+            }
 
-        return await GetOrderResponseAsync(order.Id);
+            return await GetOrderResponseAsync(order.Id);
+        }
     }
 
     public async Task<OrderLineResponse> AddWalkUpLineAsync(Guid orderId, AddWalkUpLineRequest request, string? adminPin = null, string? adminReason = null)
     {
+        var isOverride = TryAdminOverride(adminPin, adminReason);
+
+        // Serializable + FOR UPDATE aborts with 40001/40P01 whenever another register
+        // touches the same plant; retry rather than surface the abort to the volunteer.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            AddWalkUpLineInternalAsync(orderId, request, isOverride, adminReason));
+    }
+
+    private async Task<OrderLineResponse> AddWalkUpLineInternalAsync(Guid orderId, AddWalkUpLineRequest request, bool isOverride, string? adminReason)
+    {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp)
             ?? throw new KeyNotFoundException("Walk-up order not found.");
-
-        var isOverride = TryAdminOverride(adminPin, adminReason);
 
         // Validate-then-insert must happen under the row locks, otherwise two registers
         // can both clear the availability check for the last unit and both commit.
@@ -136,6 +158,14 @@ public class WalkUpService : IWalkUpService
 
     public async Task<OrderLineResponse> UpdateWalkUpLineAsync(Guid orderId, Guid lineId, UpdateWalkUpLineRequest request, string? adminPin = null, string? adminReason = null)
     {
+        var isOverride = TryAdminOverride(adminPin, adminReason);
+
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            UpdateWalkUpLineInternalAsync(orderId, lineId, request, isOverride, adminReason));
+    }
+
+    private async Task<OrderLineResponse> UpdateWalkUpLineInternalAsync(Guid orderId, Guid lineId, UpdateWalkUpLineRequest request, bool isOverride, string? adminReason)
+    {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp)
             ?? throw new KeyNotFoundException("Walk-up order not found.");
 
@@ -143,8 +173,6 @@ public class WalkUpService : IWalkUpService
             .Include(l => l.PlantCatalog)
             .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order line not found.");
-
-        var isOverride = TryAdminOverride(adminPin, adminReason);
 
         var transaction = await WalkUpRowLocks.BeginAsync(_db);
 
