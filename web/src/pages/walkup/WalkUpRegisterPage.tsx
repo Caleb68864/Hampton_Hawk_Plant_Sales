@@ -21,14 +21,17 @@ import { useAuthStore } from '@/stores/authStore.js';
 import { useAppStore } from '@/stores/appStore.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import { toScanLookupValue } from '@/utils/barcode.js';
+import type { ApiError } from '@/api/errorMessage.js';
 
 /**
  * Walk-Up Cash Register page.
  *
  * Renders a barcode-scan input + ticket table + grand total, persists the
  * `draftId` per workstation in `appStore`, and resumes on reload. Each scan
- * generates a fresh `crypto.randomUUID()` idempotency key. Cancel/Void are
- * admin-pin gated. Close Sale captures `paymentMethod` + `amountTendered`.
+ * carries a `crypto.randomUUID()` idempotency key that is reused when the same
+ * barcode+quantity is retried after a request that never got a response.
+ * Cancel/Void are admin-pin gated. Close Sale captures `paymentMethod` +
+ * `amountTendered`.
  */
 
 function formatMoney(value: number | null | undefined): string {
@@ -69,6 +72,9 @@ export function WalkUpRegisterPage() {
   const [prices, setPrices] = useState<PlantPriceMap>({});
   const scanRef = useRef<ScanInputHandle>(null);
   const initRef = useRef(false);
+  // Scan id of the most recent submission that never got a server response, so
+  // a retry of that same barcode+quantity reuses it (see handleScan).
+  const pendingScanRef = useRef<{ key: string; scanId: string } | null>(null);
 
   // Multi-quantity scanning: volunteer "set N, scan, set N, scan" workflow.
   // Reset to 1 after each successful scan to match the pickup-screen pattern.
@@ -207,15 +213,24 @@ export function WalkUpRegisterPage() {
       // and surface the actual plant name in the success flash.
       const beforeLines = new Map(draft.lines.map((l) => [l.plantCatalogId, l.qtyOrdered]));
       const requestedQty = scanQuantity;
+      // Retry-stable idempotency key. A scan that times out or drops on the LAN
+      // may still have been applied server-side; re-scanning the same barcode at
+      // the same quantity reuses the id so the server treats it as a replay
+      // instead of adding the item twice. The id is retired on any completed
+      // response, so a deliberate second scan of the same item gets a fresh one.
+      const attemptKey = `${trimmed}|${requestedQty}`;
+      const scanId =
+        pendingScanRef.current?.key === attemptKey
+          ? pendingScanRef.current.scanId
+          : crypto.randomUUID();
+      pendingScanRef.current = { key: attemptKey, scanId };
       try {
-        // Generate a fresh idempotency key per scan. The backend uses this to
-        // dedupe retries; never reuse it for distinct user actions.
-        const scanId = crypto.randomUUID();
         const next = await walkupRegisterApi.scan(draft.id, {
           plantBarcode: trimmed,
           scanId,
           quantity: requestedQty,
         });
+        pendingScanRef.current = null;
         await updateDraftAndPersist(next);
         setOverrideTarget(null);
 
@@ -233,6 +248,12 @@ export function WalkUpRegisterPage() {
           setShowScanFlash(true);
         }
       } catch (e) {
+        // The server answered (4xx/5xx): that attempt is settled, so the next
+        // scan of this item must not replay its id. No status means the request
+        // never came back -- keep the id for the retry.
+        if ((e as ApiError | null)?.status !== undefined) {
+          pendingScanRef.current = null;
+        }
         const message = e instanceof Error ? e.message : 'Scan failed';
         setError(message);
         // Surface override option for "out of stock" / availability failures.

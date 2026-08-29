@@ -105,6 +105,10 @@ function submitScan(input: HTMLInputElement, value: string) {
   fireEvent.keyDown(input, { key: 'Enter' });
 }
 
+// ScanInput drops an identical barcode submitted within 2 s; the tests advance
+// this fake clock instead of sleeping.
+const clock = { now: 0 };
+
 describe('WalkUpRegisterPage scanning', () => {
   beforeEach(() => {
     mockNavigate.mockReset();
@@ -121,6 +125,9 @@ describe('WalkUpRegisterPage scanning', () => {
     mockGetOpenDrafts.mockResolvedValue([makeDraft()]);
     mockGetPlant.mockResolvedValue({ id: 'p-47', price: 4.5 });
 
+    clock.now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => clock.now);
+
     let uuidSeq = 0;
     vi.stubGlobal('crypto', {
       ...globalThis.crypto,
@@ -131,6 +138,7 @@ describe('WalkUpRegisterPage scanning', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('strips the 12-digit label padding so a printed label resolves to its SKU', async () => {
@@ -161,5 +169,55 @@ describe('WalkUpRegisterPage scanning', () => {
     await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
     expect(mockScan.mock.calls[0][1]).toMatchObject({ plantBarcode: '47', quantity: 1 });
     expect(await screen.findByText('Hosta')).toBeInTheDocument();
+  });
+
+  it('reuses the scanId when the same scan is retried after a network failure', async () => {
+    mockScan
+      .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+      .mockResolvedValue(makeDraft());
+
+    renderPage();
+    let input = await scanInput();
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+    await screen.findByText(/timed out/);
+
+    // Volunteer re-scans the same label after the dropped request (past the
+    // ScanInput 2 s duplicate window).
+    input = await scanInput();
+    clock.now += 5000;
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(2));
+
+    const first = mockScan.mock.calls[0][1] as { scanId: string };
+    const second = mockScan.mock.calls[1][1] as { scanId: string };
+    expect(second.scanId).toBe(first.scanId);
+
+    // After a completed response a deliberate re-scan is a new sale unit.
+    input = await scanInput();
+    clock.now += 5000;
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(3));
+    const third = mockScan.mock.calls[2][1] as { scanId: string };
+    expect(third.scanId).not.toBe(first.scanId);
+  });
+
+  it('retires the scanId when the server rejected the scan', async () => {
+    const rejected = Object.assign(new Error('Plant is over walk-up availability'), { status: 400 });
+    mockScan.mockRejectedValueOnce(rejected).mockResolvedValue(makeDraft());
+
+    renderPage();
+    let input = await scanInput();
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+
+    input = await scanInput();
+    clock.now += 5000;
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(2));
+
+    const first = mockScan.mock.calls[0][1] as { scanId: string };
+    const second = mockScan.mock.calls[1][1] as { scanId: string };
+    expect(second.scanId).not.toBe(first.scanId);
   });
 });
