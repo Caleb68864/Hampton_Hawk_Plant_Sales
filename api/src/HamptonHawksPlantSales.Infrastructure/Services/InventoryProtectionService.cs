@@ -60,6 +60,7 @@ public class InventoryProtectionService : IInventoryProtectionService
             .Where(ol => plantIds.Contains(ol.PlantCatalogId)
                 && ol.DeletedAt == null
                 && ol.Order.Status != OrderStatus.Cancelled
+                && ol.Order.Status != OrderStatus.Complete
                 && ol.Order.DeletedAt == null)
             .GroupBy(ol => ol.PlantCatalogId)
             .Select(g => new { PlantCatalogId = g.Key, Remaining = g.Sum(ol => ol.QtyOrdered - ol.QtyFulfilled) })
@@ -113,6 +114,11 @@ public class InventoryProtectionService : IInventoryProtectionService
     /// Units promised but not yet handed over, across preorder and walk-up orders
     /// alike. <paramref name="excludeOrderId"/> omits an order's own lines so editing
     /// a line is not blocked by the quantity it already holds.
+    ///
+    /// Cancelled and Complete orders are both excluded: a force-completed order may
+    /// carry an unfulfilled remainder, but nobody is coming back for it, and leaving
+    /// it in the sum would permanently shrink walk-up availability for stock that is
+    /// still sitting on the table.
     /// </summary>
     private async Task<int> GetOutstandingCommitmentsAsync(Guid plantCatalogId, Guid? excludeOrderId = null)
     {
@@ -120,6 +126,7 @@ public class InventoryProtectionService : IInventoryProtectionService
             .Where(ol => ol.PlantCatalogId == plantCatalogId
                 && ol.DeletedAt == null
                 && ol.Order.Status != OrderStatus.Cancelled
+                && ol.Order.Status != OrderStatus.Complete
                 && ol.Order.DeletedAt == null);
 
         if (excludeOrderId.HasValue)
