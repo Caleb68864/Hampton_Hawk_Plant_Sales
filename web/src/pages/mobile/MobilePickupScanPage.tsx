@@ -8,7 +8,8 @@ import { MobileAccessDeniedScene } from '../../components/mobile/MobileAccessDen
 import { MobileConnectionRequiredScene } from '../../components/mobile/MobileConnectionRequiredScene.js';
 import { Checkbloom } from '../../components/mobile/joy/Checkbloom.js';
 import { Stamp } from '../../components/mobile/joy/Stamp.js';
-import { JoyAriaLive, useJoyAnnounce } from '../../components/mobile/joy/JoyAriaLive.js';
+import { JoyAriaLive } from '../../components/mobile/joy/JoyAriaLive.js';
+import { useJoyAnnounce } from '../../components/mobile/joy/joyAnnounce.js';
 import { MobilePrimaryButton } from '../../components/mobile/buttons/MobilePrimaryButton.js';
 import { MobileGhostButton } from '../../components/mobile/buttons/MobileGhostButton.js';
 import { useAuthStore } from '../../stores/authStore.js';
@@ -133,7 +134,20 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
   const refreshOrder = useCallback(async () => {
     if (!orderId) return;
     try {
-      const fresh = await ordersApi.getById(orderId);
+      let fresh = await ordersApi.getById(orderId);
+      // The phone has no "Complete Order" button (the desktop station does), so
+      // the scan that fulfils the last line completes the order here. The server
+      // re-checks that every line is fulfilled before flipping the status.
+      const allFulfilled =
+        fresh.lines.length > 0 && fresh.lines.every((l) => l.qtyFulfilled >= l.qtyOrdered);
+      if (fresh.status !== 'Complete' && fresh.status !== 'Cancelled' && allFulfilled) {
+        try {
+          await ordersApi.complete(orderId);
+          fresh = await ordersApi.getById(orderId);
+        } catch {
+          // Leave it InProgress; the desktop station can still complete it.
+        }
+      }
       setOrder(fresh);
       if (fresh.status === 'Complete') setScene({ kind: 'complete' });
     } catch {

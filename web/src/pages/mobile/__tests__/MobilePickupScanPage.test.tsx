@@ -9,6 +9,7 @@ import type { CurrentUser } from '../../../types/auth.js';
 const mockNavigate = vi.fn();
 const mockGetById = vi.fn();
 const mockScan = vi.fn();
+const mockComplete = vi.fn();
 let mockCurrentUser: CurrentUser | null = null;
 
 vi.mock('react-router-dom', async () => {
@@ -22,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../../../api/orders.js', () => ({
   ordersApi: {
     getById: (...args: unknown[]) => mockGetById(...args),
+    complete: (...args: unknown[]) => mockComplete(...args),
   },
 }));
 
@@ -115,6 +117,7 @@ describe('MobilePickupScanPage', () => {
     mockNavigate.mockReset();
     mockGetById.mockReset();
     mockScan.mockReset();
+    mockComplete.mockReset();
     mockCurrentUser = PICKUP_USER;
     // Reset navigator.onLine
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, value: true });
@@ -272,6 +275,65 @@ describe('MobilePickupScanPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('connection-required')).toBeInTheDocument();
     });
+  });
+
+  it('completes the order from the phone when a scan fulfils the last line', async () => {
+    const initial = makeOrder({ id: 'o-1001' });
+    const fulfilled = makeOrder({
+      id: 'o-1001',
+      status: 'InProgress',
+      lines: [{ ...initial.lines[0], qtyFulfilled: 2 }],
+    });
+    const completed = { ...fulfilled, status: 'Complete' as const };
+    mockGetById
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(fulfilled)
+      .mockResolvedValueOnce(completed);
+    mockComplete.mockResolvedValue(true);
+    mockScan.mockResolvedValue({
+      orderId: 'o-1001',
+      result: 'Accepted',
+      plantName: 'Hydrangea',
+      plantSku: 'PL-HYD',
+      quantity: 1,
+    } as unknown as ScanResponse);
+
+    renderPage();
+    await screen.findByLabelText('Manual barcode entry');
+    submitManual('PL-HYD-0001');
+
+    await waitFor(() => {
+      expect(mockComplete).toHaveBeenCalledWith('o-1001');
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('mobile-pickup-complete')).toBeInTheDocument();
+    });
+  });
+
+  it('does not try to complete an order that still has remaining lines', async () => {
+    const initial = makeOrder({ id: 'o-1001' });
+    const partial = makeOrder({
+      id: 'o-1001',
+      status: 'InProgress',
+      lines: [{ ...initial.lines[0], qtyFulfilled: 1 }],
+    });
+    mockGetById.mockResolvedValueOnce(initial).mockResolvedValueOnce(partial);
+    mockScan.mockResolvedValue({
+      orderId: 'o-1001',
+      result: 'Accepted',
+      plantName: 'Hydrangea',
+      plantSku: 'PL-HYD',
+      quantity: 1,
+    } as unknown as ScanResponse);
+
+    renderPage();
+    await screen.findByLabelText('Manual barcode entry');
+    submitManual('PL-HYD-0001');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mobile-pickup-accepted')).toBeInTheDocument();
+    });
+    expect(mockComplete).not.toHaveBeenCalled();
   });
 
   it('navigates to /login with state.from on a 401 from fulfillmentApi.scan', async () => {
