@@ -157,9 +157,9 @@ public class ImportServiceTests
         var orders = await db.Orders.Include(o => o.Customer).Include(o => o.Seller)
             .Where(o => o.OrderNumber != "41").OrderBy(o => o.OrderNumber).ToListAsync();
         Assert.Equal(new[] { "42", "43" }, orders.Select(o => o.OrderNumber).ToArray());
-        Assert.Equal("Jane Doe", orders[0].Customer.DisplayName);
+        Assert.Equal("Jane Doe", orders[0].Customer!.DisplayName);
         Assert.Equal("Alice Johnson", orders[0].Seller!.DisplayName);
-        Assert.Equal("John Smith", orders[1].Customer.DisplayName);
+        Assert.Equal("John Smith", orders[1].Customer!.DisplayName);
 
         var janeLines = await db.OrderLines.Where(l => l.OrderId == orders[0].Id).OrderBy(l => l.QtyOrdered).ToListAsync();
         Assert.Equal(new[] { 2, 3 }, janeLines.Select(l => l.QtyOrdered).ToArray());
