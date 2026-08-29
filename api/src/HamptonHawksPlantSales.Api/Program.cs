@@ -73,6 +73,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
         };
+        // Re-validate the user on every request so disabling an account or changing
+        // roles takes effect now, not when the cookie expires.
+        options.Events.OnValidatePrincipal = CookiePrincipalValidator.ValidateAsync;
     });
 
 // Authorization with role policies
