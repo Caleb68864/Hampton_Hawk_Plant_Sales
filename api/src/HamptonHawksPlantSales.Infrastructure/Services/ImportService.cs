@@ -101,8 +101,13 @@ public class ImportService : IImportService
             }
         }
 
+        // The batch is only added to the context in the final save below, so a
+        // handler that throws (e.g. a duplicate order number) leaves no orphan batch
+        // behind that looks like a successful empty import. The id is assigned up
+        // front because the handlers stamp it on every issue they record.
         var batch = new ImportBatch
         {
+            Id = Guid.NewGuid(),
             Type = type,
             Filename = filename,
             TotalRows = rawRows.Count,
@@ -110,11 +115,6 @@ public class ImportService : IImportService
             SkippedCount = 0,
             SourceFormat = sourceFormat
         };
-        if (!options.DryRun)
-        {
-            _db.ImportBatches.Add(batch);
-            await _db.SaveChangesAsync();
-        }
 
         int imported = 0;
         int skippedCount = 0;
@@ -156,6 +156,9 @@ public class ImportService : IImportService
 
             batch.ImportedCount = imported;
             batch.SkippedCount = skippedCount;
+            _db.ImportBatches.Add(batch);
+
+            // Single SaveChanges: batch, issues, and imported rows commit together.
             await _db.SaveChangesAsync();
         }
         else
