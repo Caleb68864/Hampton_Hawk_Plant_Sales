@@ -62,6 +62,21 @@ public class AppDbContext : DbContext
             }
         }
 
+        // Pick-list barcodes are unique (filtered on DeletedAt IS NULL) but no
+        // caller assigns them, so a second new customer or seller would fail the
+        // insert with 23505. Assign here so every creation path is covered.
+        foreach (var entry in ChangeTracker.Entries<Customer>())
+        {
+            if (entry.State == EntityState.Added && string.IsNullOrWhiteSpace(entry.Entity.PicklistBarcode))
+                entry.Entity.PicklistBarcode = NewPicklistBarcode("PLB-");
+        }
+
+        foreach (var entry in ChangeTracker.Entries<Seller>())
+        {
+            if (entry.State == EntityState.Added && string.IsNullOrWhiteSpace(entry.Entity.PicklistBarcode))
+                entry.Entity.PicklistBarcode = NewPicklistBarcode("PLS-");
+        }
+
         foreach (var entry in ChangeTracker.Entries<EventEntity>())
         {
             if (entry.State == EntityState.Added)
@@ -74,4 +89,10 @@ public class AppDbContext : DbContext
 
         return await base.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Same shape the AddPicklistBarcodes migration backfilled: prefix + 8 hex chars.
+    /// </summary>
+    public static string NewPicklistBarcode(string prefix) =>
+        prefix + Convert.ToHexString(Guid.NewGuid().ToByteArray(), 0, 4).ToLowerInvariant();
 }
