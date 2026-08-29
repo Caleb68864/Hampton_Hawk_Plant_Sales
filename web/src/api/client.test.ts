@@ -1,6 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getApiErrorMessage, toApiError } from './errorMessage.ts';
+import { expireSession, handleUnauthorized, type SessionStoreLike } from './sessionExpiry.ts';
+
+function fakeStore(sessionStatus: string) {
+  const writes: unknown[] = [];
+  const store: SessionStoreLike = {
+    getState: () => ({ sessionStatus }),
+    setState: (partial) => {
+      writes.push(partial);
+    },
+  };
+  return { store, writes, load: async () => store };
+}
+
+test('a 401 on an authenticated session flips the auth store to unauthenticated', async () => {
+  const { load, writes } = fakeStore('authenticated');
+  const unauthorized = toApiError({ response: { status: 401, statusText: 'Unauthorized' } });
+
+  handleUnauthorized(unauthorized, load);
+  await new Promise((r) => setImmediate(r));
+
+  assert.deepEqual(writes, [{ currentUser: null, sessionStatus: 'unauthenticated' }]);
+});
+
+test('non-401 errors leave the auth store alone', async () => {
+  const { load, writes } = fakeStore('authenticated');
+
+  handleUnauthorized(toApiError({ response: { status: 403, statusText: 'Forbidden' } }), load);
+  handleUnauthorized(toApiError({ code: 'ERR_NETWORK', request: {} }), load);
+  await new Promise((r) => setImmediate(r));
+
+  assert.deepEqual(writes, []);
+});
+
+test('a 401 while the session is still loading (or already out) is left to restoreSession', async () => {
+  for (const status of ['loading', 'unauthenticated']) {
+    const { load, writes } = fakeStore(status);
+    assert.equal(await expireSession(load), false);
+    assert.deepEqual(writes, []);
+  }
+});
 
 test('unwraps 400 validation envelope using first error and includes diagnostics list', () => {
   const message = getApiErrorMessage({

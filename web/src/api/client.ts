@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { ApiResponse } from '../types/api.js';
 import { toApiError } from './errorMessage.js';
+import { handleUnauthorized } from './sessionExpiry.js';
 
 // Sale-day networking is a field LAN, not a datacenter: a dropped AP association
 // leaves a socket open with nothing on the other end. Without a ceiling the request
@@ -19,7 +20,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
-      return Promise.reject(toApiError(error));
+      const apiError = toApiError(error);
+      // A kiosk logged in the night before outlives the sliding session cookie.
+      // Without this, every request fails with an "Unauthorized" banner and
+      // nothing ever sends the volunteer back to the login page: ProtectedRoute
+      // only checks the session once, on mount.
+      handleUnauthorized(apiError);
+      return Promise.reject(apiError);
     }
     return Promise.reject(error);
   },
