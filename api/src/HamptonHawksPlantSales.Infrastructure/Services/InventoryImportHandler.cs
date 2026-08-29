@@ -21,9 +21,14 @@ public class InventoryImportHandler
         int skipped = 0;
         var issues = new List<ImportIssue>();
 
-        var plants = await _db.PlantCatalogs
+        // Group first: two active SKUs differing only by case would make
+        // ToDictionary throw and fail the whole import.
+        var plants = (await _db.PlantCatalogs
             .Where(p => p.DeletedAt == null)
-            .ToDictionaryAsync(p => p.Sku, p => p.Id, StringComparer.OrdinalIgnoreCase);
+            .Select(p => new { p.Sku, p.Id })
+            .ToListAsync())
+            .GroupBy(p => p.Sku, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         var inventories = await _db.Inventories
             .Where(inv => inv.DeletedAt == null)

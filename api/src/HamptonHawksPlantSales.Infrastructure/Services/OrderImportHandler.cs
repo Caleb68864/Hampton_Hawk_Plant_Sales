@@ -23,15 +23,27 @@ public class OrderImportHandler
         int skipped = 0;
         var issues = new List<ImportIssue>();
 
-        // Load plant catalog by SKU
-        var plants = await _db.PlantCatalogs
+        // Load plant catalog by SKU. Group first: two active SKUs differing only by
+        // case would make ToDictionary throw and fail the whole import.
+        var plants = (await _db.PlantCatalogs
             .Where(p => p.DeletedAt == null)
-            .ToDictionaryAsync(p => p.Sku, p => p.Id, StringComparer.OrdinalIgnoreCase);
+            .Select(p => new { p.Sku, p.Id })
+            .ToListAsync())
+            .GroupBy(p => p.Sku, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         // Load existing customers by PickupCode and DisplayName
-        var customersByPickupCode = await _db.Customers
+        var customersByPickupCode = (await _db.Customers
             .Where(c => c.DeletedAt == null && c.PickupCode != "")
-            .ToDictionaryAsync(c => c.PickupCode, c => c, StringComparer.OrdinalIgnoreCase);
+            .ToListAsync())
+            .GroupBy(c => c.PickupCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // IX_Customers_PickupCode is not filtered by DeletedAt, so a code held by a
+        // soft-deleted customer is still taken and must not be reissued.
+        var usedPickupCodes = new HashSet<string>(
+            await _db.Customers.IgnoreQueryFilters().Select(c => c.PickupCode).ToListAsync(),
+            StringComparer.OrdinalIgnoreCase);
         var customersByDisplayName = (await _db.Customers
             .Where(c => c.DeletedAt == null)
             .ToListAsync())
@@ -45,8 +57,10 @@ public class OrderImportHandler
             .GroupBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
+        // IX_Orders_OrderNumber is not filtered by DeletedAt either: a soft-deleted
+        // order still owns its number, and re-importing it is a unique violation.
         var existingNumbers = await _db.Orders
-            .Where(o => o.DeletedAt == null)
+            .IgnoreQueryFilters()
             .Select(o => o.OrderNumber)
             .ToListAsync();
         var usedOrderNumbers = new HashSet<string>(existingNumbers, StringComparer.OrdinalIgnoreCase);
@@ -151,10 +165,16 @@ public class OrderImportHandler
 
             if (customer == null)
             {
-                if (string.IsNullOrWhiteSpace(pickupCode))
+                // A supplied code that belongs to a soft-deleted customer cannot be
+                // reused (unfiltered unique index), so issue a fresh one instead.
+                if (string.IsNullOrWhiteSpace(pickupCode) || usedPickupCodes.Contains(pickupCode))
                 {
-                    pickupCode = GeneratePickupCode();
+                    do
+                    {
+                        pickupCode = GeneratePickupCode();
+                    } while (usedPickupCodes.Contains(pickupCode));
                 }
+                usedPickupCodes.Add(pickupCode);
 
                 customer = new Customer
                 {
