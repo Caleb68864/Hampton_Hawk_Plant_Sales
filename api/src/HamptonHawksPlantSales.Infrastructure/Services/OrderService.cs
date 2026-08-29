@@ -65,8 +65,7 @@ public class OrderService : IOrderService
 
         var totalCount = await query.CountAsync();
 
-        var items = await query
-            .OrderByDescending(o => o.CreatedAt)
+        var items = await ApplyListSort(query, paging)
             .Skip((paging.Page - 1) * paging.PageSize)
             .Take(paging.PageSize)
             .Select(o => MapToResponse(o, false))
@@ -79,6 +78,33 @@ public class OrderService : IOrderService
             Page = paging.Page,
             PageSize = paging.PageSize
         };
+    }
+
+    /// <summary>
+    /// Applies the whitelisted list sort. Unknown or missing keys fall back to newest-first,
+    /// and every sort is tie-broken on CreatedAt/Id so paging stays stable.
+    /// </summary>
+    private static IOrderedQueryable<Order> ApplyListSort(IQueryable<Order> query, PaginationParams paging)
+    {
+        var desc = paging.SortDescending;
+        var key = (paging.SortBy ?? string.Empty).Trim().ToLowerInvariant();
+
+        IOrderedQueryable<Order> ordered = key switch
+        {
+            "ordernumber" => desc ? query.OrderByDescending(o => o.OrderNumber) : query.OrderBy(o => o.OrderNumber),
+            "customerdisplayname" or "customer" => desc
+                ? query.OrderByDescending(o => o.Customer != null ? o.Customer.DisplayName : string.Empty)
+                : query.OrderBy(o => o.Customer != null ? o.Customer.DisplayName : string.Empty),
+            "sellerdisplayname" or "seller" => desc
+                ? query.OrderByDescending(o => o.Seller != null ? o.Seller.DisplayName : string.Empty)
+                : query.OrderBy(o => o.Seller != null ? o.Seller.DisplayName : string.Empty),
+            "status" => desc ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
+            "iswalkup" or "type" => desc ? query.OrderByDescending(o => o.IsWalkUp) : query.OrderBy(o => o.IsWalkUp),
+            "createdat" or "date" => desc ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt),
+            _ => query.OrderByDescending(o => o.CreatedAt),
+        };
+
+        return ordered.ThenByDescending(o => o.CreatedAt).ThenBy(o => o.Id);
     }
 
     public async Task<OrderResponse?> GetByIdAsync(Guid id)

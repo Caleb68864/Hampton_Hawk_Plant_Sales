@@ -41,6 +41,8 @@ public class OrdersController : ControllerBase
     /// <param name="includeDraft">When true, includes Draft (in-progress walk-up) orders. Default false.</param>
     /// <param name="page">Page number (1-based).</param>
     /// <param name="pageSize">Items per page.</param>
+    /// <param name="sortBy">Sort column: orderNumber, customerDisplayName, sellerDisplayName, status, isWalkUp or createdAt. Unknown values fall back to createdAt.</param>
+    /// <param name="sortDir">"asc" or "desc" (default desc).</param>
     /// <response code="200">Paged list of orders.</response>
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<OrderResponse>>), 200)]
@@ -53,9 +55,11 @@ public class OrdersController : ControllerBase
         [FromQuery] bool includeDeleted = false,
         [FromQuery] bool includeDraft = false,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 25)
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDir = null)
     {
-        var paging = new PaginationParams { Page = page, PageSize = pageSize };
+        var paging = new PaginationParams { Page = page, PageSize = pageSize, SortBy = sortBy, SortDir = sortDir };
         var result = await _orderService.GetAllAsync(search, status, isWalkUp, sellerId, customerId, includeDeleted, paging, includeDraft);
         return Ok(ApiResponse<PagedResult<OrderResponse>>.Ok(result));
     }

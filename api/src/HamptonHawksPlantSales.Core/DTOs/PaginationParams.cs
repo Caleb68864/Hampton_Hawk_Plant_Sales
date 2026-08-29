@@ -16,4 +16,18 @@ public class PaginationParams
         get => _pageSize;
         set => _pageSize = value < 1 ? 25 : value > 200 ? 200 : value;
     }
+
+    /// <summary>
+    /// Optional sort column. Each list endpoint whitelists the keys it understands
+    /// and falls back to its default order for anything else.
+    /// </summary>
+    public string? SortBy { get; set; }
+
+    /// <summary>
+    /// "asc" or "desc" (case-insensitive). Anything else is treated as "desc".
+    /// </summary>
+    public string? SortDir { get; set; }
+
+    public bool SortDescending =>
+        !string.Equals(SortDir, "asc", StringComparison.OrdinalIgnoreCase);
 }
