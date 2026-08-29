@@ -48,7 +48,9 @@ public class SettingsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<SettingsResponse>), 200)]
     public async Task<IActionResult> UpdateSaleClosed([FromBody] UpdateSaleClosedRequest request)
     {
-        var result = await _settingsService.ToggleSaleClosedAsync(request.SaleClosed, request.Reason);
+        // The filter validated X-Admin-Reason; the body reason is only a fallback.
+        var reason = HttpContext.Items["AdminReason"] as string ?? request.Reason;
+        var result = await _settingsService.ToggleSaleClosedAsync(request.SaleClosed, reason);
         return Ok(ApiResponse<SettingsResponse>.Ok(result));
     }
 
