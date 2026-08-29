@@ -166,6 +166,8 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health");
+// Same probe under /api so the web proxy (which only forwards /api) can reach it.
+app.MapHealthChecks("/api/health");
 app.MapControllers();
 
 app.MapFallback(async context =>

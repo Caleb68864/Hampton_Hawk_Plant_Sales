@@ -10,7 +10,7 @@ export interface BackendAvailabilityState {
 
 async function checkBackend(): Promise<boolean> {
   try {
-    const res = await fetch('/api/', { method: 'HEAD', cache: 'no-store' });
+    const res = await fetch('/api/health', { method: 'HEAD', cache: 'no-store' });
     return res.ok || res.status < 500;
   } catch {
     return false;
