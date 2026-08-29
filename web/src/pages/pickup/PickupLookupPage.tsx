@@ -24,6 +24,7 @@ import {
 } from '@/utils/orderLookup.js';
 import type { Customer } from '@/types/customer.js';
 import type { Order } from '@/types/order.js';
+import type { ScanSessionResponse } from '@/types/scanSession.js';
 
 interface CustomerWithOrders {
   customer: Customer;
@@ -49,7 +50,13 @@ export function PickupLookupPage() {
   // SS-13: guard against the same picklist barcode triggering multiple
   // create-session POSTs while the search effect re-runs (debounce tail,
   // settings refresh, etc.). One create per normalized barcode value.
-  const picklistInFlightRef = useRef<string | null>(null);
+  //
+  // The in-flight promise is kept, not just the barcode: when the effect
+  // re-runs mid-request (kiosk workstation / auto-jump setting arriving from
+  // the settings fetch) the superseded run is cancelled and the new run must
+  // adopt the pending create -- otherwise nobody navigated or cleared the
+  // spinner and the kiosk hung on "Looking up order..." forever.
+  const picklistInFlightRef = useRef<{ barcode: string; promise: Promise<ScanSessionResponse> } | null>(null);
 
   const normalizedSearch = normalizeOrderLookupValue(search);
   const orderLookupActive = looksLikeOrderNumberLookup(normalizedSearch);
@@ -88,23 +95,29 @@ export function PickupLookupPage() {
       // PLB-/PLS- barcode (full pattern match), skip the customer/order list
       // and instead create a scan session, then navigate to the new page.
       if (picklistLookupActive) {
-        if (picklistInFlightRef.current === normalizedSearch) {
-          return;
+        let inFlight = picklistInFlightRef.current;
+        if (!inFlight || inFlight.barcode !== normalizedSearch) {
+          inFlight = {
+            barcode: normalizedSearch,
+            promise: scanSessionsApi.create({
+              scannedBarcode: normalizedSearch,
+              workstationName: kioskWorkstation ?? '',
+            }),
+          };
+          picklistInFlightRef.current = inFlight;
         }
-        picklistInFlightRef.current = normalizedSearch;
         setLoading(true);
         setError(null);
         try {
-          const session = await scanSessionsApi.create({
-            scannedBarcode: normalizedSearch,
-            workstationName: kioskWorkstation ?? '',
-          });
+          const session = await inFlight.promise;
           if (cancelled) return;
           navigate(`/pickup/session/${session.id}`);
           return;
         } catch (e) {
-          if (!cancelled) {
+          if (picklistInFlightRef.current === inFlight) {
             picklistInFlightRef.current = null;
+          }
+          if (!cancelled) {
             setError(e instanceof Error ? e.message : 'Failed to start pick-list session');
           }
           return;
