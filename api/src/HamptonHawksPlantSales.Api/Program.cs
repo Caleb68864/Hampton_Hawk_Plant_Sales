@@ -85,8 +85,30 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("ReportsCapable", policy => policy.RequireRole("Admin", "Reports"));
 });
 
-// Failure counting for the admin PIN lockout (see AdminPinActionFilter).
+// Rate limiting. Login is throttled per client address; admin PIN failures are
+// counted by AdminPinActionFilter (only failures, so a correct PIN is never
+// throttled). Forwarded headers are not configured, so the socket address is used.
 builder.Services.AddMemoryCache();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        var payload = HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>.Fail("Too many attempts. Try again in a minute.");
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        await context.HttpContext.Response.WriteAsync(JsonSerializer.Serialize(payload, jsonOptions), cancellationToken);
+    };
+    options.AddPolicy(RateLimitPolicies.Login, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = RateLimitPolicies.LoginPermitLimit,
+                Window = RateLimitPolicies.LoginWindow,
+                QueueLimit = 0
+            }));
+});
 
 // Health checks
 builder.Services.AddHealthChecks()
@@ -169,6 +191,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseSerilogRequestLogging();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health");
