@@ -236,7 +236,12 @@ export function OrdersListPage() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[200px]" ref={searchRef}>
-          <SearchBar value={search} onChange={handleSearchChange} placeholder="Search orders, customers, pickup codes... (press / to focus)" />
+          <SearchBar
+            value={search}
+            onChange={handleSearchChange}
+            onEnter={handleSearchSubmit}
+            placeholder="Search orders, customers, pickup codes... (press / to focus)"
+          />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
@@ -314,9 +319,6 @@ export function OrdersListPage() {
           </button>
         </div>
       </div>
-
-      {/* Hidden form for scan-to-search enter */}
-      <form className="hidden" onSubmit={(e) => { e.preventDefault(); handleSearchSubmit(search); }} />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 

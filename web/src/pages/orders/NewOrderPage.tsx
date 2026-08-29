@@ -22,6 +22,17 @@ interface LineItem {
   notes: string;
 }
 
+function linesFromOrder(order: Order): LineItem[] {
+  return order.lines.map((line) => ({
+    lineId: line.id,
+    plantCatalogId: line.plantCatalogId,
+    plantName: line.plantName,
+    qtyOrdered: line.qtyOrdered,
+    qtyFulfilled: line.qtyFulfilled,
+    notes: line.notes ?? '',
+  }));
+}
+
 export function NewOrderPage() {
   const { id } = useParams<{ id: string }>();
   const isEditing = Boolean(id);
@@ -69,14 +80,7 @@ export function NewOrderPage() {
         setOriginalOrder(order);
         setSelectedCustomer(customer);
         setSelectedSeller(seller);
-        setLines(order.lines.map((line) => ({
-          lineId: line.id,
-          plantCatalogId: line.plantCatalogId,
-          plantName: line.plantName,
-          qtyOrdered: line.qtyOrdered,
-          qtyFulfilled: line.qtyFulfilled,
-          notes: line.notes ?? '',
-        })));
+        setLines(linesFromOrder(order));
       })
       .catch((e) => {
         if (!cancelled) {
@@ -230,6 +234,22 @@ export function NewOrderPage() {
     setSaving(true);
     setError(null);
 
+    // Edit-save is a PUT followed by one call per changed line. If call k
+    // fails, calls 1..k-1 are already committed on the server while the local
+    // `lines` still lack lineIds for the lines that were added, so a second
+    // Save would POST them again. Resync from the server before surfacing
+    // the error so the next Save starts from what is actually persisted.
+    async function resyncAfterPartialSave(orderId: string): Promise<boolean> {
+      try {
+        const fresh = await ordersApi.getById(orderId);
+        setOriginalOrder(fresh);
+        setLines(linesFromOrder(fresh));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     try {
       if (isEditing && id && originalOrder) {
         const updateRequest: UpdateOrderRequest = {
@@ -294,7 +314,15 @@ export function NewOrderPage() {
       });
       navigate(`/orders/${order.id}`, { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : `Failed to ${isEditing ? 'save' : 'create'} order`);
+      const message = e instanceof Error ? e.message : `Failed to ${isEditing ? 'save' : 'create'} order`;
+      if (isEditing && id) {
+        const resynced = await resyncAfterPartialSave(id);
+        setError(resynced
+          ? `${message} The order was reloaded from the server; review the lines and save again.`
+          : `${message} The order could not be reloaded; go back to the order and reopen it before saving again.`);
+        return;
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }

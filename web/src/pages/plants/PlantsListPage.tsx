@@ -21,7 +21,7 @@ export function PlantsListPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
   const [loadingAll, setLoadingAll] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const fetchPlants = useCallback(async () => {
     setLoading(true);
@@ -43,7 +43,7 @@ export function PlantsListPage() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === '/' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
-        searchRef.current?.focus();
+        searchRef.current?.querySelector('input')?.focus();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -129,7 +129,7 @@ export function PlantsListPage() {
         </>
       }
     >
-      <div ref={searchRef as React.RefObject<HTMLDivElement>}>
+      <div ref={searchRef}>
         <SearchBar value={search} onChange={handleSearchChange} placeholder="Search plants by name, SKU, or barcode... (press / to focus)" />
       </div>
 

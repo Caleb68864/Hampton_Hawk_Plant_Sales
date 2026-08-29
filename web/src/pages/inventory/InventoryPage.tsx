@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { inventoryApi } from '@/api/inventory.js';
+import { useDialog } from '@/hooks/useDialog.js';
 import { SearchBar } from '@/components/shared/SearchBar.js';
 import { PaginationControls } from '@/components/shared/PaginationControls.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
@@ -29,7 +30,17 @@ export function InventoryPage() {
   const [editQty, setEditQty] = useState('');
   const [editReason, setEditReason] = useState('');
   const [adjustModal, setAdjustModal] = useState<AdjustModalState>({ item: null, deltaQty: '', reason: '' });
+  // The adjust endpoint applies OnHandQty += delta, so a double-tap on a slow
+  // LAN would apply the delta twice. Guard with a busy flag; the ref backs the
+  // state so a second click in the same tick is also ignored.
+  const [adjusting, setAdjusting] = useState(false);
+  const adjustingRef = useRef(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const adjustDialog = useDialog({
+    isOpen: adjustModal.item !== null,
+    onClose: adjusting ? undefined : closeAdjustModal,
+    labelledBy: 'adjust-inventory-title',
+  });
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -84,9 +95,12 @@ export function InventoryPage() {
   }
 
   async function submitAdjust() {
+    if (adjustingRef.current) return;
     if (!adjustModal.item) return;
     const delta = parseInt(adjustModal.deltaQty, 10);
     if (isNaN(delta) || delta === 0 || !adjustModal.reason.trim()) return;
+    adjustingRef.current = true;
+    setAdjusting(true);
     setError(null);
     try {
       await inventoryApi.adjust({
@@ -98,7 +112,15 @@ export function InventoryPage() {
       await fetchInventory();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to adjust inventory');
+    } finally {
+      adjustingRef.current = false;
+      setAdjusting(false);
     }
+  }
+
+  function closeAdjustModal() {
+    if (adjustingRef.current) return;
+    setAdjustModal({ item: null, deltaQty: '', reason: '' });
   }
 
   return (
@@ -213,9 +235,9 @@ export function InventoryPage() {
       )}
 
       {adjustModal.item && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAdjustModal({ item: null, deltaQty: '', reason: '' })}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-gray-900">Adjust Inventory</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeAdjustModal}>
+          <div {...adjustDialog} className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 outline-none" onClick={(e) => e.stopPropagation()}>
+            <h2 id="adjust-inventory-title" className="text-lg font-semibold text-gray-900">Adjust Inventory</h2>
             <p className="mt-1 text-sm text-gray-600">{adjustModal.item.plantName} (Current: {adjustModal.item.onHandQty})</p>
             <div className="mt-4 space-y-3">
               <div>
@@ -244,17 +266,18 @@ export function InventoryPage() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                onClick={() => setAdjustModal({ item: null, deltaQty: '', reason: '' })}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                disabled={adjusting}
+                onClick={closeAdjustModal}
               >
                 Cancel
               </button>
               <TouchButton
                 variant="primary"
-                disabled={!adjustModal.deltaQty || !adjustModal.reason.trim()}
+                disabled={adjusting || !adjustModal.deltaQty || !adjustModal.reason.trim()}
                 onClick={submitAdjust}
               >
-                Apply Adjustment
+                {adjusting ? 'Applying…' : 'Apply Adjustment'}
               </TouchButton>
             </div>
           </div>

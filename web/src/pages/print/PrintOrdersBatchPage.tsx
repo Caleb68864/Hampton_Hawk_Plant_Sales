@@ -7,7 +7,14 @@ import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { useAsyncData } from '@/hooks/useAsyncData.js';
+import { PRINT_FETCH_CONCURRENCY, settleWithConcurrency } from '@/utils/mapWithConcurrency.js';
 import type { Order } from '@/types/order.js';
+
+interface OrdersBatch {
+  orders: Order[];
+  /** Ids that could not be fetched (404, network, ...). */
+  failedCount: number;
+}
 
 function parseOrderIds(raw: string | null): string[] {
   if (!raw) return [];
@@ -17,11 +24,17 @@ function parseOrderIds(raw: string | null): string[] {
     .filter(Boolean);
 }
 
-async function loadOrders(orderIds: string[]): Promise<Order[]> {
-  if (orderIds.length === 0) return [];
-  const results = await Promise.all(orderIds.map((id) => ordersApi.getById(id)));
-  const byId = new Map(results.map((order) => [order.id, order]));
-  return orderIds.map((id) => byId.get(id)).filter((order): order is Order => Boolean(order));
+async function loadOrders(orderIds: string[]): Promise<OrdersBatch> {
+  if (orderIds.length === 0) return { orders: [], failedCount: 0 };
+  // One missing/deleted id must not blank the whole print run, and a
+  // 100-order batch must not open 100 sockets at once: settle each id
+  // individually with bounded concurrency and report the misses.
+  const results = await settleWithConcurrency(orderIds, PRINT_FETCH_CONCURRENCY, (id) => ordersApi.getById(id));
+  const orders = results.flatMap((r) => (r.ok ? [r.value] : []));
+  if (orders.length === 0) {
+    throw new Error('None of the selected orders could be loaded.');
+  }
+  return { orders, failedCount: results.length - orders.length };
 }
 
 export function PrintOrdersBatchPage() {
@@ -33,7 +46,8 @@ export function PrintOrdersBatchPage() {
     orderIds.join(','),
     'Failed to load orders',
   );
-  const orders: Order[] = data ?? [];
+  const orders: Order[] = data?.orders ?? [];
+  const failedCount = data?.failedCount ?? 0;
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorBanner message={error} />;
@@ -41,6 +55,11 @@ export function PrintOrdersBatchPage() {
 
   return (
     <PrintLayout backTo="/orders">
+      {failedCount > 0 && (
+        <p className="no-print mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+          {failedCount} order{failedCount === 1 ? '' : 's'} could not be loaded and {failedCount === 1 ? 'is' : 'are'} not included in this print run.
+        </p>
+      )}
       {orders.map((order, idx) => (
         <section key={order.id} className={idx < orders.length - 1 ? 'page-break' : ''}>
           <PrintHeader

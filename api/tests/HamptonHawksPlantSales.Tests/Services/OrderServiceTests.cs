@@ -225,6 +225,125 @@ public class OrderServiceTests
         result.Items[0].Id.Should().Be(activeOrder.Id);
     }
 
+    // ===== A1: server-side sorting of the orders list =====
+
+    [Theory]
+    [InlineData("orderNumber", "asc", new[] { "ORD-A", "ORD-B", "ORD-C" })]
+    [InlineData("orderNumber", "desc", new[] { "ORD-C", "ORD-B", "ORD-A" })]
+    [InlineData("ORDERNUMBER", "ASC", new[] { "ORD-A", "ORD-B", "ORD-C" })]
+    public async Task GetAllAsync_SortByOrderNumber_HonoursDirection(string sortBy, string sortDir, string[] expected)
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        db.Customers.Add(customer);
+
+        var now = DateTimeOffset.UtcNow;
+        // Creation order is deliberately the reverse of alphabetical so the default
+        // newest-first order would NOT match the expected ascending sequence.
+        var c = TestDataBuilder.CreateOrder(customer.Id); c.OrderNumber = "ORD-C";
+        var b = TestDataBuilder.CreateOrder(customer.Id); b.OrderNumber = "ORD-B";
+        var a = TestDataBuilder.CreateOrder(customer.Id); a.OrderNumber = "ORD-A";
+        db.Orders.AddRange(c, b, a);
+        await db.SaveChangesAsync();
+        // AppDbContext stamps CreatedAt on insert, so back-date after the first save.
+        c.CreatedAt = now.AddMinutes(-3);
+        b.CreatedAt = now.AddMinutes(-2);
+        a.CreatedAt = now.AddMinutes(-1);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var result = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { Page = 1, PageSize = 25, SortBy = sortBy, SortDir = sortDir });
+
+        result.Items.Select(o => o.OrderNumber).Should().ContainInOrder(expected);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_SortByCustomerAndSeller_OrdersByDisplayName()
+    {
+        using var db = MockDbContextFactory.Create();
+        var zed = TestDataBuilder.CreateCustomer("Zed");
+        var amy = TestDataBuilder.CreateCustomer("Amy");
+        db.Customers.AddRange(zed, amy);
+
+        var sellerZ = new Seller { Id = Guid.NewGuid(), DisplayName = "Zara", PicklistBarcode = "PL-Z" };
+        var sellerA = new Seller { Id = Guid.NewGuid(), DisplayName = "Aaron", PicklistBarcode = "PL-A" };
+        db.Sellers.AddRange(sellerZ, sellerA);
+
+        var zedOrder = TestDataBuilder.CreateOrder(zed.Id); zedOrder.SellerId = sellerA.Id;
+        var amyOrder = TestDataBuilder.CreateOrder(amy.Id); amyOrder.SellerId = sellerZ.Id;
+        var noSellerOrder = TestDataBuilder.CreateOrder(amy.Id);
+        db.Orders.AddRange(zedOrder, amyOrder, noSellerOrder);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        var byCustomer = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { SortBy = "customerDisplayName", SortDir = "asc" });
+        byCustomer.Items.Select(o => o.CustomerId).Should().ContainInOrder(amy.Id, amy.Id, zed.Id);
+
+        var bySeller = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { SortBy = "sellerDisplayName", SortDir = "desc" });
+        bySeller.Items.Select(o => o.Id).Should().ContainInOrder(amyOrder.Id, zedOrder.Id, noSellerOrder.Id);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", "asc")]
+    [InlineData("notAColumn", "asc")]
+    [InlineData("createdAt; DROP TABLE Orders", "asc")]
+    public async Task GetAllAsync_UnknownSortKey_FallsBackToNewestFirst(string? sortBy, string? sortDir)
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        db.Customers.Add(customer);
+
+        var now = DateTimeOffset.UtcNow;
+        var older = TestDataBuilder.CreateOrder(customer.Id);
+        var newer = TestDataBuilder.CreateOrder(customer.Id);
+        db.Orders.AddRange(older, newer);
+        await db.SaveChangesAsync();
+        // AppDbContext stamps CreatedAt on insert, so back-date after the first save.
+        older.CreatedAt = now.AddHours(-2);
+        newer.CreatedAt = now.AddHours(-1);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var result = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { SortBy = sortBy, SortDir = sortDir });
+
+        result.Items.Select(o => o.Id).Should().ContainInOrder(newer.Id, older.Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_SortByStatusAndType_Works()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        db.Customers.Add(customer);
+
+        var complete = TestDataBuilder.CreateOrder(customer.Id, status: OrderStatus.Complete, isWalkUp: true);
+        var open = TestDataBuilder.CreateOrder(customer.Id, status: OrderStatus.Open, isWalkUp: false);
+        db.Orders.AddRange(complete, open);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+
+        var byStatus = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { SortBy = "status", SortDir = "asc" });
+        byStatus.Items.Select(o => o.Id).Should().ContainInOrder(open.Id, complete.Id);
+
+        var byType = await service.GetAllAsync(
+            search: null, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { SortBy = "isWalkUp", SortDir = "desc" });
+        byType.Items.Select(o => o.Id).Should().ContainInOrder(complete.Id, open.Id);
+    }
+
     [Fact]
     public async Task GetAllAsync_IncludeDeleted_ReturnsDeletedOrders()
     {

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { MAX_UPLOAD_BYTES, describeFileRejection } from './fileRejection.js';
 
 interface FileUploaderProps {
   accept?: string;
@@ -6,6 +7,7 @@ interface FileUploaderProps {
   promptText?: string;
   onUpload: (file: File) => Promise<void>;
   disabled?: boolean;
+  maxBytes?: number;
 }
 
 export function FileUploader({
@@ -14,16 +16,31 @@ export function FileUploader({
   promptText = 'Drop a CSV or XLSX file here, or click to browse',
   onUpload,
   disabled,
+  maxBytes = MAX_UPLOAD_BYTES,
 }: FileUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [rejection, setRejection] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  function resetInput() {
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
   function handleFileSelect(file: File | undefined) {
     if (!file) return;
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !allowedExtensions.includes(ext)) return;
+    const reason = describeFileRejection(file, allowedExtensions, maxBytes);
+    if (reason) {
+      // Previously a wrong extension was silently ignored, which reads as
+      // "the click did nothing" to a volunteer. Say why, and clear the input
+      // so re-picking the same file fires change again.
+      setSelectedFile(null);
+      setRejection(reason);
+      resetInput();
+      return;
+    }
+    setRejection(null);
     setSelectedFile(file);
   }
 
@@ -42,7 +59,7 @@ export function FileUploader({
     } finally {
       setUploading(false);
       setSelectedFile(null);
-      if (inputRef.current) inputRef.current.value = '';
+      resetInput();
     }
   }
 
@@ -64,6 +81,7 @@ export function FileUploader({
           type="file"
           accept={accept}
           className="hidden"
+          aria-label="Choose a file to import"
           onChange={(e) => handleFileSelect(e.target.files?.[0])}
         />
         <p className="text-sm text-gray-600">
@@ -77,6 +95,10 @@ export function FileUploader({
           </p>
         )}
       </div>
+
+      {rejection && (
+        <p role="alert" className="text-sm text-red-600">{rejection}</p>
+      )}
 
       {selectedFile && (
         <div className="flex items-center gap-3">
@@ -92,7 +114,7 @@ export function FileUploader({
             type="button"
             disabled={uploading}
             className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
-            onClick={() => { setSelectedFile(null); if (inputRef.current) inputRef.current.value = ''; }}
+            onClick={() => { setSelectedFile(null); resetInput(); }}
           >
             Clear
           </button>
