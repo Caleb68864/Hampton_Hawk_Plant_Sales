@@ -133,6 +133,9 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
+        // 3b. Refuse to take stock for an order that is no longer being picked up.
+        await EnsureOrderAcceptsFulfillmentAsync(orderId);
+
         // 4. Find OrderLine for orderId + PlantCatalogId — AsNoTracking for the same reason.
         var orderLineCheck = await _db.OrderLines
             .AsNoTracking()
@@ -302,6 +305,8 @@ public class FulfillmentService : IFulfillmentService
 
         if (string.IsNullOrWhiteSpace(request.OperatorName))
             throw new ValidationException("Operator name is required for manual fulfillment.");
+
+        await EnsureOrderAcceptsFulfillmentAsync(orderId);
 
         if (await _adminService.IsSaleClosedAsync())
         {
@@ -544,6 +549,12 @@ public class FulfillmentService : IFulfillmentService
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order not found.");
 
+        if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Draft)
+            throw new ValidationException($"Cannot complete order: order is {order.Status}.");
+
+        if (order.OrderLines.Count == 0)
+            throw new ValidationException("Cannot complete order: order has no lines.");
+
         var allFulfilled = order.OrderLines.All(l => l.QtyFulfilled >= l.QtyOrdered);
         if (!allFulfilled)
             throw new ValidationException("Cannot complete order: not all lines are fully fulfilled.");
@@ -602,6 +613,27 @@ public class FulfillmentService : IFulfillmentService
                 CreatedAt = e.CreatedAt
             })
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Only Open and InProgress orders may take stock. A cancelled order's barcode is
+    /// still scannable at the table, and without this check it decremented inventory
+    /// for an order nobody is picking up.
+    /// </summary>
+    private async Task EnsureOrderAcceptsFulfillmentAsync(Guid orderId)
+    {
+        var status = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == orderId && o.DeletedAt == null)
+            .Select(o => (OrderStatus?)o.Status)
+            .FirstOrDefaultAsync();
+
+        // An unknown order falls through to the existing WrongOrder / not-found
+        // handling so the volunteer-facing result strings are unchanged.
+        if (status == null) return;
+
+        if (status != OrderStatus.Open && status != OrderStatus.InProgress)
+            throw new ValidationException($"Order is {status} and cannot be fulfilled.");
     }
 
     private async Task<FulfillmentEvent> CreateEvent(Guid orderId, Guid? plantCatalogId, string barcode,
