@@ -13,9 +13,12 @@ import {
   selectExactOrderMatch,
 } from './pickupScanLogic.js';
 import { normalizeOrderLookupValue } from '../../utils/orderLookup.js';
+import { isSessionExpired } from '../../api/sessionExpiry.js';
+import type { ApiError } from '../../api/errorMessage.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const PAGE_SIZE = 20;
+const PICKUP_LOOKUP_PATH = '/mobile/pickup';
 
 type LookupState =
   | { kind: 'idle' }
@@ -83,6 +86,13 @@ export function MobilePickupLookupPage() {
         setState({ kind: 'matches', orders: response.items });
       } catch (err) {
         if (requestId !== requestIdRef.current) return;
+        // Session cookie expired (mirrors MobileOrderLookupPage): send the
+        // volunteer to log in rather than showing an "Unauthorized" error they
+        // cannot act on.
+        if (isSessionExpired(err as ApiError)) {
+          navigate('/login', { state: { from: PICKUP_LOOKUP_PATH } });
+          return;
+        }
         const message = err instanceof Error ? err.message : 'Lookup failed';
         setState({ kind: 'error', message });
       }

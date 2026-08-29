@@ -82,6 +82,7 @@ export function PickupScanSessionPage() {
   // Multi-quantity scanning (mirrors PickupScanPage). Sticky between scans
   // so the volunteer can "set 6, scan, scan, scan" without re-setting.
   const [scanQuantity, setScanQuantity] = useState(1);
+  const [ending, setEnding] = useState(false);
 
   // SS-13: scan flash + remaining counter are stateful so we can show a
   // celebratory overlay on accepted scans, mirroring PickupScanPage.
@@ -118,6 +119,17 @@ export function PickupScanSessionPage() {
   const refocusScanInput = useCallback(() => {
     setTimeout(() => scanInputRef.current?.focus(), 50);
   }, []);
+
+  // Tapping a preset / +/- moves focus to that button. Put it straight back on
+  // the scan input so the next wedge scan lands in the buffer, not on the
+  // button (where its digits would be lost and Enter would re-click it).
+  const handleScanQuantityChange = useCallback(
+    (n: number) => {
+      setScanQuantity(n);
+      refocusScanInput();
+    },
+    [refocusScanInput],
+  );
 
   function triggerHaptic(result: ScanSessionResult) {
     if (feedbackMode === 'off' || typeof navigator === 'undefined' || !navigator.vibrate) return;
@@ -171,11 +183,20 @@ export function PickupScanSessionPage() {
     setScanFlashData(null);
   }
 
+  // closeSession swallows its error into networkError and returns null. Only
+  // leave the page when the close actually went through: navigating on failure
+  // left the session open server-side with nothing telling the volunteer.
+  // `ending` also stops a double-tap from firing two close POSTs.
   async function handleEndSession() {
-    if (sessionId) {
-      await closeSession();
+    if (!sessionId || ending) return;
+    setEnding(true);
+    try {
+      const closed = await closeSession();
+      if (!closed) return;
+      navigate('/pickup');
+    } finally {
+      setEnding(false);
     }
-    navigate('/pickup');
   }
 
   const bannerScanResponse = useMemo(
@@ -298,14 +319,14 @@ export function PickupScanSessionPage() {
               chosen multiplier. */}
           <QuantitySelector
             value={scanQuantity}
-            onChange={setScanQuantity}
+            onChange={handleScanQuantityChange}
             disabled={isScanning}
           />
           <ScanInput ref={scanInputRef} onScan={handleScan} disabled={isScanning} />
 
           <div className="flex flex-wrap items-center gap-3">
-            <TouchButton variant="primary" onClick={handleEndSession} disabled={isScanning}>
-              End and return
+            <TouchButton variant="primary" onClick={handleEndSession} disabled={isScanning || ending}>
+              {ending ? 'Ending...' : 'End and return'}
             </TouchButton>
           </div>
         </div>

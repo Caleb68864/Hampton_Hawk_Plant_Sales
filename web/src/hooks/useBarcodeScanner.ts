@@ -105,7 +105,26 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
     videoElRef.current = null;
   }, []);
 
+  // Generation token for start()/switchDevice(). Both await the camera before
+  // they can register controls; a stop() or unmount during that await bumps
+  // the token so the late-arriving stream is released instead of adopted (the
+  // old code left the camera light on and a hidden <video> in <body>).
+  const startSeqRef = useRef(0);
+
+  // Release a stream that arrived for a superseded start(): the refs no longer
+  // point at this element, so tear it down directly.
+  const releaseVideo = useCallback((videoEl: HTMLVideoElement, controls: { stop: () => void } | null) => {
+    controls?.stop();
+    const stream = videoEl.srcObject as MediaStream | null;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      videoEl.srcObject = null;
+    }
+    videoEl.parentElement?.removeChild(videoEl);
+  }, []);
+
   const stop = useCallback(() => {
+    startSeqRef.current += 1;
     if (controlsRef.current) { controlsRef.current.stop(); controlsRef.current = null; }
     stopTracks();
     setStatus('idle');
@@ -146,11 +165,13 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       setError({ kind: 'insecure-context', message: 'Camera access requires a secure context (HTTPS or localhost).' });
       return;
     }
+    const seq = ++startSeqRef.current;
     setStatus('requesting-permission');
     setError(null);
     try {
       const reader = new BrowserMultiFormatReader(DECODE_HINTS);
       const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      if (seq !== startSeqRef.current) return;
       const cameraDevices: CameraDevice[] = videoDevices.map((d) => ({
         deviceId: d.deviceId,
         label: d.label || ('Camera ' + d.deviceId.slice(0, 8)),
@@ -163,6 +184,10 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         if (result) handleResult(result as unknown as ZxingResult);
         if (err) ignoreDecodeErr(err);
       });
+      if (seq !== startSeqRef.current) {
+        releaseVideo(videoEl, controls);
+        return;
+      }
       controlsRef.current = controls;
       setStatus('active');
       if (cameraDevices.length > 0) setSelectedDeviceId(cameraDevices[0].deviceId);
@@ -175,6 +200,9 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         }
       }
     } catch (err) {
+      // A start that was stopped/unmounted mid-flight must not resurrect an
+      // error state on whatever the hook is doing now.
+      if (seq !== startSeqRef.current) return;
       const e = err as Error;
       let kind: ScannerErrorKind = 'unknown';
       if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') kind = 'permission-denied';
@@ -183,10 +211,11 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       setStatus('error');
       setError({ kind, message: e.message });
     }
-  }, [handleResult, createHiddenVideo]);
+  }, [handleResult, createHiddenVideo, releaseVideo]);
   const switchDevice = useCallback(
     async (deviceId: string) => {
       stop();
+      const seq = ++startSeqRef.current;
       setSelectedDeviceId(deviceId);
       const reader = new BrowserMultiFormatReader(DECODE_HINTS);
       const videoEl = createHiddenVideo();
@@ -196,15 +225,20 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
           if (result) handleResult(result as unknown as ZxingResult);
           if (err) ignoreDecodeErr(err);
         });
+        if (seq !== startSeqRef.current) {
+          releaseVideo(videoEl, devControls);
+          return;
+        }
         controlsRef.current = devControls;
         setStatus('active');
       } catch (err) {
+        if (seq !== startSeqRef.current) return;
         const e = err as Error;
         setStatus('error');
         setError({ kind: 'unknown', message: e.message });
       }
     },
-    [handleResult, stop, createHiddenVideo]
+    [handleResult, stop, createHiddenVideo, releaseVideo]
   );
 
   const toggleTorch = useCallback(async () => {
@@ -243,6 +277,7 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
 
   useEffect(() => {
     return () => {
+      startSeqRef.current += 1;
       if (controlsRef.current) { controlsRef.current.stop(); controlsRef.current = null; }
       stopTracks();
     };

@@ -10,7 +10,7 @@ import { fulfillmentApi } from '@/api/fulfillment.js';
 import { scanSessionsApi } from '@/api/scanSessions.js';
 import type { ScanHistoryEntry } from '@/components/pickup/ScanHistoryList.js';
 import { getScanDisplayFields, getScanResultMessage } from '@/components/pickup/scanFeedbackText.js';
-import { normalizeScannedBarcode } from '@/utils/barcode.js';
+import { toScanLookupValue } from '@/utils/barcode.js';
 
 // SS-13: useScanWorkflow is parameterized for two operating modes.
 // - 'order': legacy per-order pickup scan flow (PickupScanPage). API calls
@@ -75,67 +75,90 @@ export function useScanWorkflow(
   // retry of that same barcode+quantity reuses it instead of counting twice.
   const pendingScanRef = useRef<{ key: string; scanId: string } | null>(null);
 
+  // Monotonic counter for order/session fetches. loadOrder, refreshOrder and the
+  // 10 s poll all write currentOrder/currentSession; without ordering, a poll
+  // that was issued before a scan but resolved after the post-scan refresh
+  // overwrote the fresh quantities with stale ones, and the volunteer watched a
+  // just-fulfilled line flip back to unfulfilled. Any response older than the
+  // latest issued request is discarded. Writers that carry the newest server
+  // state by other means (scan-in-session, close) also bump the counter so
+  // in-flight polls from before them are dropped too.
+  const fetchSeqRef = useRef(0);
+  const nextFetchSeq = useCallback(() => ++fetchSeqRef.current, []);
+  const isLatestFetch = useCallback((seq: number) => seq === fetchSeqRef.current, []);
+
   const loadOrder = useCallback(async () => {
     if (mode !== 'order' || !id) return;
+    const seq = nextFetchSeq();
     setState((s) => ({ ...s, isLoading: true, networkError: null }));
     try {
       const order = await ordersApi.getById(id);
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({ ...s, currentOrder: order, isLoading: false, networkError: null }));
     } catch (e) {
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({
         ...s,
         isLoading: false,
         networkError: e instanceof Error ? e.message : 'Failed to load order',
       }));
     }
-  }, [mode, id]);
+  }, [mode, id, nextFetchSeq, isLatestFetch]);
 
   const loadSession = useCallback(async () => {
     if (mode !== 'session' || !id) return;
+    const seq = nextFetchSeq();
     setState((s) => ({ ...s, isLoading: true, networkError: null }));
     try {
       const session = await scanSessionsApi.get(id);
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({ ...s, currentSession: session, isLoading: false, networkError: null }));
     } catch (e) {
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({
         ...s,
         isLoading: false,
         networkError: e instanceof Error ? e.message : 'Failed to load session',
       }));
     }
-  }, [mode, id]);
+  }, [mode, id, nextFetchSeq, isLatestFetch]);
 
   const refreshOrder = useCallback(async () => {
     if (mode !== 'order' || !id) return;
+    const seq = nextFetchSeq();
     try {
       const order = await ordersApi.getById(id);
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({ ...s, currentOrder: order, networkError: null }));
     } catch (e) {
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({
         ...s,
         networkError: e instanceof Error ? e.message : 'Failed to refresh order',
       }));
     }
-  }, [mode, id]);
+  }, [mode, id, nextFetchSeq, isLatestFetch]);
 
   const refreshSession = useCallback(async () => {
     if (mode !== 'session' || !id) return;
+    const seq = nextFetchSeq();
     try {
       const session = await scanSessionsApi.get(id);
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({ ...s, currentSession: session, networkError: null }));
     } catch (e) {
+      if (!isLatestFetch(seq)) return;
       setState((s) => ({
         ...s,
         networkError: e instanceof Error ? e.message : 'Failed to refresh session',
       }));
     }
-  }, [mode, id]);
+  }, [mode, id, nextFetchSeq, isLatestFetch]);
 
   const scan = useCallback(
     async (barcode: string, quantity: number = 1): Promise<ScanResponse | null> => {
       if (mode !== 'order' || !id) return null;
-      const normalized = normalizeScannedBarcode(barcode);
-      const lookupBarcode = normalized || barcode;
+      const lookupBarcode = toScanLookupValue(barcode) || barcode;
       // Multi-quantity scanning: pass the volunteer-set quantity through.
       // Defaults to 1 so callers that don't care about multi-qty stay unchanged.
       const qty = quantity > 0 ? quantity : 1;
@@ -187,8 +210,7 @@ export function useScanWorkflow(
   const scanInSession = useCallback(
     async (barcode: string, quantity: number = 1): Promise<ScanSessionScanResponse | null> => {
       if (mode !== 'session' || !id) return null;
-      const normalized = normalizeScannedBarcode(barcode);
-      const lookupBarcode = normalized || barcode;
+      const lookupBarcode = toScanLookupValue(barcode) || barcode;
       // Multi-quantity session scanning: pass the volunteer-set quantity. The
       // backend distributes it across pending lines (oldest order first).
       const qty = quantity > 0 ? quantity : 1;
@@ -213,6 +235,9 @@ export function useScanWorkflow(
           plantName: result.plant?.name,
           timestamp: Date.now(),
         };
+        // The scan response carries the newest session state; retire any poll
+        // that was already in flight so it cannot overwrite this.
+        nextFetchSeq();
         setState((s) => ({
           ...s,
           currentSession: result.session,
@@ -230,7 +255,7 @@ export function useScanWorkflow(
         return null;
       }
     },
-    [mode, id],
+    [mode, id, nextFetchSeq],
   );
 
   const undoLastScan = useCallback(async (reason?: string, operator = 'Pickup Operator') => {
@@ -270,6 +295,7 @@ export function useScanWorkflow(
     if (mode !== 'session' || !id) return null;
     try {
       const session = await scanSessionsApi.close(id);
+      nextFetchSeq();
       setState((s) => ({ ...s, currentSession: session, networkError: null }));
       return session;
     } catch (e) {
@@ -279,7 +305,7 @@ export function useScanWorkflow(
       }));
       return null;
     }
-  }, [mode, id]);
+  }, [mode, id, nextFetchSeq]);
 
   const addHistoryEntry = useCallback((entry: ScanHistoryEntry) => {
     setState((s) => ({

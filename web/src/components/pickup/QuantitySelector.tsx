@@ -20,9 +20,12 @@ export interface QuantitySelectorProps {
 // Touch: 56px min hit target on +/- (TouchButton enforces min-h-14 min-w-14)
 //   and on preset chips. The badge is tappable; tapping switches it to a
 //   numeric input ready for typing.
-// Keyboard: digit keys 1-9 typed at <body> set qty; ESC resets to 1. The
-//   handler skips when the active element is an input/textarea/select so the
-//   scan input keeps receiving keystrokes from a hardware barcode scanner.
+// Keyboard: ESC typed outside a text-entry control resets to 1. Digit keys
+//   are deliberately NOT shortcuts: a USB-wedge scanner types digits, and when
+//   focus has drifted off the scan input (after tapping a preset, or while the
+//   input was disabled mid-scan) a window-level digit handler ate the barcode
+//   and set the quantity from its digits instead -- the next real scan then
+//   fulfilled/sold that many units. ScanInput owns stray keystrokes now.
 //   In edit mode: type a number, Enter commits, ESC cancels.
 // A11y: role="group" + aria-label so screen readers announce the cluster as
 //   "Scan quantity"; the badge has aria-live="polite" so updates are spoken.
@@ -86,9 +89,9 @@ export function QuantitySelector({
     }
   }, [editing]);
 
-  // Window-level keyboard shortcuts: digits set qty, ESC resets to 1.
-  // Skips when focus is in any text-entry control (incl. our own edit input)
-  // so neither the ScanInput nor the qty edit input get hijacked.
+  // Window-level ESC resets to 1. Skips when focus is in any text-entry
+  // control (incl. our own edit input) so the ScanInput's own ESC (clear the
+  // buffer) and the qty edit input's ESC (cancel) are not hijacked.
   useEffect(() => {
     if (disabled) return;
 
@@ -102,28 +105,18 @@ export function QuantitySelector({
     }
 
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
       if (isTextEntryFocused()) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      if (e.key === 'Escape') {
-        if (clamped !== 1) {
-          e.preventDefault();
-          onChange(1);
-        }
-        return;
-      }
-
-      if (e.key >= '1' && e.key <= '9') {
-        const digit = Number(e.key);
-        const next = Math.min(max, Math.max(min, digit));
+      if (clamped !== 1) {
         e.preventDefault();
-        onChange(next);
+        onChange(1);
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clamped, disabled, max, min, onChange]);
+  }, [clamped, disabled, onChange]);
 
   return (
     <div
@@ -249,7 +242,7 @@ export function QuantitySelector({
       )}
 
       <span className="hidden md:inline text-[10px] text-hawk-500">
-        Tap ×N to type · 1-9 sets · ESC resets
+        Tap ×N to type · ESC resets
       </span>
     </div>
   );
