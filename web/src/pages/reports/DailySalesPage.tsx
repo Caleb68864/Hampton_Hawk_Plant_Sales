@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { Sparkline } from '@/components/reports/Sparkline.js';
@@ -8,6 +8,7 @@ import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { DailySalesDay } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
 
@@ -35,22 +36,16 @@ function defaultDateRange(): { from: string; to: string } {
 
 export function DailySalesPage() {
   const [{ from, to }, setRange] = useState(defaultDateRange);
-  const [rows, setRows] = useState<DailySalesDay[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    reportsApi
-      .getDailySales(from, to)
-      .then((result) => setRows(result.days))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load daily sales report.'))
-      .finally(() => setLoading(false));
-  }, [from, to, refreshTick]);
+  const { data, loading, error, reload } = useAsyncData(
+    () => reportsApi.getDailySales(from, to),
+    `${from}|${to}`,
+    'Failed to load daily sales report.',
+  );
+  const rows = useMemo(() => data?.days ?? [], [data]);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const visibleError = error && error !== dismissedError ? error : null;
 
   const sortedRows = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
 
@@ -85,7 +80,7 @@ export function DailySalesPage() {
 
   const actions = (
     <>
-      <TouchButton variant="ghost" onClick={() => setRefreshTick((n) => n + 1)}>
+      <TouchButton variant="ghost" onClick={reload}>
         Refresh
       </TouchButton>
       <TouchButton variant="gold" onClick={handleDownloadCsv} disabled={sortedRows.length === 0}>
@@ -126,7 +121,7 @@ export function DailySalesPage() {
         </div>
       </section>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {visibleError && <ErrorBanner message={visibleError} onDismiss={() => setDismissedError(visibleError)} />}
 
       {!loading && chronologicalDays.length > 0 && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

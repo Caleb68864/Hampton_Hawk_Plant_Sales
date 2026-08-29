@@ -1,20 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type FC,
-  type ReactNode,
-} from 'react';
-
-interface AnnounceOptions {
-  politeness?: 'polite' | 'assertive';
-  ttlMs?: number;
-}
-
-type AnnounceFn = (message: string, opts?: AnnounceOptions) => void;
+import { useCallback, useEffect, useRef, useState, type FC, type ReactNode } from 'react';
+import { JoyAnnounceContext, type AnnounceFn } from './joyAnnounce.js';
 
 /**
  * Live-region content. `nonce` flips whenever the same text is announced
@@ -40,8 +25,6 @@ function renderMessage(msg: LiveMessage): string {
   if (!msg.text) return '';
   return msg.nonce % 2 === 1 ? msg.text + ZERO_WIDTH_SPACE : msg.text;
 }
-
-const JoyAnnounceContext = createContext<AnnounceFn | null>(null);
 
 export const JoyAriaLive: FC<{ children: ReactNode }> = ({ children }) => {
   const [politeMsg, setPoliteMsg] = useState<LiveMessage>(EMPTY);
@@ -106,11 +89,3 @@ export const JoyAriaLive: FC<{ children: ReactNode }> = ({ children }) => {
     </JoyAnnounceContext.Provider>
   );
 };
-
-const NOOP_ANNOUNCE: AnnounceFn = () => {};
-
-export function useJoyAnnounce(): AnnounceFn {
-  const fn = useContext(JoyAnnounceContext);
-  // Safe no-op outside provider; a stable reference so callers can list it in deps.
-  return fn ?? NOOP_ANNOUNCE;
-}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAudio } from '@/components/shared/AudioFeedback.js';
+import { useAudio } from '@/components/shared/audioFeedbackContext.js';
 import type { FeedbackMode } from '@/hooks/useAudioFeedback.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';

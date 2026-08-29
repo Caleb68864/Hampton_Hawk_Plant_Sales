@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
@@ -6,6 +6,7 @@ import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { Order } from '@/types/order.js';
 
 function parseOrderIds(raw: string | null): string[] {
@@ -16,32 +17,23 @@ function parseOrderIds(raw: string | null): string[] {
     .filter(Boolean);
 }
 
+async function loadOrders(orderIds: string[]): Promise<Order[]> {
+  if (orderIds.length === 0) return [];
+  const results = await Promise.all(orderIds.map((id) => ordersApi.getById(id)));
+  const byId = new Map(results.map((order) => [order.id, order]));
+  return orderIds.map((id) => byId.get(id)).filter((order): order is Order => Boolean(order));
+}
+
 export function PrintOrdersBatchPage() {
   const [searchParams] = useSearchParams();
   const orderIds = useMemo(() => parseOrderIds(searchParams.get('ids')), [searchParams]);
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (orderIds.length === 0) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all(orderIds.map((id) => ordersApi.getById(id)))
-      .then((results) => {
-        const byId = new Map(results.map((order) => [order.id, order]));
-        setOrders(orderIds.map((id) => byId.get(id)).filter((order): order is Order => Boolean(order)));
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load orders'))
-      .finally(() => setLoading(false));
-  }, [orderIds]);
+  const { data, loading, error } = useAsyncData(
+    () => loadOrders(orderIds),
+    orderIds.join(','),
+    'Failed to load orders',
+  );
+  const orders: Order[] = data ?? [];
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorBanner message={error} />;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { sellersApi } from '@/api/sellers.js';
@@ -7,6 +7,7 @@ import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { SellerPickListSheet } from '@/components/print/SellerPickListSheet.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
 import type { Order } from '@/types/order.js';
 import type { Seller } from '@/types/seller.js';
@@ -36,7 +37,8 @@ async function loadSellerBundle(sellerId: string): Promise<SellerBundle> {
     orderListResult.items.map((order) => ordersApi.getById(order.id)),
   );
 
-  const uniqueCustomerIds = [...new Set(fullOrders.map((order) => order.customerId))];
+  const uniqueCustomerIds = [...new Set(fullOrders.map((order) => order.customerId))]
+    .filter((id): id is string => Boolean(id));
   const customerEntries = await Promise.all(
     uniqueCustomerIds.map(async (id) => [id, await customersApi.getById(id)] as const),
   );
@@ -48,53 +50,30 @@ async function loadSellerBundle(sellerId: string): Promise<SellerBundle> {
   };
 }
 
+async function loadSellerBundles(sellerIds: string[]): Promise<SellerBundle[]> {
+  if (sellerIds.length === 0) return [];
+  const results = await Promise.all(sellerIds.map((id) => loadSellerBundle(id)));
+  const byId = new Map(results.map((bundle) => [bundle.seller.id, bundle]));
+  return sellerIds
+    .map((id) => byId.get(id))
+    .filter((bundle): bundle is SellerBundle => Boolean(bundle));
+}
+
 export function PrintSellersBatchPage() {
   const [searchParams] = useSearchParams();
   const sellerIds = useMemo(() => parseIds(searchParams.get('ids')), [searchParams]);
 
-  const [bundles, setBundles] = useState<SellerBundle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error } = useAsyncData(
+    () => loadSellerBundles(sellerIds),
+    sellerIds.join(','),
+    'Failed to load sellers',
+  );
+  const bundles: SellerBundle[] = useMemo(() => data ?? [], [data]);
 
   const [includePreorders, setIncludePreorders] = useState(true);
   const [includeWalkups, setIncludeWalkups] = useState(true);
   const [includeCompleted, setIncludeCompleted] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'qty'>('name');
-
-  useEffect(() => {
-    if (sellerIds.length === 0) {
-      setBundles([]);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all(sellerIds.map((id) => loadSellerBundle(id)))
-      .then((results) => {
-        if (cancelled) return;
-        const byId = new Map(results.map((bundle) => [bundle.seller.id, bundle]));
-        setBundles(
-          sellerIds
-            .map((id) => byId.get(id))
-            .filter((bundle): bundle is SellerBundle => Boolean(bundle)),
-        );
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load sellers');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sellerIds]);
 
   const printedAt = useMemo(() => new Date().toLocaleString(), []);
 

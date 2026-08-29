@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { Donut } from '@/components/reports/Donut.js';
@@ -8,6 +8,7 @@ import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { ChannelMetrics, WalkupVsPreorderResponse } from '@/types/reports.js';
 
 const EMPTY_CHANNEL: ChannelMetrics = {
@@ -26,21 +27,22 @@ const EMPTY_RESPONSE: WalkupVsPreorderResponse = {
 export function WalkupVsPreorderPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [data, setData] = useState<WalkupVsPreorderResponse>(EMPTY_RESPONSE);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    reportsApi
-      .getWalkupVsPreorder(from || undefined, to || undefined)
-      .then((result) => setData(result))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load walk-up vs preorder report.'))
-      .finally(() => setLoading(false));
-  }, [from, to, refreshTick]);
+  const { data: loaded, loading, error: loadError, reload } = useAsyncData(
+    () => reportsApi.getWalkupVsPreorder(from || undefined, to || undefined),
+    `${from}|${to}`,
+    'Failed to load walk-up vs preorder report.',
+  );
+  const data: WalkupVsPreorderResponse = loaded ?? EMPTY_RESPONSE;
+  // The banner shows a clipboard failure first, otherwise the load failure
+  // (dismissable until a later load produces a different message).
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const error = copyError ?? (loadError && loadError !== dismissedError ? loadError : null);
+  function dismissError() {
+    if (copyError) setCopyError(null);
+    else setDismissedError(loadError);
+  }
 
   const totalOrders = data.walkUp.orderCount + data.preorder.orderCount;
   const ratioPct = Math.round(data.walkUpRatio * 100);
@@ -57,13 +59,13 @@ export function WalkupVsPreorderPage() {
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2000);
     } catch {
-      setError('Could not copy summary to clipboard.');
+      setCopyError('Could not copy summary to clipboard.');
     }
   }
 
   const actions = (
     <>
-      <TouchButton variant="ghost" onClick={() => setRefreshTick((n) => n + 1)}>
+      <TouchButton variant="ghost" onClick={reload}>
         Refresh
       </TouchButton>
       <TouchButton variant="gold" onClick={handleCopySummary}>
@@ -104,7 +106,7 @@ export function WalkupVsPreorderPage() {
         </div>
       </section>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {error && <ErrorBanner message={error} onDismiss={dismissError} />}
 
       {loading ? (
         <LoadingSpinner />

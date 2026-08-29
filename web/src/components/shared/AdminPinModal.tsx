@@ -1,19 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore.js';
 
 export function AdminPinModal() {
-  const { showPinModal, modalOptions, submitPin, cancelPin } = useAuthStore();
+  const showPinModal = useAuthStore((s) => s.showPinModal);
+
+  // The form is a separate component that only exists while the modal is
+  // open, so its pin/reason state starts blank on every open without an
+  // effect having to reset it.
+  if (!showPinModal) return null;
+  return <AdminPinForm />;
+}
+
+function AdminPinForm() {
+  const { modalOptions, submitPin, cancelPin } = useAuthStore();
   const [pin, setPin] = useState('');
   const [reason, setReason] = useState('');
-
-  useEffect(() => {
-    if (showPinModal) {
-      setPin('');
-      setReason('');
-    }
-  }, [showPinModal]);
-
-  if (!showPinModal) return null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,8 +33,6 @@ export function AdminPinModal() {
 
   function handleCancel() {
     cancelPin();
-    setPin('');
-    setReason('');
   }
 
   const disableSubmit = !pin.trim() || (modalOptions.requireReason && !reason.trim());

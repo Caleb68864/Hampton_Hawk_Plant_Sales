@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
@@ -6,6 +6,7 @@ import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { CustomerPickListSheet } from '@/components/print/CustomerPickListSheet.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
 import type { Order } from '@/types/order.js';
 import type { Customer } from '@/types/customer.js';
@@ -39,53 +40,30 @@ async function loadCustomerBundle(customerId: string): Promise<CustomerBundle> {
   };
 }
 
+async function loadCustomerBundles(customerIds: string[]): Promise<CustomerBundle[]> {
+  if (customerIds.length === 0) return [];
+  const results = await Promise.all(customerIds.map((id) => loadCustomerBundle(id)));
+  const byId = new Map(results.map((bundle) => [bundle.customer.id, bundle]));
+  return customerIds
+    .map((id) => byId.get(id))
+    .filter((bundle): bundle is CustomerBundle => Boolean(bundle));
+}
+
 export function PrintCustomersBatchPage() {
   const [searchParams] = useSearchParams();
   const customerIds = useMemo(() => parseIds(searchParams.get('ids')), [searchParams]);
 
-  const [bundles, setBundles] = useState<CustomerBundle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error } = useAsyncData(
+    () => loadCustomerBundles(customerIds),
+    customerIds.join(','),
+    'Failed to load customers',
+  );
+  const bundles: CustomerBundle[] = useMemo(() => data ?? [], [data]);
 
   const [includePreorders, setIncludePreorders] = useState(true);
   const [includeWalkups, setIncludeWalkups] = useState(true);
   const [includeCompleted, setIncludeCompleted] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'qty'>('name');
-
-  useEffect(() => {
-    if (customerIds.length === 0) {
-      setBundles([]);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all(customerIds.map((id) => loadCustomerBundle(id)))
-      .then((results) => {
-        if (cancelled) return;
-        const byId = new Map(results.map((bundle) => [bundle.customer.id, bundle]));
-        setBundles(
-          customerIds
-            .map((id) => byId.get(id))
-            .filter((bundle): bundle is CustomerBundle => Boolean(bundle)),
-        );
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load customers');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [customerIds]);
 
   const printedAt = useMemo(() => new Date().toLocaleString(), []);
 

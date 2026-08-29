@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
@@ -7,30 +6,28 @@ import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
 import type { Order } from '@/types/order.js';
 import type { Customer } from '@/types/customer.js';
 
+async function loadOrderSheet(orderId: string): Promise<{ order: Order; customer: Customer | null }> {
+  const order = await ordersApi.getById(orderId);
+  // Walk-up register sales have no customer; the sheet still prints without a pickup code.
+  const customer = order.customerId ? await customersApi.getById(order.customerId) : null;
+  return { order, customer };
+}
+
 export function PrintOrderPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const [searchParams] = useSearchParams();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    ordersApi
-      .getById(orderId!)
-      .then(async (o) => {
-        setOrder(o);
-        const c = await customersApi.getById(o.customerId);
-        setCustomer(c);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load order'))
-      .finally(() => setLoading(false));
-  }, [orderId]);
+  const { data, loading, error } = useAsyncData(
+    () => loadOrderSheet(orderId!),
+    orderId ?? '',
+    'Failed to load order',
+  );
+  const order = data?.order ?? null;
+  const customer = data?.customer ?? null;
 
   if (loading) return <LoadingSpinner />;
   if (error || !order) return <ErrorBanner message={error ?? 'Order not found'} />;
