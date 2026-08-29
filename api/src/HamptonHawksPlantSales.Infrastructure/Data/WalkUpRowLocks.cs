@@ -105,7 +105,11 @@ public static class WalkUpRowLocks
         return await action();
     }
 
-    private static bool IsRetryableConcurrencyFailure(Exception exception)
+    /// <summary>
+    /// True when <paramref name="exception"/> is (or wraps) a Postgres serialization
+    /// failure, deadlock, or other transient failure that is safe to retry.
+    /// </summary>
+    public static bool IsRetryableConcurrencyFailure(Exception exception)
     {
         for (var current = exception; current != null; current = current.InnerException)
         {

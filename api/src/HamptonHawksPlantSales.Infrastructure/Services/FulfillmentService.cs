@@ -36,43 +36,19 @@ public class FulfillmentService : IFulfillmentService
             if (replay != null) return replay;
         }
 
-        const int maxAttempts = 3;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                return await ScanInternalAsync(orderId, barcode, quantity, normalizedScanId);
-            }
-            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
-            {
-                _db.ChangeTracker.Clear();
-            }
-            catch (DbUpdateException ex) when (attempt < maxAttempts && IsRetryableConcurrencyException(ex))
-            {
-                _db.ChangeTracker.Clear();
-            }
-        }
-
-        // Final attempt without catch filter so unexpected errors still bubble up.
+        // Scans contend on the same inventory/order-line rows whenever two stations
+        // pick the same plant. Under Serializable the conflict surfaces as a raw
+        // PostgresException (40001/40P01) at SELECT ... FOR UPDATE, not as a
+        // DbUpdateException, so the retry has to inspect SqlState on any exception.
         try
         {
-            return await ScanInternalAsync(orderId, barcode, quantity, normalizedScanId);
+            return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+                ScanInternalAsync(orderId, barcode, quantity, normalizedScanId));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (WalkUpRowLocks.IsRetryableConcurrencyFailure(ex))
         {
-            await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
-                BuildActionMessage("Another station updated this order at the same time.", "Wait a moment, then scan again.", "Concurrent scan conflict."));
-
-            return new ScanResponse
-            {
-                Result = FulfillmentResult.AlreadyFulfilled,
-                OrderId = orderId,
-                OrderRemainingItems = await GetOrderRemainingItems(orderId)
-            };
-        }
-        catch (DbUpdateException ex) when (IsRetryableConcurrencyException(ex))
-        {
+            // Retry budget exhausted: tell the volunteer to rescan rather than 500.
+            _db.ChangeTracker.Clear();
             await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
                 BuildActionMessage("Another station updated this order at the same time.", "Wait a moment, then scan again.", "Concurrent scan conflict."));
 
@@ -207,7 +183,7 @@ public class FulfillmentService : IFulfillmentService
 
             if (lockedInventory == null || lockedOrderLine == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock, BuildActionMessage("This item could not be reserved for fulfillment.", "Refresh the order and try scanning again.", "Inventory or order row missing during lock."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, orderLineCheck);
             }
@@ -222,7 +198,7 @@ public class FulfillmentService : IFulfillmentService
 
                 if (alreadyApplied)
                 {
-                    if (transaction != null) await transaction.RollbackAsync();
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                     return await TryReplayScanAsync(orderId, scanId)
                         ?? BuildScanResponse(FulfillmentResult.Accepted, orderId, plant, lockedOrderLine);
                 }
@@ -231,7 +207,7 @@ public class FulfillmentService : IFulfillmentService
             // Re-check conditions after acquiring locks — values are fresh from the locked DB rows.
             if (lockedOrderLine.QtyFulfilled >= lockedOrderLine.QtyOrdered)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.AlreadyFulfilled,
                     BuildActionMessage("This line is already fully fulfilled.", "Move to the next item or use Undo if the prior scan was incorrect."));
                 return BuildScanResponse(FulfillmentResult.AlreadyFulfilled, orderId, plant, lockedOrderLine);
@@ -239,7 +215,7 @@ public class FulfillmentService : IFulfillmentService
 
             if (lockedInventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock,
                     BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, lockedOrderLine);
@@ -310,17 +286,9 @@ public class FulfillmentService : IFulfillmentService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
-    }
-
-    private static bool IsRetryableConcurrencyException(DbUpdateException exception)
-    {
-        var message = exception.InnerException?.Message ?? exception.Message;
-        return message.Contains("could not serialize access", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("deadlock detected", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("concurrent update", StringComparison.OrdinalIgnoreCase);
     }
 
 
@@ -385,7 +353,7 @@ public class FulfillmentService : IFulfillmentService
 
             if (inventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 await CreateEvent(orderId, line.PlantCatalogId, "MANUAL", FulfillmentResult.OutOfStock,
                     BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
                 return new ScanResponse
@@ -446,7 +414,7 @@ public class FulfillmentService : IFulfillmentService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -512,7 +480,7 @@ public class FulfillmentService : IFulfillmentService
 
             if (orderLine == null || inventory == null || eventToUndo == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new KeyNotFoundException("Order line or inventory not found for undo.");
             }
 
@@ -564,7 +532,7 @@ public class FulfillmentService : IFulfillmentService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }

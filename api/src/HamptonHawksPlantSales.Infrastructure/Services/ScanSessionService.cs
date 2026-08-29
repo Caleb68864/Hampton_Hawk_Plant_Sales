@@ -202,6 +202,21 @@ public class ScanSessionService : IScanSessionService
             };
         }
 
+        // Every side effect below happens inside the transaction, so a serialization
+        // failure (two scanners on the same plant) can be retried from a clean slate
+        // instead of surfacing a database abort to the volunteer.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            ScanInSessionLockedAsync(sessionId, sessionExisting, plant, plantBarcode, memberOrderIds, quantity));
+    }
+
+    private async Task<ScanSessionScanResponse> ScanInSessionLockedAsync(
+        Guid sessionId,
+        ScanSession sessionExisting,
+        PlantCatalog plant,
+        string plantBarcode,
+        List<Guid> memberOrderIds,
+        int quantity)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -223,7 +238,7 @@ public class ScanSessionService : IScanSessionService
             var nowTx = DateTimeOffset.UtcNow;
             if (lockedSession == null || lockedSession.ClosedAt != null || lockedSession.ExpiresAt < nowTx)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.Expired,
@@ -267,7 +282,7 @@ public class ScanSessionService : IScanSessionService
                     select ol.Id
                 ).AnyAsync();
 
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
 
                 return new ScanSessionScanResponse
                 {
@@ -300,7 +315,7 @@ public class ScanSessionService : IScanSessionService
 
             if (lockedInventory == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.OutOfStock,
@@ -312,7 +327,7 @@ public class ScanSessionService : IScanSessionService
 
             if (lockedInventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.OutOfStock,
@@ -376,7 +391,7 @@ public class ScanSessionService : IScanSessionService
             // another scanner), surface AlreadyFulfilled rather than a misleading Accepted.
             if (totalApplied == 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.AlreadyFulfilled,
@@ -404,7 +419,7 @@ public class ScanSessionService : IScanSessionService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }

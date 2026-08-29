@@ -1,37 +1,50 @@
-using System.Reflection;
 using FluentAssertions;
-using HamptonHawksPlantSales.Infrastructure.Services;
+using HamptonHawksPlantSales.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace HamptonHawksPlantSales.Tests.Services;
 
+/// <summary>
+/// The fulfillment scan path retries through <see cref="WalkUpRowLocks.ExecuteWithRetryAsync"/>,
+/// so the classifier it relies on must recognise every shape the conflict arrives in:
+/// a DbUpdateException from SaveChanges, or a raw PostgresException thrown by the
+/// SELECT ... FOR UPDATE that precedes it.
+/// </summary>
 public class FulfillmentConcurrencyHandlingTests
 {
     [Theory]
     [InlineData("could not serialize access due to read/write dependencies")]
     [InlineData("deadlock detected")]
     [InlineData("concurrent update")]
-    public void IsRetryableConcurrencyException_ReturnsTrue_ForKnownMessages(string message)
+    public void IsRetryableConcurrencyFailure_ReturnsTrue_ForKnownMessages(string message)
     {
         var exception = new DbUpdateException("boom", new Exception(message));
-        InvokeIsRetryableConcurrencyException(exception).Should().BeTrue();
+        WalkUpRowLocks.IsRetryableConcurrencyFailure(exception).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("40001")]
+    [InlineData("40P01")]
+    public void IsRetryableConcurrencyFailure_ReturnsTrue_ForRawPostgresSqlState(string sqlState)
+    {
+        // Under Serializable the conflict fires at the raw FOR UPDATE, not at SaveChanges,
+        // so it is not wrapped in a DbUpdateException at all.
+        var exception = new PostgresException("transient", "ERROR", "ERROR", sqlState);
+        WalkUpRowLocks.IsRetryableConcurrencyFailure(exception).Should().BeTrue();
     }
 
     [Fact]
-    public void IsRetryableConcurrencyException_ReturnsFalse_ForUnknownMessage()
+    public void IsRetryableConcurrencyFailure_ReturnsFalse_ForUnknownMessage()
     {
         var exception = new DbUpdateException("boom", new Exception("connection reset by peer"));
-        InvokeIsRetryableConcurrencyException(exception).Should().BeFalse();
+        WalkUpRowLocks.IsRetryableConcurrencyFailure(exception).Should().BeFalse();
     }
 
-    private static bool InvokeIsRetryableConcurrencyException(DbUpdateException exception)
+    [Fact]
+    public void IsRetryableConcurrencyFailure_ReturnsFalse_ForNonTransientPostgresError()
     {
-        var method = typeof(FulfillmentService).GetMethod(
-            "IsRetryableConcurrencyException",
-            BindingFlags.NonPublic | BindingFlags.Static);
-
-        method.Should().NotBeNull();
-
-        return (bool)method!.Invoke(null, new object[] { exception })!;
+        var exception = new PostgresException("duplicate key", "ERROR", "ERROR", "23505");
+        WalkUpRowLocks.IsRetryableConcurrencyFailure(exception).Should().BeFalse();
     }
 }
