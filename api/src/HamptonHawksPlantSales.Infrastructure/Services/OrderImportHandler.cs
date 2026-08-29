@@ -240,7 +240,19 @@ public class OrderImportHandler
                 }
 
                 if (!int.TryParse(qtyStr, out var qty) || qty < 1)
-                    qty = 1;
+                {
+                    issues.Add(new ImportIssue
+                    {
+                        ImportBatchId = batchId,
+                        RowNumber = rowNumber,
+                        IssueType = "InvalidQuantity",
+                        Sku = sku,
+                        Message = $"QtyOrdered '{qtyStr}' is not a positive whole number.",
+                        RawData = rawData
+                    });
+                    skipped++;
+                    continue;
+                }
 
                 var notes = row.GetValueOrDefault("Notes")?.Trim();
                 validLines.Add((plantId, qty, string.IsNullOrWhiteSpace(notes) ? null : notes));
