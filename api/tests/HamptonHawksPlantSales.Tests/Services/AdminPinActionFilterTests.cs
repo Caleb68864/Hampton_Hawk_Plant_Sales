@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HamptonHawksPlantSales.Tests.Services;
 
@@ -112,6 +114,64 @@ public class AdminPinActionFilterTests
         Assert.Contains(method!.GetCustomAttributes(inherit: true), a => a is RequiresAdminPinAttribute);
     }
 
+    [Fact]
+    public async Task RepeatedWrongPins_LockOutTheClientWith429()
+    {
+        var filter = BuildFilter("1234");
+
+        for (var i = 0; i < AdminPinActionFilter.MaxFailuresPerWindow; i++)
+        {
+            var attempt = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
+            attempt.HttpContext.Request.Headers["X-Admin-Pin"] = "0000";
+            attempt.HttpContext.Request.Headers["X-Admin-Reason"] = "guess";
+            await filter.OnActionExecutionAsync(attempt, () => Task.FromResult<ActionExecutedContext>(null!));
+            Assert.Equal(403, Assert.IsType<JsonResult>(attempt.Result).StatusCode);
+        }
+
+        // Even the correct PIN is refused once the window's failure budget is spent.
+        var lockedOut = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
+        lockedOut.HttpContext.Request.Headers["X-Admin-Pin"] = "1234";
+        lockedOut.HttpContext.Request.Headers["X-Admin-Reason"] = "real";
+        var nextCalled = false;
+        await filter.OnActionExecutionAsync(lockedOut, () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(new ActionExecutedContext(lockedOut, new List<IFilterMetadata>(), new object()));
+        });
+
+        Assert.False(nextCalled);
+        Assert.Equal(429, Assert.IsType<JsonResult>(lockedOut.Result).StatusCode);
+    }
+
+    [Fact]
+    public async Task CorrectPins_NeverCountTowardLockout()
+    {
+        var filter = BuildFilter("1234");
+
+        for (var i = 0; i < AdminPinActionFilter.MaxFailuresPerWindow + 5; i++)
+        {
+            var attempt = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
+            attempt.HttpContext.Request.Headers["X-Admin-Pin"] = "1234";
+            attempt.HttpContext.Request.Headers["X-Admin-Reason"] = "ok";
+            await filter.OnActionExecutionAsync(attempt, () =>
+                Task.FromResult(new ActionExecutedContext(attempt, new List<IFilterMetadata>(), new object())));
+            Assert.Null(attempt.Result);
+        }
+    }
+
+    [Fact]
+    public async Task NoPinConfigured_RejectsEveryPin()
+    {
+        var filter = BuildFilter("");
+        var context = BuildContext<RequiresAdminPinAttribute>(HttpMethods.Post);
+        context.HttpContext.Request.Headers["X-Admin-Pin"] = "";
+        context.HttpContext.Request.Headers["X-Admin-Reason"] = "x";
+
+        await filter.OnActionExecutionAsync(context, () => Task.FromResult<ActionExecutedContext>(null!));
+
+        Assert.Equal(403, Assert.IsType<JsonResult>(context.Result).StatusCode);
+    }
+
     private static AdminPinActionFilter BuildFilter(string adminPin)
     {
         var config = new ConfigurationBuilder()
@@ -121,7 +181,7 @@ public class AdminPinActionFilterTests
             })
             .Build();
 
-        return new AdminPinActionFilter(config);
+        return new AdminPinActionFilter(config, new MemoryCache(new MemoryCacheOptions()), NullLogger<AdminPinActionFilter>.Instance);
     }
 
     private static ActionExecutingContext BuildContext<TAttribute>(string? method = null) where TAttribute : Attribute, new()

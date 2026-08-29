@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using HamptonHawksPlantSales.Api.Configuration;
 using HamptonHawksPlantSales.Api.Filters;
@@ -11,6 +12,8 @@ using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportAdapters;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportReading;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -81,6 +84,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("POSCapable", policy => policy.RequireRole("Admin", "POS"));
     options.AddPolicy("ReportsCapable", policy => policy.RequireRole("Admin", "Reports"));
 });
+
+// Failure counting for the admin PIN lockout (see AdminPinActionFilter).
+builder.Services.AddMemoryCache();
 
 // Health checks
 builder.Services.AddHealthChecks()
