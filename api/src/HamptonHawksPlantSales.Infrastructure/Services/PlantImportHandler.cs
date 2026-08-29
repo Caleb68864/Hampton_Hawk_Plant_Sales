@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
@@ -109,9 +110,31 @@ public class PlantImportHandler
                 continue;
             }
 
+            // Prices arrive as "12.50", "$12.50", or "1,234.50". Parse them as
+            // invariant currency; a value that still does not parse (or is negative)
+            // is an issue, not a silent null that would wipe an existing price.
             decimal? price = null;
-            if (!string.IsNullOrWhiteSpace(priceStr) && decimal.TryParse(priceStr, out var parsedPrice))
+            if (!string.IsNullOrWhiteSpace(priceStr))
+            {
+                var cleaned = priceStr.Trim().TrimStart('$').Trim();
+                if (!decimal.TryParse(cleaned, NumberStyles.Currency, CultureInfo.InvariantCulture, out var parsedPrice)
+                    || parsedPrice < 0)
+                {
+                    issues.Add(new ImportIssue
+                    {
+                        ImportBatchId = batchId,
+                        RowNumber = rowNumber,
+                        IssueType = "InvalidPrice",
+                        Sku = sku,
+                        Barcode = barcode,
+                        Message = $"Price '{priceStr}' is not a valid non-negative amount.",
+                        RawData = rawData
+                    });
+                    skipped++;
+                    continue;
+                }
                 price = parsedPrice;
+            }
 
             bool isActive = true;
             if (!string.IsNullOrWhiteSpace(isActiveStr))
@@ -141,7 +164,8 @@ public class PlantImportHandler
                 var previousBarcode = existingPlant!.Barcode;
                 existingPlant.Name = string.IsNullOrWhiteSpace(name) ? existingPlant.Name : name;
                 existingPlant.Variant = string.IsNullOrWhiteSpace(variant) ? null : variant;
-                existingPlant.Price = price;
+                // A blank price on an upsert row means "not provided", not "clear it".
+                existingPlant.Price = price ?? existingPlant.Price;
                 existingPlant.Barcode = barcode;
                 existingPlant.IsActive = isActive;
                 if (!string.IsNullOrWhiteSpace(previousBarcode) && !string.Equals(previousBarcode, barcode, StringComparison.OrdinalIgnoreCase))
