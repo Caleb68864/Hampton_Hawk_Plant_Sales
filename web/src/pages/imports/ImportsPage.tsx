@@ -7,6 +7,7 @@ import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { extractCsvColumnValues as extractCsvColumn } from '@/utils/csv.js';
 import type { ImportBatch, ImportIssue, ImportResult } from '@/types/import.js';
 
 type Tab = 'import' | 'history';
@@ -52,21 +53,11 @@ function TemplateDownloadLinks({ csvHref, excelHref }: TemplateDownloadLinksProp
 }
 
 async function extractCsvColumnValues(file: File, columnName: string) {
-  const text = await file.text();
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  const index = headers.indexOf(columnName.toLowerCase());
-  if (index === -1) return [];
-
-  return Array.from(new Set(lines.slice(1)
-    .map((line) => line.split(',')[index]?.trim() ?? '')
-    .filter(Boolean)));
+  // Quoted plant names such as "Tomato, Cherry" contain commas; a bare
+  // split shifted every later column and produced bogus SKUs for the
+  // label preview. The API does not return the imported SKUs, so this
+  // preview is best-effort from the file itself.
+  return extractCsvColumn(await file.text(), columnName);
 }
 
 function ImportSection({ title, hint, type, accept, allowedExtensions, promptText, onUpload, templateLinks }: ImportSectionProps) {
