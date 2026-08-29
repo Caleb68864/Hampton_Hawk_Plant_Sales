@@ -92,10 +92,7 @@ export function MobilePickupLookupPage() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value.trim()) {
-      setState({ kind: 'idle' });
-      return;
-    }
+    if (!value.trim()) return;
     debounceRef.current = setTimeout(() => {
       void performLookup(value);
     }, SEARCH_DEBOUNCE_MS);
@@ -103,6 +100,16 @@ export function MobilePickupLookupPage() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [value, performLookup]);
+
+  // Typing the field empty drops back to idle and retires any in-flight lookup
+  // so a slow response cannot repopulate results the volunteer just cleared.
+  const handleValueChange = useCallback((next: string) => {
+    setValue(next);
+    if (!next.trim()) {
+      requestIdRef.current += 1;
+      setState({ kind: 'idle' });
+    }
+  }, []);
 
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
@@ -156,7 +163,7 @@ export function MobilePickupLookupPage() {
             label="Order lookup"
             hint="Type or scan an order code, then press Enter."
             value={value}
-            onChange={(e) => setValue(e.currentTarget.value)}
+            onChange={(e) => handleValueChange(e.currentTarget.value)}
             placeholder="Order number"
             inputMode="search"
             autoFocus

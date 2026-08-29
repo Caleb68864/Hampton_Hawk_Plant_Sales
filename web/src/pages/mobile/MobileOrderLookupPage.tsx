@@ -177,10 +177,7 @@ export function MobileOrderLookupPage() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (offline) return;
-    if (!value.trim()) {
-      setState({ kind: 'idle' });
-      return;
-    }
+    if (!value.trim()) return;
     debounceRef.current = setTimeout(() => {
       void performLookup(value);
     }, SEARCH_DEBOUNCE_MS);
@@ -207,7 +204,18 @@ export function MobileOrderLookupPage() {
     void performLookup(value);
   }, [performLookup, value]);
 
+  // Typing the field empty drops back to idle and retires any in-flight lookup
+  // so a slow response cannot repopulate results the volunteer just cleared.
+  const handleValueChange = useCallback((next: string) => {
+    setValue(next);
+    if (!next.trim()) {
+      requestIdRef.current += 1;
+      setState({ kind: 'idle' });
+    }
+  }, []);
+
   const handleClear = useCallback(() => {
+    requestIdRef.current += 1;
     setValue('');
     setState({ kind: 'idle' });
     if (inputRef.current) {
@@ -263,7 +271,7 @@ export function MobileOrderLookupPage() {
                 label="Order lookup"
                 hint="Type an order number or name, or scan an order code."
                 value={value}
-                onChange={(e) => setValue(e.currentTarget.value)}
+                onChange={(e) => handleValueChange(e.currentTarget.value)}
                 placeholder="OR-00184 — Patel — Daniel Kim"
                 inputMode="search"
                 autoFocus

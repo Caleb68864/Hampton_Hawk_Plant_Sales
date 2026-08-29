@@ -58,9 +58,7 @@ function isNetworkError(err: unknown): boolean {
   return false;
 }
 
-export function MobilePickupScanPageInner() {
-  const params = useParams<{ orderId: string }>();
-  const orderId = params.orderId ?? '';
+function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const announce = useJoyAnnounce();
@@ -72,8 +70,11 @@ export function MobilePickupScanPageInner() {
   );
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [orderLoading, setOrderLoading] = useState(true);
-  const [orderError, setOrderError] = useState<string | null>(null);
+  // The wrapper remounts this component per orderId (key), so the initial
+  // state is already "loading" and the effect below only has to fetch.
+  const [orderLoading, setOrderLoading] = useState(Boolean(orderId));
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const orderError = orderId ? loadError : 'Missing order id';
   const [scene, setScene] = useState<SceneState>({ kind: 'ready' });
   const [manualValue, setManualValue] = useState('');
   const [isOnline, setIsOnline] = useState<boolean>(
@@ -94,16 +95,10 @@ export function MobilePickupScanPageInner() {
     };
   }, []);
 
-  // Load order on mount / orderId change
+  // Load order on mount
   useEffect(() => {
-    if (!orderId) {
-      setOrderLoading(false);
-      setOrderError('Missing order id');
-      return;
-    }
+    if (!orderId) return;
     let cancelled = false;
-    setOrderLoading(true);
-    setOrderError(null);
     ordersApi
       .getById(orderId)
       .then((o) => {
@@ -116,7 +111,7 @@ export function MobilePickupScanPageInner() {
         if (cancelled) return;
         setOrderLoading(false);
         const message = err instanceof Error ? err.message : 'Order not found';
-        setOrderError(message);
+        setLoadError(message);
       });
     return () => {
       cancelled = true;
@@ -617,9 +612,11 @@ export function MobilePickupScanPageInner() {
 }
 
 export function MobilePickupScanPage() {
+  const params = useParams<{ orderId: string }>();
+  const orderId = params.orderId ?? '';
   return (
     <JoyAriaLive>
-      <MobilePickupScanPageInner />
+      <MobilePickupScanPageInner key={orderId} orderId={orderId} />
     </JoyAriaLive>
   );
 }
