@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -305,22 +305,87 @@ public class OrderService : IOrderService
 
     public async Task<OrderLineResponse> UpdateLineAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request)
     {
+        var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
+            ?? throw new KeyNotFoundException("Order not found.");
+
+        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
+            throw new ValidationException("QtyOrdered must be greater than 0.");
+
+        // Walk-up lines are subject to the availability invariant, so raising the
+        // quantity or moving the line to another plant must validate under the same
+        // locks AddLineAsync takes -- otherwise this route is a bypass around them.
+        if (!order.IsWalkUp)
+            return await UpdateLineUnlockedAsync(orderId, lineId, request);
+
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
+        {
+            var target = await _db.OrderLines
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            var newPlantCatalogId = request.PlantCatalogId ?? target.PlantCatalogId;
+            var transaction = await WalkUpRowLocks.BeginAsync(_db);
+
+            try
+            {
+                await WalkUpRowLocks.AcquireAsync(_db, newPlantCatalogId, orderId);
+
+                var line = await _db.OrderLines
+                    .Include(l => l.PlantCatalog)
+                    .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
+                    ?? throw new KeyNotFoundException("Order line not found.");
+
+                var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
+                ValidateLineChange(line, newQtyOrdered, newPlantCatalogId);
+
+                // Only the units being added are new demand. When the plant stays the
+                // same the line's existing remainder is already in the commitments sum,
+                // so validate the increment; when it moves, the whole quantity is new
+                // demand on the new plant.
+                var plantChanged = newPlantCatalogId != line.PlantCatalogId;
+                var addedDemand = plantChanged ? newQtyOrdered : newQtyOrdered - line.QtyOrdered;
+                if (addedDemand > 0)
+                {
+                    var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(newPlantCatalogId, addedDemand);
+                    if (!allowed)
+                        throw new ValidationException(errorMessage!);
+                }
+
+                line.PlantCatalogId = newPlantCatalogId;
+                line.QtyOrdered = newQtyOrdered;
+                line.Notes = request.Notes;
+
+                await _db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+
+                if (plantChanged)
+                    await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
+
+                return MapLineToResponse(line);
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
+    }
+
+    private async Task<OrderLineResponse> UpdateLineUnlockedAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request)
+    {
         var line = await _db.OrderLines
             .Include(l => l.PlantCatalog)
             .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order line not found.");
 
         var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
-        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
-            throw new ValidationException("QtyOrdered must be greater than 0.");
-
-        if (newQtyOrdered < line.QtyFulfilled)
-            throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
-
         var newPlantCatalogId = request.PlantCatalogId ?? line.PlantCatalogId;
-
-        if (line.QtyFulfilled > 0 && newPlantCatalogId != line.PlantCatalogId)
-            throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
+        ValidateLineChange(line, newQtyOrdered, newPlantCatalogId);
 
         var plantChanged = newPlantCatalogId != line.PlantCatalogId;
         line.PlantCatalogId = newPlantCatalogId;
@@ -329,13 +394,19 @@ public class OrderService : IOrderService
 
         await _db.SaveChangesAsync();
 
-        // Reload plant catalog if changed
         if (plantChanged)
-        {
             await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
-        }
 
         return MapLineToResponse(line);
+    }
+
+    private static void ValidateLineChange(OrderLine line, int newQtyOrdered, Guid newPlantCatalogId)
+    {
+        if (newQtyOrdered < line.QtyFulfilled)
+            throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
+
+        if (line.QtyFulfilled > 0 && newPlantCatalogId != line.PlantCatalogId)
+            throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
     }
 
     public async Task<bool> DeleteLineAsync(Guid orderId, Guid lineId)
