@@ -8,6 +8,7 @@ using HamptonHawksPlantSales.Infrastructure.Data;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Moq;
 
 namespace HamptonHawksPlantSales.Tests.WalkUp;
@@ -29,8 +30,12 @@ public class WalkUpRegisterAvailabilityTests
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(),
             It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new AdminAction { Id = Guid.NewGuid() });
-        return new WalkUpRegisterService(db, new InventoryProtectionService(db), adminMock.Object);
+        return new WalkUpRegisterService(db, new InventoryProtectionService(db), adminMock.Object, TestConfig());
     }
+
+    private static IConfiguration TestConfig() => new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?> { ["AdminPin"] = "1234" })
+        .Build();
 
     [Fact]
     public async Task Scan_CanSellEveryUnitOnHand_WhenNothingElseIsCommitted()

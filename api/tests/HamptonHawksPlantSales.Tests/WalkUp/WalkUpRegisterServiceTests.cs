@@ -8,6 +8,7 @@ using HamptonHawksPlantSales.Infrastructure.Data;
 using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Moq;
 
 namespace HamptonHawksPlantSales.Tests.WalkUp;
@@ -35,9 +36,13 @@ public class WalkUpRegisterServiceTests
             It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new AdminAction { Id = Guid.NewGuid() });
 
-        var service = new WalkUpRegisterService(db, protectionMock.Object, adminMock.Object);
+        var service = new WalkUpRegisterService(db, protectionMock.Object, adminMock.Object, TestConfig());
         return (service, protectionMock, adminMock);
     }
+
+    private static IConfiguration TestConfig() => new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?> { ["AdminPin"] = "1234" })
+        .Build();
 
     [Fact]
     public async Task CreateDraft_ReturnsDraftStatusWalkUpNullCustomer()
@@ -346,5 +351,81 @@ public class WalkUpRegisterServiceTests
         freshInv!.OnHandQty.Should().Be(9); // 7 + 2 restored
         var freshLine = await db.OrderLines.FindAsync(line.Id);
         freshLine!.QtyFulfilled.Should().Be(1);
+    }
+
+    private static async Task<(WalkUpRegisterService Service, Guid DraftId, Guid LineId, Guid PlantId, Guid InventoryId)>
+        SeedDraftWithOneScannedUnit(AppDbContext db, int onHand, bool defaultAllowed)
+    {
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-OVR", sku: "OVR-1");
+        var inv = TestDataBuilder.CreateInventory(plant.Id, onHandQty: onHand);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(inv);
+        await db.SaveChangesAsync();
+
+        var (allowingService, _, _) = CreateService(db, defaultAllowed: true);
+        var draft = await allowingService.CreateDraftAsync(new CreateDraftRequest());
+        await allowingService.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-OVR", ScanId = "s1" });
+        var line = await db.OrderLines.FirstAsync(l => l.OrderId == draft.Id);
+
+        var (service, _, _) = CreateService(db, defaultAllowed);
+        return (service, draft.Id, line.Id, plant.Id, inv.Id);
+    }
+
+    [Fact]
+    public async Task AdjustLine_ReasonWithoutPin_DoesNotOverrideAvailability()
+    {
+        using var db = CreateDb();
+        var (service, draftId, lineId, plantId, invId) = await SeedDraftWithOneScannedUnit(db, onHand: 10, defaultAllowed: false);
+
+        var act = () => service.AdjustLineAsync(draftId, lineId,
+            new AdjustLineRequest { PlantCatalogId = plantId, NewQty = 3 },
+            adminPin: null, adminReason: "just a reason");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*availability*");
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(9);
+        (await db.OrderLines.FindAsync(lineId))!.QtyFulfilled.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AdjustLine_WrongPin_IsRejected()
+    {
+        using var db = CreateDb();
+        var (service, draftId, lineId, plantId, _) = await SeedDraftWithOneScannedUnit(db, onHand: 10, defaultAllowed: false);
+
+        var act = () => service.AdjustLineAsync(draftId, lineId,
+            new AdjustLineRequest { PlantCatalogId = plantId, NewQty = 3 },
+            adminPin: "0000", adminReason: "reason");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("Invalid admin PIN.");
+    }
+
+    [Fact]
+    public async Task AdjustLine_CorrectPinAndReason_OverridesAvailability()
+    {
+        using var db = CreateDb();
+        var (service, draftId, lineId, plantId, invId) = await SeedDraftWithOneScannedUnit(db, onHand: 10, defaultAllowed: false);
+
+        var result = await service.AdjustLineAsync(draftId, lineId,
+            new AdjustLineRequest { PlantCatalogId = plantId, NewQty = 3 },
+            adminPin: "1234", adminReason: "admin says so");
+
+        result.Lines.Single().QtyFulfilled.Should().Be(3);
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task AdjustLine_Override_CannotDriveOnHandNegative()
+    {
+        using var db = CreateDb();
+        // 2 on hand, 1 already scanned into the draft: only 1 unit left to take.
+        var (service, draftId, lineId, plantId, invId) = await SeedDraftWithOneScannedUnit(db, onHand: 2, defaultAllowed: false);
+
+        var act = () => service.AdjustLineAsync(draftId, lineId,
+            new AdjustLineRequest { PlantCatalogId = plantId, NewQty = 5 },
+            adminPin: "1234", adminReason: "admin says so");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("Insufficient inventory*");
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(1);
+        (await db.OrderLines.FindAsync(lineId))!.QtyFulfilled.Should().Be(1);
     }
 }

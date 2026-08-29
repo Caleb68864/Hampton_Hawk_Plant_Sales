@@ -1,10 +1,11 @@
-﻿using FluentValidation;
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace HamptonHawksPlantSales.Infrastructure.Services;
 
@@ -13,15 +14,18 @@ public class WalkUpRegisterService : IWalkUpRegisterService
     private readonly AppDbContext _db;
     private readonly IInventoryProtectionService _protection;
     private readonly IAdminService _adminService;
+    private readonly IConfiguration _configuration;
 
     public WalkUpRegisterService(
         AppDbContext db,
         IInventoryProtectionService protection,
-        IAdminService adminService)
+        IAdminService adminService,
+        IConfiguration configuration)
     {
         _db = db;
         _protection = protection;
         _adminService = adminService;
+        _configuration = configuration;
     }
 
     public async Task<OrderResponse> CreateDraftAsync(CreateDraftRequest request)
@@ -204,14 +208,18 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (request.NewQty < 0)
             throw new ValidationException("NewQty must be zero or greater.");
 
+        // An override is only an override when the PIN checks out. A bare
+        // X-Admin-Reason header must not bypass availability.
+        var isOverride = TryAdminOverride(adminPin, adminReason);
+
         // Same contention as scanning: retry serialization conflicts rather than
         // surfacing a database abort to the volunteer.
         return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
-            AdjustLineInternalAsync(orderId, lineId, request, adminReason));
+            AdjustLineInternalAsync(orderId, lineId, request, isOverride, adminReason));
     }
 
     private async Task<OrderResponse> AdjustLineInternalAsync(
-        Guid orderId, Guid lineId, AdjustLineRequest request, string? adminReason)
+        Guid orderId, Guid lineId, AdjustLineRequest request, bool isOverride, string? adminReason)
     {
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
@@ -267,31 +275,26 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 // the line's current units already left OnHandQty at scan time.
                 var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(line.PlantCatalogId, diff, orderId);
 
-                if (!allowed)
+                if (!allowed && !isOverride)
                 {
-                    var hasOverride = !string.IsNullOrWhiteSpace(adminReason);
-                    if (!hasOverride)
-                    {
-                        await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                        throw new ValidationException(errorMessage ?? "Walk-up availability exceeded; admin override required.");
-                    }
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    throw new ValidationException(errorMessage ?? "Walk-up availability exceeded; admin override required.");
                 }
 
+                // The override lets an admin sell into preorder commitments; it never
+                // lets OnHandQty go negative -- the register takes the units at scan
+                // time, and there are no units to take.
                 if (inventory.OnHandQty < diff)
                 {
-                    // Out of stock — even override cannot create negative inventory unless admin reason provided.
-                    if (string.IsNullOrWhiteSpace(adminReason))
-                    {
-                        await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                        throw new ValidationException("Insufficient inventory to increase line quantity.");
-                    }
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    throw new ValidationException("Insufficient inventory to increase line quantity.");
                 }
 
                 inventory.OnHandQty -= diff;
                 line.QtyOrdered = request.NewQty;
                 line.QtyFulfilled = request.NewQty;
 
-                if (!string.IsNullOrWhiteSpace(adminReason))
+                if (isOverride)
                 {
                     await _adminService.LogActionAsync(
                         "WalkUpRegisterAdjustOverride",
@@ -317,6 +320,30 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Mirrors <c>WalkUpService.TryAdminOverride</c>: no PIN means no override, a
+    /// wrong PIN is rejected outright, and a valid PIN needs a reason for the audit log.
+    /// </summary>
+    private bool TryAdminOverride(string? pin, string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            return false;
+
+        var expectedPin = Environment.GetEnvironmentVariable("APP_ADMIN_PIN")
+            ?? _configuration["AdminPin"]
+            ?? string.Empty;
+
+        if (expectedPin.Length == 0 || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(pin),
+                System.Text.Encoding.UTF8.GetBytes(expectedPin)))
+            throw new ValidationException("Invalid admin PIN.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ValidationException("Admin reason is required for override.");
+
+        return true;
     }
 
     public async Task<OrderResponse> VoidLineAsync(Guid orderId, Guid lineId, string adminReason)
