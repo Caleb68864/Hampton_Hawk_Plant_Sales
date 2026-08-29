@@ -30,7 +30,7 @@ interface LiveMessage {
 }
 
 const EMPTY: LiveMessage = { text: '', nonce: 0 };
-const ZERO_WIDTH_SPACE = '​';
+const ZERO_WIDTH_SPACE = '\u200B';
 
 function nextMessage(prev: LiveMessage, text: string): LiveMessage {
   return { text, nonce: prev.text === text ? prev.nonce + 1 : prev.nonce };
