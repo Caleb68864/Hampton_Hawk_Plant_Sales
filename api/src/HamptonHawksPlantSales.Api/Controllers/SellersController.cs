@@ -16,11 +16,16 @@ public class SellersController : ControllerBase
 {
     private readonly ISellerService _sellerService;
     private readonly IValidator<CreateSellerRequest> _createValidator;
+    private readonly IValidator<UpdateSellerRequest> _updateValidator;
 
-    public SellersController(ISellerService sellerService, IValidator<CreateSellerRequest> createValidator)
+    public SellersController(
+        ISellerService sellerService,
+        IValidator<CreateSellerRequest> createValidator,
+        IValidator<UpdateSellerRequest> updateValidator)
     {
         _sellerService = sellerService;
         _createValidator = createValidator;
+        _updateValidator = updateValidator;
     }
 
     /// <summary>
@@ -91,6 +96,11 @@ public class SellersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<SellerResponse>), 200)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSellerRequest request)
     {
+        var validation = await _updateValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse<SellerResponse>.Fail(
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
         var result = await _sellerService.UpdateAsync(id, request);
         return Ok(ApiResponse<SellerResponse>.Ok(result));
     }

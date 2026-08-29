@@ -1,3 +1,4 @@
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
@@ -70,6 +71,9 @@ public class CustomerService : ICustomerService
 
     public async Task<CustomerResponse> CreateAsync(CreateCustomerRequest request)
     {
+        if (!string.IsNullOrWhiteSpace(request.PickupCode))
+            await EnsurePickupCodeAvailableAsync(request.PickupCode, excludeCustomerId: null);
+
         var customer = new Customer
         {
             FirstName = request.FirstName,
@@ -100,7 +104,10 @@ public class CustomerService : ICustomerService
         customer.Phone = request.Phone;
         customer.Email = request.Email;
         if (!string.IsNullOrWhiteSpace(request.PickupCode))
+        {
+            await EnsurePickupCodeAvailableAsync(request.PickupCode, excludeCustomerId: id);
             customer.PickupCode = request.PickupCode;
+        }
         customer.Notes = request.Notes;
 
         await _db.SaveChangesAsync();
@@ -116,6 +123,21 @@ public class CustomerService : ICustomerService
         customer.DeletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// IX_Customers_PickupCode is unique across deleted rows too, so the check
+    /// ignores the soft-delete filter; otherwise the save fails with a 23505 that
+    /// the volunteer sees as a 500.
+    /// </summary>
+    private async Task EnsurePickupCodeAvailableAsync(string pickupCode, Guid? excludeCustomerId)
+    {
+        var taken = await _db.Customers
+            .IgnoreQueryFilters()
+            .AnyAsync(c => c.PickupCode == pickupCode && (excludeCustomerId == null || c.Id != excludeCustomerId));
+
+        if (taken)
+            throw new ValidationException($"Pickup code '{pickupCode}' is already in use.");
     }
 
     private static string GeneratePickupCode()

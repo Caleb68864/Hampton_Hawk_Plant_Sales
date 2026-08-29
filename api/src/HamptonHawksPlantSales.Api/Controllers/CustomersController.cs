@@ -16,11 +16,16 @@ public class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;
     private readonly IValidator<CreateCustomerRequest> _createValidator;
+    private readonly IValidator<UpdateCustomerRequest> _updateValidator;
 
-    public CustomersController(ICustomerService customerService, IValidator<CreateCustomerRequest> createValidator)
+    public CustomersController(
+        ICustomerService customerService,
+        IValidator<CreateCustomerRequest> createValidator,
+        IValidator<UpdateCustomerRequest> updateValidator)
     {
         _customerService = customerService;
         _createValidator = createValidator;
+        _updateValidator = updateValidator;
     }
 
     /// <summary>
@@ -91,6 +96,11 @@ public class CustomersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<CustomerResponse>), 200)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerRequest request)
     {
+        var validation = await _updateValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse<CustomerResponse>.Fail(
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
         var result = await _customerService.UpdateAsync(id, request);
         return Ok(ApiResponse<CustomerResponse>.Ok(result));
     }
