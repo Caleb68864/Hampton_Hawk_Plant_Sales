@@ -91,6 +91,17 @@ export function WalkUpRegisterPage() {
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
 
+  // Tapping a preset / +/- moves focus to that button. Put it straight back on
+  // the scan input so the next wedge scan lands in the buffer, not on the
+  // button (where its digits would be lost and Enter would re-click it).
+  const handleScanQuantityChange = useCallback(
+    (n: number) => {
+      setScanQuantity(n);
+      refocusScan();
+    },
+    [refocusScan],
+  );
+
   const updateDraftAndPersist = useCallback(
     async (next: DraftOrder) => {
       setDraft(next);
@@ -444,7 +455,7 @@ export function WalkUpRegisterPage() {
                   Resets to 1 after each successful scan (matches PickupScanPage). */}
               <QuantitySelector
                 value={scanQuantity}
-                onChange={setScanQuantity}
+                onChange={handleScanQuantityChange}
                 disabled={scanning || !draft}
               />
               <ScanInput onScan={handleScan} disabled={scanning || !draft} ref={scanRef} />

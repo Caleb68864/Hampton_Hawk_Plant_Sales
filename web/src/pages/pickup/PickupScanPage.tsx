@@ -115,6 +115,17 @@ export function PickupScanPage() {
     setTimeout(() => scanInputRef.current?.focus(), 50);
   }, []);
 
+  // Tapping a preset / +/- moves focus to that button. Put it straight back on
+  // the scan input so the next wedge scan lands in the buffer, not on the
+  // button (where its digits would be lost and Enter would re-click it).
+  const handleScanQuantityChange = useCallback(
+    (n: number) => {
+      setScanQuantity(n);
+      refocusScanInput();
+    },
+    [refocusScanInput],
+  );
+
   function triggerHaptic(result: FulfillmentResultType) {
     if (feedbackMode === 'off' || typeof navigator === 'undefined' || !navigator.vibrate) return;
     if (feedbackMode === 'quiet') {
@@ -418,7 +429,7 @@ export function PickupScanPage() {
               between scans -- never auto-resets after a successful scan. */}
           <QuantitySelector
             value={scanQuantity}
-            onChange={setScanQuantity}
+            onChange={handleScanQuantityChange}
             disabled={isScanning}
           />
           <ScanInput
