@@ -110,6 +110,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<ExcelRowReader>();
 builder.Services.AddSingleton<CsvRowReader>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawks2026OrdersAdapter>();
+builder.Services.AddSingleton<IImportFormatAdapter, TemplateOrdersAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawksR1PlantsAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawksSbpInventoryAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, CanonicalOrdersAdapter>();

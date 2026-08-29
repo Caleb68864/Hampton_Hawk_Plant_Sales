@@ -55,29 +55,47 @@ public class OrderImportHandler
             .DefaultIfEmpty(0)
             .Max();
 
-        // Group rows by OrderNumber
+        // Group rows into orders. Rows that carry an OrderNumber group by it. Rows
+        // without one (the downloadable template) group by customer so a customer's
+        // lines become one order, then take the next free numeric order number.
         var grouped = new List<(string orderNumber, List<(Dictionary<string, string> row, int rowNumber)> lines)>();
+        var groupIndexByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var orderNumberCounter = 0;
 
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
             var orderNumber = row.GetValueOrDefault("OrderNumber")?.Trim() ?? "";
+            string groupKey;
+
+            if (string.IsNullOrWhiteSpace(orderNumber))
+            {
+                var customerKey = row.GetValueOrDefault("CustomerDisplayName")?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(customerKey))
+                {
+                    customerKey = $"{row.GetValueOrDefault("CustomerFirstName")?.Trim()} {row.GetValueOrDefault("CustomerLastName")?.Trim()}".Trim();
+                }
+                // A row with no customer at all cannot be merged with anything; keep it alone.
+                groupKey = string.IsNullOrWhiteSpace(customerKey) ? $"row:{i}" : $"customer:{customerKey}";
+            }
+            else
+            {
+                groupKey = $"number:{orderNumber}";
+            }
+
+            if (groupIndexByKey.TryGetValue(groupKey, out var index))
+            {
+                grouped[index].lines.Add((row, i + 2));
+                continue;
+            }
 
             if (string.IsNullOrWhiteSpace(orderNumber))
             {
                 orderNumber = (maxExistingInt + (++orderNumberCounter)).ToString();
             }
 
-            var existing = grouped.Find(g => g.orderNumber.Equals(orderNumber, StringComparison.OrdinalIgnoreCase));
-            if (existing.orderNumber != null)
-            {
-                existing.lines.Add((row, i + 2));
-            }
-            else
-            {
-                grouped.Add((orderNumber, new List<(Dictionary<string, string> row, int rowNumber)> { (row, i + 2) }));
-            }
+            groupIndexByKey[groupKey] = grouped.Count;
+            grouped.Add((orderNumber, new List<(Dictionary<string, string> row, int rowNumber)> { (row, i + 2) }));
         }
 
         foreach (var (orderNumber, lines) in grouped)
@@ -184,7 +202,7 @@ public class OrderImportHandler
                 bool.TryParse(isWalkUpStr, out isWalkUp);
 
             // Process order lines
-            var validLines = new List<(Guid plantId, int qty)>();
+            var validLines = new List<(Guid plantId, int qty, string? notes)>();
             foreach (var (row, rowNumber) in lines)
             {
                 var rawData = JsonSerializer.Serialize(row);
@@ -224,7 +242,8 @@ public class OrderImportHandler
                 if (!int.TryParse(qtyStr, out var qty) || qty < 1)
                     qty = 1;
 
-                validLines.Add((plantId, qty));
+                var notes = row.GetValueOrDefault("Notes")?.Trim();
+                validLines.Add((plantId, qty, string.IsNullOrWhiteSpace(notes) ? null : notes));
                 imported++;
             }
 
@@ -242,14 +261,15 @@ public class OrderImportHandler
                 };
                 _db.Orders.Add(order);
 
-                foreach (var (plantId, qty) in validLines)
+                foreach (var (plantId, qty, notes) in validLines)
                 {
                     _db.OrderLines.Add(new OrderLine
                     {
                         OrderId = order.Id,
                         PlantCatalogId = plantId,
                         QtyOrdered = qty,
-                        QtyFulfilled = 0
+                        QtyFulfilled = 0,
+                        Notes = notes
                     });
                 }
             }
