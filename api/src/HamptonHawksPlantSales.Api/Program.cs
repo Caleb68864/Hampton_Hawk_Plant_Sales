@@ -81,6 +81,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 // Authorization with role policies
 builder.Services.AddAuthorization(options =>
 {
+    // Deny by default: any endpoint without [AllowAnonymous] requires a signed-in
+    // user, so a controller that forgets [Authorize] is not silently public.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy("PickupCapable", policy => policy.RequireRole("Admin", "Pickup"));
     options.AddPolicy("LookupCapable", policy => policy.RequireRole("Admin", "LookupPrint", "Pickup"));
@@ -197,9 +203,10 @@ app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+// Probes must stay reachable without a session despite the fallback policy.
+app.MapHealthChecks("/health").AllowAnonymous();
 // Same probe under /api so the web proxy (which only forwards /api) can reach it.
-app.MapHealthChecks("/api/health");
+app.MapHealthChecks("/api/health").AllowAnonymous();
 app.MapControllers();
 
 app.MapFallback(async context =>
@@ -209,7 +216,7 @@ app.MapFallback(async context =>
     var response = HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>.Fail("Not found");
     var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
     await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, options));
-});
+}).AllowAnonymous();
 
 app.Run();
 
