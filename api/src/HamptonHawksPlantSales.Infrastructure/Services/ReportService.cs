@@ -248,7 +248,9 @@ public class ReportService : IReportService
                 o.Id,
                 o.CreatedAt,
                 o.IsWalkUp,
-                Revenue = o.AmountTendered ?? 0m,
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 ItemCount = o.OrderLines
                     .Where(ol => ol.DeletedAt == null)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0
@@ -280,7 +282,9 @@ public class ReportService : IReportService
             .Select(o => new
             {
                 Method = o.PaymentMethod,
-                Revenue = o.AmountTendered ?? 0m
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
 
@@ -312,7 +316,9 @@ public class ReportService : IReportService
             .Select(o => new ChannelOrderProjection
             {
                 IsWalkUp = o.IsWalkUp,
-                Revenue = o.AmountTendered ?? 0m,
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 ItemCount = o.OrderLines
                     .Where(ol => ol.DeletedAt == null)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0
@@ -489,7 +495,9 @@ public class ReportService : IReportService
 
         var orders = BaseOrders();
 
-        var totalRevenue = await orders.SumAsync(o => (decimal?)(o.AmountTendered ?? 0m)) ?? 0m;
+        var totalRevenue = await orders
+            .SelectMany(o => o.OrderLines.Where(ol => ol.DeletedAt == null))
+            .SumAsync(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m;
         var totalOrdersToday = await orders.CountAsync(o => o.CreatedAt >= todayStart && o.CreatedAt < tomorrowStart);
         var ordersCompleted = await orders.CountAsync(o => o.Status == OrderStatus.Complete);
         var ordersOpen = await orders.CountAsync(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress);
