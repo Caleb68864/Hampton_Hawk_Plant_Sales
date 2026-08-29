@@ -50,7 +50,7 @@ async function buildCustomersById(orders: Order[], seedCustomers: Customer[] = [
   });
 
   const missingCustomerIds = [...new Set(orders.map((order) => order.customerId))]
-    .filter((customerId) => !customerMap.has(customerId));
+    .filter((customerId): customerId is string => Boolean(customerId) && !customerMap.has(customerId!));
 
   const missingCustomers = await Promise.all(
     missingCustomerIds.map(async (customerId) => {

@@ -168,6 +168,8 @@ export function PickupLookupPage() {
                 continue;
               }
 
+              // Walk-up register sales have no customer record to look up.
+              if (!order.customerId) continue;
               try {
                 const customer = await customersApi.getById(order.customerId);
                 withOrders.push({ customer, orders: [order] });

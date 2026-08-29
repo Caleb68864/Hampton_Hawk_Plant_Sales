@@ -65,8 +65,9 @@ export function SellerPickListSheet({
   const customerSummaries = useMemo(() => {
     const byCustomer = new Map<string, { name: string; pickupCode?: string; totalQty: number }>();
     for (const order of orders) {
-      const cust = customers.get(order.customerId);
-      const key = order.customerId;
+      // Walk-up sales carry no customer; group them per order so they still print.
+      const cust = order.customerId ? customers.get(order.customerId) : undefined;
+      const key = order.customerId ?? `walkup:${order.id}`;
       const qty = order.lines.reduce((s, l) => s + l.qtyOrdered, 0);
       const existing = byCustomer.get(key);
       if (existing) {

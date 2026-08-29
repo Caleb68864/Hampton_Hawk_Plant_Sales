@@ -43,7 +43,8 @@ export function PrintSellerPacketPage() {
         ]);
 
         const fullOrders = await Promise.all(orderListResult.items.map((order) => ordersApi.getById(order.id)));
-        const uniqueCustomerIds = [...new Set(fullOrders.map((order) => order.customerId))];
+        const uniqueCustomerIds = [...new Set(fullOrders.map((order) => order.customerId))]
+          .filter((id): id is string => Boolean(id));
         const customerEntries = await Promise.all(
           uniqueCustomerIds.map(async (id) => [id, await customersApi.getById(id)] as const),
         );
@@ -161,7 +162,7 @@ export function PrintSellerPacketPage() {
       {/* Sheet 2+ -- opt-in per-order detail sheets. NO seller picklist barcode here. */}
       {includePerOrderDetail &&
         filteredOrders.map((order) => {
-          const customer = customers.get(order.customerId);
+          const customer = order.customerId ? customers.get(order.customerId) : undefined;
           return (
             <div key={order.id} className="page-break">
               <PrintHeader

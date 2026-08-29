@@ -58,7 +58,7 @@ export function NewOrderPage() {
       .getById(id)
       .then(async (order) => {
         const [customer, seller] = await Promise.all([
-          customersApi.getById(order.customerId),
+          order.customerId ? customersApi.getById(order.customerId) : Promise.resolve(null),
           order.sellerId ? sellersApi.getById(order.sellerId) : Promise.resolve(null),
         ]);
 

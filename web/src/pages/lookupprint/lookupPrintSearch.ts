@@ -4,7 +4,7 @@ import type { Order } from '../../types/order.js';
 export interface LookupPrintSearchRow {
   orderId: string;
   orderNumber: string;
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   pickupCode: string | null;
   sellerId: string | null;
@@ -32,6 +32,10 @@ function getCustomerBrowseKey(customer: Customer | undefined, fallbackName: stri
   }
 
   return fallbackName.trim();
+}
+
+function customerFor(order: Order, customersById: Map<string, Customer>): Customer | undefined {
+  return order.customerId ? customersById.get(order.customerId) : undefined;
 }
 
 function toLookupPrintRow(order: Order, customer: Customer | undefined, matchScore: number): LookupPrintSearchRow {
@@ -98,7 +102,7 @@ export function buildLookupPrintRows(
 
   return orders
     .map((order) => {
-      const customer = customersById.get(order.customerId);
+      const customer = customerFor(order, customersById);
       const matchScore = getMatchScore(normalizedQuery, order, customer);
 
       return toLookupPrintRow(order, customer, matchScore);
@@ -124,7 +128,7 @@ export function buildLookupPrintLetterRows(
 ): LookupPrintSearchRow[] {
   return orders
     .map((order) => {
-      const customer = customersById.get(order.customerId);
+      const customer = customerFor(order, customersById);
       return {
         row: toLookupPrintRow(order, customer, 0),
         browseKey: getCustomerBrowseKey(customer, order.customerDisplayName).toLowerCase(),
@@ -168,5 +172,5 @@ export function buildLookupPrintRecentRows(
       return left.orderNumber.localeCompare(right.orderNumber);
     })
     .slice(0, limit)
-    .map((order) => toLookupPrintRow(order, customersById.get(order.customerId), 0));
+    .map((order) => toLookupPrintRow(order, customerFor(order, customersById), 0));
 }
