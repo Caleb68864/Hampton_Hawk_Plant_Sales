@@ -173,3 +173,69 @@ describe('PickupScanPage undo last scan', () => {
     expect(screen.queryByText('RECOVERY:UNDO')).not.toBeInTheDocument();
   });
 });
+
+describe('PickupScanPage manual fulfill', () => {
+  beforeEach(() => {
+    mockNavigate.mockReset();
+    mockGetById.mockReset();
+    mockUndoWithReason.mockReset();
+    mockManualFulfill.mockReset();
+    mockOpenPinModal.mockReset();
+    mockGetById.mockResolvedValue(makeOrder());
+  });
+
+  afterEach(() => cleanup());
+
+  async function openManualModal() {
+    await screen.findByText('Order 100123');
+    fireEvent.click(screen.getByRole('button', { name: 'Manual Fulfill' }));
+    const line = screen.getByLabelText('Unfulfilled Line') as HTMLSelectElement;
+    const reason = screen.getByLabelText('Reason') as HTMLTextAreaElement;
+    fireEvent.change(line, { target: { value: 'l1' } });
+    fireEvent.change(reason, { target: { value: 'Tag unreadable' } });
+    return { line, reason };
+  }
+
+  it('keeps the modal and its fields, and shows the error, when the request fails', async () => {
+    mockManualFulfill.mockRejectedValue(new Error('The request timed out before the server responded.'));
+
+    renderPage();
+    const { line, reason } = await openManualModal();
+    fireEvent.click(screen.getByRole('button', { name: 'Fulfill' }));
+
+    await waitFor(() => expect(mockManualFulfill).toHaveBeenCalledTimes(1));
+    expect(mockManualFulfill).toHaveBeenCalledWith('o-1', {
+      orderLineId: 'l1',
+      reason: 'Tag unreadable',
+      operatorName: 'Station Operator',
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/timed out/);
+    expect(screen.getByLabelText('Unfulfilled Line')).toBeInTheDocument();
+    expect(line.value).toBe('l1');
+    expect(reason.value).toBe('Tag unreadable');
+    expect(screen.getByRole('button', { name: 'Fulfill' })).not.toBeDisabled();
+  });
+
+  it('disables submit while pending and closes only after success', async () => {
+    let resolveFulfill: (r: ScanResponse) => void = () => {};
+    mockManualFulfill.mockImplementation(
+      () =>
+        new Promise<ScanResponse>((resolve) => {
+          resolveFulfill = resolve;
+        }),
+    );
+
+    renderPage();
+    await openManualModal();
+    const submit = screen.getByRole('button', { name: 'Fulfill' });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Fulfilling...' })).toBeDisabled());
+    expect(mockManualFulfill).toHaveBeenCalledTimes(1);
+
+    resolveFulfill(ACCEPTED);
+    await waitFor(() => expect(screen.queryByLabelText('Unfulfilled Line')).not.toBeInTheDocument());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});

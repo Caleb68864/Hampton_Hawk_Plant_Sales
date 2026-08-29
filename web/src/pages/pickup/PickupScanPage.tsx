@@ -249,16 +249,26 @@ export function PickupScanPage() {
     });
   }
 
-  async function handleManualFulfill(lineId: string, reason: string) {
-    if (!orderId) return;
-    try {
-      await fulfillmentApi.manualFulfill(orderId, { orderLineId: lineId, reason, operatorName: OPERATOR_NAME });
+  // Runs through runOrderAction so a failed manual fulfill is reported (the
+  // call bypasses useScanWorkflow, which previously meant it vanished into an
+  // empty catch). The modal closes only when the server accepted the line.
+  async function handleManualFulfill(lineId: string, reason: string): Promise<boolean> {
+    if (!orderId) return false;
+    let fulfilled = false;
+    await runOrderAction('Manual fulfill failed', async () => {
+      const result = await fulfillmentApi.manualFulfill(orderId, {
+        orderLineId: lineId,
+        reason,
+        operatorName: OPERATOR_NAME,
+      });
+      if (result.result !== 'Accepted') {
+        throw new Error(getScanResultMessage(result));
+      }
+      fulfilled = true;
       setShowManualModal(false);
       await refreshOrder();
-    } catch {
-      // handled by scan workflow
-    }
-    refocusScanInput();
+    });
+    return fulfilled;
   }
 
   async function handleComplete() {
@@ -296,10 +306,12 @@ export function PickupScanPage() {
   }
 
   function handleManualOpen() {
+    setActionError(null);
     setShowManualModal(true);
   }
 
   function handleManualClose() {
+    setActionError(null);
     setShowManualModal(false);
     refocusScanInput();
   }
@@ -565,6 +577,7 @@ export function PickupScanPage() {
         saleClosed={saleClosed}
         onFulfill={handleManualFulfill}
         onCancel={handleManualClose}
+        error={actionError}
       />
 
       <UndoScanModal
