@@ -12,23 +12,7 @@ export function exportToCsv<T extends Record<string, unknown>>(
   headers: string[],
   keys: (keyof T)[]
 ): void {
-  if (headers.length !== keys.length) {
-    throw new Error('Headers and keys arrays must be the same length');
-  }
-
-  // UTF-8 BOM for Excel compatibility
-  const BOM = '\uFEFF';
-
-  // Build header row
-  const headerRow = headers.map(escapeField).join(',');
-
-  // Build data rows
-  const dataRows = rows.map((row) =>
-    keys.map((key) => escapeField(String(row[key] ?? ''))).join(',')
-  );
-
-  // Combine with newlines
-  const csvContent = BOM + [headerRow, ...dataRows].join('\r\n');
+  const csvContent = buildCsvContent(rows, headers, keys);
 
   // Create blob and trigger download
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -45,14 +29,55 @@ export function exportToCsv<T extends Record<string, unknown>>(
 }
 
 /**
- * Escape a field value for CSV.
- * Wraps in quotes if contains comma, quote, or newline.
- * Doubles any internal quotes.
+ * Build the full CSV text (BOM + CRLF-joined rows). Pure, so it can be
+ * unit-tested without a DOM.
  */
-function escapeField(value: string): string {
-  const needsQuotes = /[,"\r\n]/.test(value);
-  if (needsQuotes) {
-    return `"${value.replace(/"/g, '""')}"`;
+export function buildCsvContent<T extends Record<string, unknown>>(
+  rows: T[],
+  headers: string[],
+  keys: (keyof T)[]
+): string {
+  if (headers.length !== keys.length) {
+    throw new Error('Headers and keys arrays must be the same length');
   }
-  return value;
+
+  // UTF-8 BOM (U+FEFF) for Excel compatibility
+  const BOM = String.fromCharCode(0xfeff);
+
+  const headerRow = headers.map(escapeCsvField).join(',');
+  const dataRows = rows.map((row) =>
+    keys.map((key) => escapeCsvField(String(row[key] ?? ''))).join(',')
+  );
+
+  return BOM + [headerRow, ...dataRows].join('\r\n');
+}
+
+/** A plain number (optionally negative / decimal) is safe to leave as-is. */
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Leading characters that Excel, LibreOffice and Google Sheets interpret
+ * as the start of a formula (or, for tab/CR, as a way to sneak one past a
+ * leading-character check).
+ */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+/**
+ * Escape a field value for CSV.
+ *
+ * Wraps in quotes if the value contains a comma, quote, or newline, and
+ * doubles any internal quotes. Values that would be evaluated as a formula
+ * when the file is opened in a spreadsheet (leading = + - @ tab or CR) are
+ * prefixed with a single quote and quoted, so a customer named
+ * "=HYPERLINK(...)" or a note starting with "-cmd|..." is rendered as text
+ * instead of executed. Plain numbers such as -5 are left untouched.
+ */
+export function escapeCsvField(value: string): string {
+  const needsNeutralising = FORMULA_TRIGGER.test(value) && !PLAIN_NUMBER.test(value);
+  const safe = needsNeutralising ? `'${value}` : value;
+  const needsQuotes = needsNeutralising || /[,"\r\n]/.test(safe);
+  if (needsQuotes) {
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+  return safe;
 }
