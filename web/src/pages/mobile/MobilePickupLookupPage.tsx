@@ -106,7 +106,6 @@ export function MobilePickupLookupPage() {
 
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         page: 'lookup',
         source: result.source,

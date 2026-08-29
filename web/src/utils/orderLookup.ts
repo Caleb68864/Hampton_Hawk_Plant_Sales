@@ -1,6 +1,8 @@
 import type { Order } from '../types/order.js';
 
-const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/g;
+// Scanner wedges can emit stray control bytes; stripping them is the point.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS =/[\u0000-\u001F\u007F]/g;
 const SCANNER_SETTLE_MS = 120;
 const MAX_SCANNER_INTERVAL_MS = 45;
 const MAX_SCANNER_BURST_INTERVAL_MS = 60;

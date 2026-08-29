@@ -151,7 +151,6 @@ export function MobilePickupScanPageInner() {
       if (!orderId) return;
       lastPendingRef.current = pending;
       // Audit telemetry stopgap (REQ-021).
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         orderId,
         source: pending.source,
@@ -237,7 +236,6 @@ export function MobilePickupScanPageInner() {
   const [wrongCodeType, setWrongCodeType] = useState(false);
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         page: 'scan',
         orderId,
@@ -258,7 +256,7 @@ export function MobilePickupScanPageInner() {
       setWrongCodeType(false);
       void submitScan({ barcode: result.code, source: result.source, scanId: crypto.randomUUID() });
     },
-    [order, submitScan],
+    [order, orderId, submitScan],
   );
 
   const dismissRecoverable = () => {

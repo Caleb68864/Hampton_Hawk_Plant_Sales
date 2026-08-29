@@ -268,7 +268,9 @@ export function LiveSaleKpiPage() {
             {data?.recentScans && data.recentScans.length > 0 ? (
               <ul className="space-y-2">
                 {data.recentScans.map((scan, idx) => {
-                  const ago = formatRelative(scan.at, tick);
+                  // `tick` is read here so the relative label re-renders each second.
+                  void tick;
+                  const ago = formatRelative(scan.at);
                   // Subtle fade for older entries so the eye lands at the top.
                   const opacity = Math.max(0.45, 1 - idx * 0.07);
                   return (
@@ -481,7 +483,7 @@ function formatDuration(totalSeconds: number): string {
   return `${hours}h ${remMin}m`;
 }
 
-function formatRelative(iso: string, _tick: number): string {
+function formatRelative(iso: string): string {
   if (!iso) return '';
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms)) return '';

@@ -192,7 +192,6 @@ export function MobileOrderLookupPage() {
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
       // REQ-021: scan-source telemetry — debug channel only, no console.log of code.
-      // eslint-disable-next-line no-console
       console.debug('mobile-lookup-scan', {
         source: result.source,
         code: result.code,
