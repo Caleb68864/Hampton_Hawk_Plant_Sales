@@ -33,7 +33,19 @@ dotnet ef migrations add <Name> --project src/HamptonHawksPlantSales.Infrastruct
 
 # Web
 cd web && npm install && npm run build
+cd web && npm test          # node:test (src/**/*.test.ts outside __tests__/) then vitest (__tests__/)
+cd web && npm run lint      # must stay at 0 problems
 ```
+
+Web test placement: pure-logic tests sit next to their module as `*.test.ts`
+(node:test, no DOM); anything that renders or imports `.tsx` goes under
+`__tests__/` (vitest + jsdom). `scripts/run-node-tests.mjs` globs the former.
+
+The API unit tests use EF InMemory, which enforces neither unique indexes, FKs,
+row locks nor transactions — bugs of that class only show against Postgres.
+`docs/improve/2026-08-29-sweep-report.md` describes the browser E2E harness
+(Postgres in Docker + `dotnet run` + `vite preview` + Playwright) used to catch
+them; run it before a sale-day release.
 
 ## Architecture Rules
 
