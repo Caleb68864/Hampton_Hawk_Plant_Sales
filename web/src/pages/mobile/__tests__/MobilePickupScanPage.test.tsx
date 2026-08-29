@@ -151,7 +151,7 @@ describe('MobilePickupScanPage', () => {
     });
     expect(screen.getByText(/Remaining for this order/)).toBeInTheDocument();
     expect(screen.getAllByText('Hydrangea').length).toBeGreaterThan(0);
-    expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: 'PL-HYD-0001', quantity: 1 });
+    expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: 'PL-HYD-0001', quantity: 1, scanId: expect.any(String) });
   });
 
   it('renders a recoverable card on AlreadyFulfilled and dismisses to ready state', async () => {
@@ -348,7 +348,7 @@ describe('MobilePickupScanPage', () => {
     });
 
     await waitFor(() => {
-      expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: 'PL-HYD0001', quantity: 1 });
+      expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: 'PL-HYD0001', quantity: 1, scanId: expect.any(String) });
     });
     // While in-flight, scanner is paused.
     await waitFor(() => {
