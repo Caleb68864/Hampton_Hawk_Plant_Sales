@@ -13,6 +13,14 @@ public class ScanRequest
     /// remaining quantity (multi-line aggregation distributes greedily).
     /// </summary>
     public int Quantity { get; set; } = 1;
+
+    /// <summary>
+    /// Optional client-generated id identifying this scan attempt. The client keeps it
+    /// stable across retries of the same physical scan, so a resubmitted request is
+    /// recognised as a replay instead of fulfilling a second unit. Omit it and the
+    /// endpoint behaves exactly as before.
+    /// </summary>
+    public string? ScanId { get; set; }
 }
 
 public class ManualFulfillRequest

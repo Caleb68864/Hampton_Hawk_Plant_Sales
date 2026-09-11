@@ -5,6 +5,7 @@ import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { OrderNumberBarcode } from '@/components/print/OrderNumberBarcode.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { PRINT_FETCH_CONCURRENCY, settleWithConcurrency } from '@/utils/mapWithConcurrency.js';
 import type { Order } from '@/types/order.js';
 
 const DEFAULT_COUNT = 1;
@@ -21,6 +22,7 @@ function parseCount(value: string | null): number {
 export function PrintOrderBarcodesBulkPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [failedCount, setFailedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,12 +34,19 @@ export function PrintOrderBarcodesBulkPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setFailedCount(0);
 
     async function load() {
       try {
         if (ids.length > 0) {
-          const results = await Promise.all(ids.map((id) => ordersApi.getById(id)));
-          if (!cancelled) setOrders(results);
+          // Settle per id with bounded concurrency so one bad id does not
+          // blank the whole label run.
+          const results = await settleWithConcurrency(ids, PRINT_FETCH_CONCURRENCY, (id) => ordersApi.getById(id));
+          if (cancelled) return;
+          const loaded = results.flatMap((r) => (r.ok ? [r.value] : []));
+          setOrders(loaded);
+          setFailedCount(results.length - loaded.length);
+          if (loaded.length === 0) setError('None of the selected orders could be loaded.');
         } else if (status) {
           const first = await ordersApi.list({ page: 1, pageSize: ORDERS_PAGE_SIZE, status });
           const all = [...first.items];
@@ -132,6 +141,12 @@ export function PrintOrderBarcodesBulkPage() {
           .order-barcode-roll-item:last-child { break-after: auto; page-break-after: auto; }
         }
       `}</style>
+
+      {failedCount > 0 && (
+        <p className="no-print mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+          {failedCount} order{failedCount === 1 ? '' : 's'} could not be loaded and {failedCount === 1 ? 'is' : 'are'} not included in this print run.
+        </p>
+      )}
 
       <div className="no-print mb-4 rounded-md border border-gray-300 bg-gray-50 p-3">
         <h1 className="text-lg font-semibold text-gray-800">

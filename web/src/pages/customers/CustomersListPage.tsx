@@ -180,12 +180,10 @@ export function CustomersListPage() {
         <SearchBar
           value={search}
           onChange={handleSearchChange}
+          onEnter={handleSearchSubmit}
           placeholder="Search customers or scan pickup code... (press / to focus)"
         />
       </div>
-
-      {/* Hidden form to capture Enter for scan-to-search */}
-      <form className="hidden" onSubmit={(e) => { e.preventDefault(); handleSearchSubmit(search); }} />
 
       {recentItems.length > 0 && !search && !letterFilter && (
         <div className="bg-gray-50 rounded-md p-3">

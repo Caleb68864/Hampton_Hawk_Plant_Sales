@@ -131,6 +131,43 @@ public class ImportServiceTests
     }
 
     [Fact]
+    public async Task OrderImport_AcceptsTheDownloadableTemplate_AndGroupsACustomersRowsIntoOneOrder()
+    {
+        using var db = MockDbContextFactory.Create();
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "PLANT-001", barcode: "BC-1"));
+        db.PlantCatalogs.Add(TestDataBuilder.CreatePlant(sku: "PLANT-002", barcode: "BC-2"));
+        db.Orders.Add(new Order { Customer = new Customer { DisplayName = "Existing", PickupCode = "EX1" }, OrderNumber = "41" });
+        await db.SaveChangesAsync();
+
+        var service = new ImportService(db);
+        // Exactly the header row the Imports page ships in orders-import-template.csv.
+        var csv = "CustomerDisplayName,SellerDisplayName,PlantSKU,Qty,Notes\n" +
+                  "Jane Doe,Alice Johnson,PLANT-001,2,Pickup after 4pm\n" +
+                  "John Smith,Bob Martinez,PLANT-002,1,\n" +
+                  "Jane Doe,Alice Johnson,PLANT-002,3,\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+
+        var result = await service.ImportAsync(ImportType.Orders, "orders-import-template.csv", stream);
+
+        Assert.Equal("TemplateOrders", result.SourceFormat);
+        Assert.Equal(3, result.ImportedCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(0, result.IssueCount);
+
+        var orders = await db.Orders.Include(o => o.Customer).Include(o => o.Seller)
+            .Where(o => o.OrderNumber != "41").OrderBy(o => o.OrderNumber).ToListAsync();
+        Assert.Equal(new[] { "42", "43" }, orders.Select(o => o.OrderNumber).ToArray());
+        Assert.Equal("Jane Doe", orders[0].Customer!.DisplayName);
+        Assert.Equal("Alice Johnson", orders[0].Seller!.DisplayName);
+        Assert.Equal("John Smith", orders[1].Customer!.DisplayName);
+
+        var janeLines = await db.OrderLines.Where(l => l.OrderId == orders[0].Id).OrderBy(l => l.QtyOrdered).ToListAsync();
+        Assert.Equal(new[] { 2, 3 }, janeLines.Select(l => l.QtyOrdered).ToArray());
+        Assert.Equal("Pickup after 4pm", janeLines[0].Notes);
+        Assert.Single(await db.OrderLines.Where(l => l.OrderId == orders[1].Id).ToListAsync());
+    }
+
+    [RequiresRepoFileFact("rpcustorderspdf.pdf")]
     public async Task OrderImport_Pdf_ExtractsCustomerAndLineItems()
     {
         using var db = MockDbContextFactory.Create();
@@ -260,8 +297,8 @@ public class ImportServiceTests
     {
         using var db = MockDbContextFactory.Create();
         var service = new ImportService(db);
-        var pdfPath = FindFromRepoRoot("rpcustorderspdf.pdf");
-        using var stream = File.OpenRead(pdfPath);
+        // The extension check runs before the stream is read, so no real PDF is needed.
+        using var stream = new MemoryStream();
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ImportAsync(ImportType.Plants, "plants.pdf", stream));
 

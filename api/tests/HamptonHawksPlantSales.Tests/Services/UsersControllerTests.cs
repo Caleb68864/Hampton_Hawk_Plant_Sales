@@ -2,6 +2,7 @@ using HamptonHawksPlantSales.Api.Controllers;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Interfaces;
+using HamptonHawksPlantSales.Core.Validators;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -22,7 +23,7 @@ public class UsersControllerTests
 
     private static UsersController MakeController(IUserService userService)
     {
-        var controller = new UsersController(userService);
+        var controller = new UsersController(userService, new UserCreateValidator(), new UserResetPasswordValidator());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -210,5 +211,45 @@ public class UsersControllerTests
         var ok = Assert.IsType<OkObjectResult>(result);
         var envelope = Assert.IsType<ApiResponse<UserResponse>>(ok.Value);
         Assert.False(envelope.Success);
+    }
+
+    [Fact]
+    public async Task Create_ShortPassword_Returns400WithoutCallingService()
+    {
+        var request = new CreateUserRequest("newuser", "short", [AppRole.POS]);
+        var mockService = new Mock<IUserService>(MockBehavior.Strict);
+
+        var controller = MakeController(mockService.Object);
+        var result = await controller.Create(request);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var envelope = Assert.IsType<ApiResponse<UserResponse>>(bad.Value);
+        Assert.False(envelope.Success);
+        Assert.Contains("Password must be at least 8 characters.", envelope.Errors);
+    }
+
+    [Fact]
+    public async Task Create_NoRoles_Returns400()
+    {
+        var request = new CreateUserRequest("newuser", "password123", []);
+        var controller = MakeController(new Mock<IUserService>(MockBehavior.Strict).Object);
+
+        var result = await controller.Create(request);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var envelope = Assert.IsType<ApiResponse<UserResponse>>(bad.Value);
+        Assert.Contains("At least one role is required.", envelope.Errors);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShortPassword_Returns400WithoutCallingService()
+    {
+        var controller = MakeController(new Mock<IUserService>(MockBehavior.Strict).Object);
+
+        var result = await controller.ResetPassword(Guid.NewGuid(), new ResetPasswordRequest("abc"));
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var envelope = Assert.IsType<ApiResponse<UserResponse>>(bad.Value);
+        Assert.Contains("Password must be at least 8 characters.", envelope.Errors);
     }
 }

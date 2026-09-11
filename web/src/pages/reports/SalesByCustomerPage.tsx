@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
@@ -6,6 +6,7 @@ import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { SalesByCustomerRow } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
 
@@ -22,21 +23,12 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: 'left' | 'right' }> 
 ];
 
 export function SalesByCustomerPage() {
-  const [rows, setRows] = useState<SalesByCustomerRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('revenueOrdered');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    reportsApi
-      .salesByCustomer()
-      .then((result) => setRows(result))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load sales by customer report.'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, loading, error } = useAsyncData(() => reportsApi.salesByCustomer(), '', 'Failed to load sales by customer report.');
+  const rows: SalesByCustomerRow[] = useMemo(() => data ?? [], [data]);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const visibleError = error && error !== dismissedError ? error : null;
 
   const sortedRows = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
 
@@ -77,7 +69,7 @@ export function SalesByCustomerPage() {
         </div>
       </div>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {visibleError && <ErrorBanner message={visibleError} onDismiss={() => setDismissedError(visibleError)} />}
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
         {sortedRows.length === 0 ? (

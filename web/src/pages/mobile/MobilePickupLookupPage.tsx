@@ -13,9 +13,12 @@ import {
   selectExactOrderMatch,
 } from './pickupScanLogic.js';
 import { normalizeOrderLookupValue } from '../../utils/orderLookup.js';
+import { isSessionExpired } from '../../api/sessionExpiry.js';
+import type { ApiError } from '../../api/errorMessage.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const PAGE_SIZE = 20;
+const PICKUP_LOOKUP_PATH = '/mobile/pickup';
 
 type LookupState =
   | { kind: 'idle' }
@@ -83,6 +86,13 @@ export function MobilePickupLookupPage() {
         setState({ kind: 'matches', orders: response.items });
       } catch (err) {
         if (requestId !== requestIdRef.current) return;
+        // Session cookie expired (mirrors MobileOrderLookupPage): send the
+        // volunteer to log in rather than showing an "Unauthorized" error they
+        // cannot act on.
+        if (isSessionExpired(err as ApiError)) {
+          navigate('/login', { state: { from: PICKUP_LOOKUP_PATH } });
+          return;
+        }
         const message = err instanceof Error ? err.message : 'Lookup failed';
         setState({ kind: 'error', message });
       }
@@ -92,10 +102,7 @@ export function MobilePickupLookupPage() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value.trim()) {
-      setState({ kind: 'idle' });
-      return;
-    }
+    if (!value.trim()) return;
     debounceRef.current = setTimeout(() => {
       void performLookup(value);
     }, SEARCH_DEBOUNCE_MS);
@@ -104,9 +111,18 @@ export function MobilePickupLookupPage() {
     };
   }, [value, performLookup]);
 
+  // Typing the field empty drops back to idle and retires any in-flight lookup
+  // so a slow response cannot repopulate results the volunteer just cleared.
+  const handleValueChange = useCallback((next: string) => {
+    setValue(next);
+    if (!next.trim()) {
+      requestIdRef.current += 1;
+      setState({ kind: 'idle' });
+    }
+  }, []);
+
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         page: 'lookup',
         source: result.source,
@@ -157,7 +173,7 @@ export function MobilePickupLookupPage() {
             label="Order lookup"
             hint="Type or scan an order code, then press Enter."
             value={value}
-            onChange={(e) => setValue(e.currentTarget.value)}
+            onChange={(e) => handleValueChange(e.currentTarget.value)}
             placeholder="Order number"
             inputMode="search"
             autoFocus

@@ -24,6 +24,7 @@ public class FormatAdapterRegistry
         var adapters = new IImportFormatAdapter[]
         {
             new HamptonHawks2026OrdersAdapter(),
+            new TemplateOrdersAdapter(),
             new HamptonHawksR1PlantsAdapter(),
             new HamptonHawksSbpInventoryAdapter(),
             new CanonicalOrdersAdapter(),

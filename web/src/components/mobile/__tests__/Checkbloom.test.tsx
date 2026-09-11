@@ -5,7 +5,7 @@ import { Checkbloom } from '../joy/Checkbloom.js';
 
 const mockAnnounce = vi.fn();
 
-vi.mock('../joy/JoyAriaLive.js', () => ({
+vi.mock('../joy/joyAnnounce.js', () => ({
   useJoyAnnounce: () => mockAnnounce,
 }));
 

@@ -4,6 +4,13 @@ import {
   BrandedStationGreeting,
   type QuickAction,
 } from '@/components/shared/BrandedStationGreeting.js';
+import { reportsApi } from '@/api/reports.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
+import { useAppStore } from '@/stores/appStore.js';
+import { useKioskStore } from '@/stores/kioskStore.js';
+
+// Stable reference so useAsyncData does not refetch on every render.
+const loadDashboardMetrics = () => reportsApi.dashboardMetrics();
 
 interface StationModeCard {
   title: string;
@@ -46,14 +53,6 @@ const modeCards: StationModeCard[] = [
     instruction: 'Pick up an existing draft sale at this workstation.',
     to: '/walkup/register',
     colorClass: 'border-amber-300 bg-amber-50 text-amber-900',
-  },
-  {
-    title: 'Old Walk-Up Form (legacy)',
-    mode: 'walkup',
-    icon: '🛍️',
-    instruction: 'Legacy form-based walk-up order. Secondary fallback only -- use the Register for new sales.',
-    to: '/walkup/new',
-    colorClass: 'border-gray-300 bg-gray-50 text-gray-700',
   },
   {
     title: 'Admin Tools',
@@ -140,9 +139,19 @@ function ReportsIcon() {
   );
 }
 
+const DEFAULT_WORKSTATION_NAME = 'Station';
+
 export function StationHomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const saleClosed = useAppStore((s) => s.saleClosed);
+  const kioskWorkstation = useKioskStore((s) => s.session?.workstationName ?? null);
+  const workstationName = kioskWorkstation?.trim() || DEFAULT_WORKSTATION_NAME;
+  const { data: metrics, error: metricsError } = useAsyncData(
+    loadDashboardMetrics,
+    'station-home',
+    'Failed to load sale counts',
+  );
 
   useEffect(() => {
     const presetMode = searchParams.get('mode');
@@ -185,21 +194,30 @@ export function StationHomePage() {
     },
   ];
 
-  // Placeholder stats - these could be driven by a hook in the future
-  const stats = {
-    ordersDone: 38,
-    plantsOut: 241,
-    inProgress: 12,
-  };
+  // Live numbers. The greeting used to render hardcoded 38 / 241 / 12 and a
+  // fixed "Open" ribbon, which read as real on sale day. Stats are omitted
+  // while loading or on error rather than shown wrong.
+  const stats = metrics
+    ? {
+        ordersDone: metrics.completedOrders,
+        plantsOut: metrics.totalItemsFulfilled,
+        inProgress: metrics.openOrders,
+      }
+    : undefined;
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       <BrandedStationGreeting
-        workstationName="Pickup Station 1"
-        saleStatus="open"
+        workstationName={workstationName}
+        saleStatus={saleClosed ? 'closed' : 'open'}
         stats={stats}
         quickActions={quickActions}
       />
+      {metricsError && (
+        <p className="text-xs text-hawk-600" role="status">
+          Live counts unavailable: {metricsError}
+        </p>
+      )}
     </div>
   );
 }

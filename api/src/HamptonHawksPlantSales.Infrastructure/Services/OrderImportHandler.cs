@@ -23,15 +23,27 @@ public class OrderImportHandler
         int skipped = 0;
         var issues = new List<ImportIssue>();
 
-        // Load plant catalog by SKU
-        var plants = await _db.PlantCatalogs
+        // Load plant catalog by SKU. Group first: two active SKUs differing only by
+        // case would make ToDictionary throw and fail the whole import.
+        var plants = (await _db.PlantCatalogs
             .Where(p => p.DeletedAt == null)
-            .ToDictionaryAsync(p => p.Sku, p => p.Id, StringComparer.OrdinalIgnoreCase);
+            .Select(p => new { p.Sku, p.Id })
+            .ToListAsync())
+            .GroupBy(p => p.Sku, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         // Load existing customers by PickupCode and DisplayName
-        var customersByPickupCode = await _db.Customers
+        var customersByPickupCode = (await _db.Customers
             .Where(c => c.DeletedAt == null && c.PickupCode != "")
-            .ToDictionaryAsync(c => c.PickupCode, c => c, StringComparer.OrdinalIgnoreCase);
+            .ToListAsync())
+            .GroupBy(c => c.PickupCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // IX_Customers_PickupCode is not filtered by DeletedAt, so a code held by a
+        // soft-deleted customer is still taken and must not be reissued.
+        var usedPickupCodes = new HashSet<string>(
+            await _db.Customers.IgnoreQueryFilters().Select(c => c.PickupCode).ToListAsync(),
+            StringComparer.OrdinalIgnoreCase);
         var customersByDisplayName = (await _db.Customers
             .Where(c => c.DeletedAt == null)
             .ToListAsync())
@@ -45,8 +57,10 @@ public class OrderImportHandler
             .GroupBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
+        // IX_Orders_OrderNumber is not filtered by DeletedAt either: a soft-deleted
+        // order still owns its number, and re-importing it is a unique violation.
         var existingNumbers = await _db.Orders
-            .Where(o => o.DeletedAt == null)
+            .IgnoreQueryFilters()
             .Select(o => o.OrderNumber)
             .ToListAsync();
         var usedOrderNumbers = new HashSet<string>(existingNumbers, StringComparer.OrdinalIgnoreCase);
@@ -55,29 +69,47 @@ public class OrderImportHandler
             .DefaultIfEmpty(0)
             .Max();
 
-        // Group rows by OrderNumber
+        // Group rows into orders. Rows that carry an OrderNumber group by it. Rows
+        // without one (the downloadable template) group by customer so a customer's
+        // lines become one order, then take the next free numeric order number.
         var grouped = new List<(string orderNumber, List<(Dictionary<string, string> row, int rowNumber)> lines)>();
+        var groupIndexByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var orderNumberCounter = 0;
 
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
             var orderNumber = row.GetValueOrDefault("OrderNumber")?.Trim() ?? "";
+            string groupKey;
+
+            if (string.IsNullOrWhiteSpace(orderNumber))
+            {
+                var customerKey = row.GetValueOrDefault("CustomerDisplayName")?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(customerKey))
+                {
+                    customerKey = $"{row.GetValueOrDefault("CustomerFirstName")?.Trim()} {row.GetValueOrDefault("CustomerLastName")?.Trim()}".Trim();
+                }
+                // A row with no customer at all cannot be merged with anything; keep it alone.
+                groupKey = string.IsNullOrWhiteSpace(customerKey) ? $"row:{i}" : $"customer:{customerKey}";
+            }
+            else
+            {
+                groupKey = $"number:{orderNumber}";
+            }
+
+            if (groupIndexByKey.TryGetValue(groupKey, out var index))
+            {
+                grouped[index].lines.Add((row, i + 2));
+                continue;
+            }
 
             if (string.IsNullOrWhiteSpace(orderNumber))
             {
                 orderNumber = (maxExistingInt + (++orderNumberCounter)).ToString();
             }
 
-            var existing = grouped.Find(g => g.orderNumber.Equals(orderNumber, StringComparison.OrdinalIgnoreCase));
-            if (existing.orderNumber != null)
-            {
-                existing.lines.Add((row, i + 2));
-            }
-            else
-            {
-                grouped.Add((orderNumber, new List<(Dictionary<string, string> row, int rowNumber)> { (row, i + 2) }));
-            }
+            groupIndexByKey[groupKey] = grouped.Count;
+            grouped.Add((orderNumber, new List<(Dictionary<string, string> row, int rowNumber)> { (row, i + 2) }));
         }
 
         foreach (var (orderNumber, lines) in grouped)
@@ -133,10 +165,16 @@ public class OrderImportHandler
 
             if (customer == null)
             {
-                if (string.IsNullOrWhiteSpace(pickupCode))
+                // A supplied code that belongs to a soft-deleted customer cannot be
+                // reused (unfiltered unique index), so issue a fresh one instead.
+                if (string.IsNullOrWhiteSpace(pickupCode) || usedPickupCodes.Contains(pickupCode))
                 {
-                    pickupCode = GeneratePickupCode();
+                    do
+                    {
+                        pickupCode = GeneratePickupCode();
+                    } while (usedPickupCodes.Contains(pickupCode));
                 }
+                usedPickupCodes.Add(pickupCode);
 
                 customer = new Customer
                 {
@@ -184,7 +222,7 @@ public class OrderImportHandler
                 bool.TryParse(isWalkUpStr, out isWalkUp);
 
             // Process order lines
-            var validLines = new List<(Guid plantId, int qty)>();
+            var validLines = new List<(Guid plantId, int qty, string? notes)>();
             foreach (var (row, rowNumber) in lines)
             {
                 var rawData = JsonSerializer.Serialize(row);
@@ -222,9 +260,22 @@ public class OrderImportHandler
                 }
 
                 if (!int.TryParse(qtyStr, out var qty) || qty < 1)
-                    qty = 1;
+                {
+                    issues.Add(new ImportIssue
+                    {
+                        ImportBatchId = batchId,
+                        RowNumber = rowNumber,
+                        IssueType = "InvalidQuantity",
+                        Sku = sku,
+                        Message = $"QtyOrdered '{qtyStr}' is not a positive whole number.",
+                        RawData = rawData
+                    });
+                    skipped++;
+                    continue;
+                }
 
-                validLines.Add((plantId, qty));
+                var notes = row.GetValueOrDefault("Notes")?.Trim();
+                validLines.Add((plantId, qty, string.IsNullOrWhiteSpace(notes) ? null : notes));
                 imported++;
             }
 
@@ -242,14 +293,15 @@ public class OrderImportHandler
                 };
                 _db.Orders.Add(order);
 
-                foreach (var (plantId, qty) in validLines)
+                foreach (var (plantId, qty, notes) in validLines)
                 {
                     _db.OrderLines.Add(new OrderLine
                     {
                         OrderId = order.Id,
                         PlantCatalogId = plantId,
                         QtyOrdered = qty,
-                        QtyFulfilled = 0
+                        QtyFulfilled = 0,
+                        Notes = notes
                     });
                 }
             }

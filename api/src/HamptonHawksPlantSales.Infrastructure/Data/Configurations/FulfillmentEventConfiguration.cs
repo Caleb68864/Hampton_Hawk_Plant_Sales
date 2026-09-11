@@ -22,8 +22,18 @@ public class FulfillmentEventConfiguration : IEntityTypeConfiguration<Fulfillmen
             .HasDefaultValue(1)
             .IsRequired();
 
+        builder.Property(e => e.IdempotencyKey).HasColumnType("text");
+
         builder.HasIndex(e => e.OrderId);
         builder.HasIndex(e => e.PlantCatalogId);
+
+        // Scoped per order so two stations may reuse an id without colliding, and
+        // filtered so the vast majority of rows (no key) are exempt. The unique
+        // constraint is the last line of defence if two retries race past the
+        // in-transaction replay check.
+        builder.HasIndex(e => new { e.OrderId, e.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
         builder.HasOne(e => e.Order)
             .WithMany()

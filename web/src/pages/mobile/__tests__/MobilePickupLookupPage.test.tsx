@@ -151,6 +151,19 @@ describe('MobilePickupLookupPage', () => {
     expect(mockListOrders).not.toHaveBeenCalled();
   });
 
+  it('redirects to /login when the lookup fails with 401 (session expired)', async () => {
+    mockListOrders.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }));
+
+    renderPage();
+    typeValue('100123');
+    submitForm();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login', { state: { from: '/mobile/pickup' } });
+    });
+    expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument();
+  });
+
   it('renders MobileAccessDeniedScene for a user without Pickup/Admin role', () => {
     mockCurrentUser = LOOKUP_USER;
     renderPage();

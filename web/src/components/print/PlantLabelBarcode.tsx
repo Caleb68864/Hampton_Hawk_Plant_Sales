@@ -22,9 +22,10 @@ export function PlantLabelBarcode({ value }: PlantLabelBarcodeProps) {
         background: '#ffffff',
         lineColor: '#000000',
       });
-      setRenderError(false);
     } catch {
-      setRenderError(true);
+      // Deferred so the effect body itself stays free of synchronous setState;
+      // the fallback still replaces the SVG as soon as the microtask runs.
+      queueMicrotask(() => setRenderError(true));
     }
   }, [value]);
 

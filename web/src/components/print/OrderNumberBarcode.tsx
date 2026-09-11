@@ -25,9 +25,10 @@ export function OrderNumberBarcode({ value, variant = 'card' }: OrderNumberBarco
         background: '#ffffff',
         lineColor: '#111827',
       });
-      setRenderError(false);
     } catch {
-      setRenderError(true);
+      // Deferred so the effect body itself stays free of synchronous setState;
+      // the fallback still replaces the SVG as soon as the microtask runs.
+      queueMicrotask(() => setRenderError(true));
     }
   }, [value, variant]);
 

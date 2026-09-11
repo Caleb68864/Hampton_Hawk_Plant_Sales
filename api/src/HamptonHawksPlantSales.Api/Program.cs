@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using HamptonHawksPlantSales.Api.Configuration;
 using HamptonHawksPlantSales.Api.Filters;
@@ -11,6 +12,8 @@ using HamptonHawksPlantSales.Infrastructure.Services;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportAdapters;
 using HamptonHawksPlantSales.Infrastructure.Services.ImportReading;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -70,16 +73,50 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
         };
+        // Re-validate the user on every request so disabling an account or changing
+        // roles takes effect now, not when the cookie expires.
+        options.Events.OnValidatePrincipal = CookiePrincipalValidator.ValidateAsync;
     });
 
 // Authorization with role policies
 builder.Services.AddAuthorization(options =>
 {
+    // Deny by default: any endpoint without [AllowAnonymous] requires a signed-in
+    // user, so a controller that forgets [Authorize] is not silently public.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy("PickupCapable", policy => policy.RequireRole("Admin", "Pickup"));
     options.AddPolicy("LookupCapable", policy => policy.RequireRole("Admin", "LookupPrint", "Pickup"));
     options.AddPolicy("POSCapable", policy => policy.RequireRole("Admin", "POS"));
     options.AddPolicy("ReportsCapable", policy => policy.RequireRole("Admin", "Reports"));
+});
+
+// Rate limiting. Login is throttled per client address; admin PIN failures are
+// counted by AdminPinActionFilter (only failures, so a correct PIN is never
+// throttled). Forwarded headers are not configured, so the socket address is used.
+builder.Services.AddMemoryCache();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        var payload = HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>.Fail("Too many attempts. Try again in a minute.");
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        await context.HttpContext.Response.WriteAsync(JsonSerializer.Serialize(payload, jsonOptions), cancellationToken);
+    };
+    options.AddPolicy(RateLimitPolicies.Login, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = RateLimitPolicies.LoginPermitLimit,
+                Window = RateLimitPolicies.LoginWindow,
+                QueueLimit = 0
+            }));
 });
 
 // Health checks
@@ -110,6 +147,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<ExcelRowReader>();
 builder.Services.AddSingleton<CsvRowReader>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawks2026OrdersAdapter>();
+builder.Services.AddSingleton<IImportFormatAdapter, TemplateOrdersAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawksR1PlantsAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, HamptonHawksSbpInventoryAdapter>();
 builder.Services.AddSingleton<IImportFormatAdapter, CanonicalOrdersAdapter>();
@@ -162,9 +200,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseSerilogRequestLogging();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+// Probes must stay reachable without a session despite the fallback policy.
+app.MapHealthChecks("/health").AllowAnonymous();
+// Same probe under /api so the web proxy (which only forwards /api) can reach it.
+app.MapHealthChecks("/api/health").AllowAnonymous();
 app.MapControllers();
 
 app.MapFallback(async context =>
@@ -174,7 +216,7 @@ app.MapFallback(async context =>
     var response = HamptonHawksPlantSales.Core.DTOs.ApiResponse<object>.Fail("Not found");
     var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
     await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, options));
-});
+}).AllowAnonymous();
 
 app.Run();
 

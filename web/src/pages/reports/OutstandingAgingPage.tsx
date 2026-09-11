@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { AgingBarChart } from '@/components/reports/AgingBarChart.js';
@@ -8,23 +8,18 @@ import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { OutstandingAgingBucket } from '@/types/reports.js';
 
 export function OutstandingAgingPage() {
-  const [buckets, setBuckets] = useState<OutstandingAgingBucket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    reportsApi
-      .getOutstandingAging()
-      .then((result) => setBuckets(result.buckets))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load outstanding aging.'))
-      .finally(() => setLoading(false));
-  }, [refreshTick]);
+  const { data, loading, error, reload } = useAsyncData(
+    () => reportsApi.getOutstandingAging(),
+    '',
+    'Failed to load outstanding aging.',
+  );
+  const buckets = useMemo(() => data?.buckets ?? [], [data]);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const visibleError = error && error !== dismissedError ? error : null;
 
   const totalCount = useMemo(() => buckets.reduce((sum, b) => sum + b.count, 0), [buckets]);
   const oldest = useMemo(() => {
@@ -36,7 +31,7 @@ export function OutstandingAgingPage() {
 
   const actions = (
     <>
-      <TouchButton variant="ghost" onClick={() => setRefreshTick((n) => n + 1)}>
+      <TouchButton variant="ghost" onClick={reload}>
         Refresh
       </TouchButton>
       <Link
@@ -56,7 +51,7 @@ export function OutstandingAgingPage() {
         </p>
       </section>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {visibleError && <ErrorBanner message={visibleError} onDismiss={() => setDismissedError(visibleError)} />}
 
       {!loading && buckets.length > 0 && (
         <section className="rounded-2xl border border-hawk-200 bg-white p-6 joy-shadow-plum">

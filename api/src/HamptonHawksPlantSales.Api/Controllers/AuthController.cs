@@ -1,10 +1,12 @@
 using System.Security.Claims;
+using HamptonHawksPlantSales.Api.Configuration;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HamptonHawksPlantSales.Api.Controllers;
 
@@ -21,6 +23,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     public async Task<ActionResult<ApiResponse<AuthUserResponse>>> Login([FromBody] LoginRequest request)
     {
         var user = await _userService.ValidateCredentialsAsync(request.Username, request.Password);

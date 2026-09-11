@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AudioFeedbackProvider } from '@/components/shared/AudioFeedback.js';
 import { AdminPinModal } from '@/components/shared/AdminPinModal.js';
 import { BuildBadge } from '@/components/shared/BuildBadge.js';
@@ -52,7 +52,6 @@ import { SettingsPage } from '@/pages/SettingsPage.js';
 import { UserManagementPage } from '@/pages/admin/UserManagementPage.js';
 import { StationHomePage } from '@/pages/station/StationHomePage.js';
 import { RoleRoute } from '@/routes/RoleRoute.js';
-import { WalkUpNewOrderPage } from '@/pages/walkup/WalkUpNewOrderPage.js';
 import { WalkUpRegisterPage } from '@/pages/walkup/WalkUpRegisterPage.js';
 import { useKioskStore } from '@/stores/kioskStore.js';
 import { KioskRouteGuard } from '@/routes/KioskRouteGuard.js';
@@ -104,7 +103,15 @@ function App() {
               <Route path="pickup/session/:id" element={<PickupScanSessionPage />} />
               <Route path="pickup/:orderId" element={<PickupScanPage />} />
               <Route path="lookup-print" element={<LookupPrintStationPage />} />
-              <Route path="walkup/new" element={<WalkUpNewOrderPage />} />
+              {/*
+                The legacy walk-up order page is retired: its availability check
+                counted only unfulfilled preorder lines, so walk-up lines never
+                reduced availability and the same plant could be sold repeatedly.
+                The register decrements inventory at scan time and does not have
+                that gap. Redirect rather than delete the route so bookmarks and
+                printed cheatsheets land somewhere useful instead of a 404.
+              */}
+              <Route path="walkup/new" element={<Navigate to="/walkup/register" replace />} />
               <Route path="walkup/register" element={<WalkUpRegisterPage />} />
               <Route path="walkup/register/new" element={<WalkUpRegisterPage />} />
               <Route path="walkup/register/:draftId" element={<WalkUpRegisterPage />} />

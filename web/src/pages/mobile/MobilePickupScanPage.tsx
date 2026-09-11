@@ -8,7 +8,8 @@ import { MobileAccessDeniedScene } from '../../components/mobile/MobileAccessDen
 import { MobileConnectionRequiredScene } from '../../components/mobile/MobileConnectionRequiredScene.js';
 import { Checkbloom } from '../../components/mobile/joy/Checkbloom.js';
 import { Stamp } from '../../components/mobile/joy/Stamp.js';
-import { JoyAriaLive, useJoyAnnounce } from '../../components/mobile/joy/JoyAriaLive.js';
+import { JoyAriaLive } from '../../components/mobile/joy/JoyAriaLive.js';
+import { useJoyAnnounce } from '../../components/mobile/joy/joyAnnounce.js';
 import { MobilePrimaryButton } from '../../components/mobile/buttons/MobilePrimaryButton.js';
 import { MobileGhostButton } from '../../components/mobile/buttons/MobileGhostButton.js';
 import { useAuthStore } from '../../stores/authStore.js';
@@ -27,6 +28,13 @@ const ACCEPTED_SCENE_DURATION_MS = 900;
 interface PendingScan {
   barcode: string;
   source: ScanSource;
+  /**
+   * Identifies this physical scan. Retry re-submits the same PendingScan, so the
+   * id survives the retry and the server recognises the second request as a replay
+   * instead of fulfilling another unit. A genuinely new scan builds a new object
+   * and therefore a new id.
+   */
+  scanId: string;
 }
 
 type SceneState =
@@ -51,9 +59,7 @@ function isNetworkError(err: unknown): boolean {
   return false;
 }
 
-export function MobilePickupScanPageInner() {
-  const params = useParams<{ orderId: string }>();
-  const orderId = params.orderId ?? '';
+function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const announce = useJoyAnnounce();
@@ -65,8 +71,11 @@ export function MobilePickupScanPageInner() {
   );
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [orderLoading, setOrderLoading] = useState(true);
-  const [orderError, setOrderError] = useState<string | null>(null);
+  // The wrapper remounts this component per orderId (key), so the initial
+  // state is already "loading" and the effect below only has to fetch.
+  const [orderLoading, setOrderLoading] = useState(Boolean(orderId));
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const orderError = orderId ? loadError : 'Missing order id';
   const [scene, setScene] = useState<SceneState>({ kind: 'ready' });
   const [manualValue, setManualValue] = useState('');
   const [isOnline, setIsOnline] = useState<boolean>(
@@ -87,16 +96,10 @@ export function MobilePickupScanPageInner() {
     };
   }, []);
 
-  // Load order on mount / orderId change
+  // Load order on mount
   useEffect(() => {
-    if (!orderId) {
-      setOrderLoading(false);
-      setOrderError('Missing order id');
-      return;
-    }
+    if (!orderId) return;
     let cancelled = false;
-    setOrderLoading(true);
-    setOrderError(null);
     ordersApi
       .getById(orderId)
       .then((o) => {
@@ -109,7 +112,7 @@ export function MobilePickupScanPageInner() {
         if (cancelled) return;
         setOrderLoading(false);
         const message = err instanceof Error ? err.message : 'Order not found';
-        setOrderError(message);
+        setLoadError(message);
       });
     return () => {
       cancelled = true;
@@ -131,7 +134,20 @@ export function MobilePickupScanPageInner() {
   const refreshOrder = useCallback(async () => {
     if (!orderId) return;
     try {
-      const fresh = await ordersApi.getById(orderId);
+      let fresh = await ordersApi.getById(orderId);
+      // The phone has no "Complete Order" button (the desktop station does), so
+      // the scan that fulfils the last line completes the order here. The server
+      // re-checks that every line is fulfilled before flipping the status.
+      const allFulfilled =
+        fresh.lines.length > 0 && fresh.lines.every((l) => l.qtyFulfilled >= l.qtyOrdered);
+      if (fresh.status !== 'Complete' && fresh.status !== 'Cancelled' && allFulfilled) {
+        try {
+          await ordersApi.complete(orderId);
+          fresh = await ordersApi.getById(orderId);
+        } catch {
+          // Leave it InProgress; the desktop station can still complete it.
+        }
+      }
       setOrder(fresh);
       if (fresh.status === 'Complete') setScene({ kind: 'complete' });
     } catch {
@@ -144,7 +160,6 @@ export function MobilePickupScanPageInner() {
       if (!orderId) return;
       lastPendingRef.current = pending;
       // Audit telemetry stopgap (REQ-021).
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         orderId,
         source: pending.source,
@@ -156,6 +171,7 @@ export function MobilePickupScanPageInner() {
         const response = await fulfillmentApi.scan(orderId, {
           barcode: pending.barcode,
           quantity: 1,
+          scanId: pending.scanId,
         });
 
         const result = response.result;
@@ -223,13 +239,12 @@ export function MobilePickupScanPageInner() {
     const trimmed = manualValue.trim();
     if (!trimmed) return;
     setManualValue('');
-    void submitScan({ barcode: trimmed, source: 'manual-entry' });
+    void submitScan({ barcode: trimmed, source: 'manual-entry', scanId: crypto.randomUUID() });
   };
 
   const [wrongCodeType, setWrongCodeType] = useState(false);
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
-      // eslint-disable-next-line no-console
       console.debug('mobile-pickup-scan', {
         page: 'scan',
         orderId,
@@ -248,9 +263,9 @@ export function MobilePickupScanPageInner() {
         return;
       }
       setWrongCodeType(false);
-      void submitScan({ barcode: result.code, source: result.source });
+      void submitScan({ barcode: result.code, source: result.source, scanId: crypto.randomUUID() });
     },
-    [order, submitScan],
+    [order, orderId, submitScan],
   );
 
   const dismissRecoverable = () => {
@@ -611,9 +626,11 @@ export function MobilePickupScanPageInner() {
 }
 
 export function MobilePickupScanPage() {
+  const params = useParams<{ orderId: string }>();
+  const orderId = params.orderId ?? '';
   return (
     <JoyAriaLive>
-      <MobilePickupScanPageInner />
+      <MobilePickupScanPageInner key={orderId} orderId={orderId} />
     </JoyAriaLive>
   );
 }

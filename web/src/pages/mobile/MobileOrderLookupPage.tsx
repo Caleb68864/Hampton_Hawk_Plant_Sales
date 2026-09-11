@@ -23,7 +23,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 const PAGE_SIZE = 20;
 const LOOKUP_PATH = '/mobile/lookup';
 
-type AxiosLikeError = { response?: { status?: number } } & Error;
+type AxiosLikeError = { status?: number; response?: { status?: number } } & Error;
 
 type LookupState =
   | { kind: 'idle' }
@@ -36,7 +36,7 @@ type LookupState =
 
 function isAuthExpired(err: unknown): boolean {
   const e = err as AxiosLikeError | undefined;
-  return !!e && typeof e === 'object' && e.response?.status === 401;
+  return !!e && typeof e === 'object' && (e.status === 401 || e.response?.status === 401);
 }
 
 function isNetworkLikeError(err: unknown): boolean {
@@ -122,8 +122,10 @@ export function MobileOrderLookupPage() {
         if (partition.exact && canScan) {
           // Scan-permitted user with single exact match — auto-navigate.
           setState({ kind: 'navigating', orderId: partition.exact.id });
-          // Brief Joy moment, then navigate.
+          // Brief Joy moment, then navigate -- unless a newer lookup superseded
+          // this one (or the page went away) in the meantime.
           window.setTimeout(() => {
+            if (requestId !== requestIdRef.current) return;
             navigate(`/mobile/pickup/${partition.exact!.id}`);
           }, 350);
           return;
@@ -164,14 +166,18 @@ export function MobileOrderLookupPage() {
     [navigate, canScan],
   );
 
+  // Invalidate any in-flight lookup (and its pending auto-navigate) on unmount.
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, []);
+
   // Debounced search on typed value.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (offline) return;
-    if (!value.trim()) {
-      setState({ kind: 'idle' });
-      return;
-    }
+    if (!value.trim()) return;
     debounceRef.current = setTimeout(() => {
       void performLookup(value);
     }, SEARCH_DEBOUNCE_MS);
@@ -183,7 +189,6 @@ export function MobileOrderLookupPage() {
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
       // REQ-021: scan-source telemetry — debug channel only, no console.log of code.
-      // eslint-disable-next-line no-console
       console.debug('mobile-lookup-scan', {
         source: result.source,
         code: result.code,
@@ -199,7 +204,18 @@ export function MobileOrderLookupPage() {
     void performLookup(value);
   }, [performLookup, value]);
 
+  // Typing the field empty drops back to idle and retires any in-flight lookup
+  // so a slow response cannot repopulate results the volunteer just cleared.
+  const handleValueChange = useCallback((next: string) => {
+    setValue(next);
+    if (!next.trim()) {
+      requestIdRef.current += 1;
+      setState({ kind: 'idle' });
+    }
+  }, []);
+
   const handleClear = useCallback(() => {
+    requestIdRef.current += 1;
     setValue('');
     setState({ kind: 'idle' });
     if (inputRef.current) {
@@ -255,7 +271,7 @@ export function MobileOrderLookupPage() {
                 label="Order lookup"
                 hint="Type an order number or name, or scan an order code."
                 value={value}
-                onChange={(e) => setValue(e.currentTarget.value)}
+                onChange={(e) => handleValueChange(e.currentTarget.value)}
                 placeholder="OR-00184 — Patel — Daniel Kim"
                 inputMode="search"
                 autoFocus

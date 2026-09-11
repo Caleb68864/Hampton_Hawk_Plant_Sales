@@ -36,6 +36,13 @@ public class ScanSessionServiceTests
         return (service, adminMock);
     }
 
+    // Barcode fixtures below carry a lowercase body, because that is the only
+    // thing either writer produces: AppDbContext.NewPicklistBarcode emits
+    // lowercase hex and the AddPicklistBarcodes backfill uses Postgres md5().
+    // They used to be uppercase -- a value no writer can create and one that
+    // uppercasing leaves unchanged, which is why none of these tests could see
+    // that every real scan missed. PicklistBarcodeCaseTests covers the casing
+    // contract itself.
     private static Customer SeedCustomer(AppDbContext db, string picklistBarcode)
     {
         var customer = new Customer
@@ -69,7 +76,7 @@ public class ScanSessionServiceTests
     public async Task CreateFromPicklist_AggregatesAllOpenOrders()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-AAAAAAAA");
+        var customer = SeedCustomer(db, "PLB-aaaaaaaa");
 
         // 5 plants total across 2 orders
         var plants = Enumerable.Range(0, 5).Select(i => TestDataBuilder.CreatePlant(
@@ -96,7 +103,7 @@ public class ScanSessionServiceTests
 
         var (service, _) = CreateService(db);
 
-        var session = await service.CreateFromPicklistAsync("PLB-AAAAAAAA", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-aaaaaaaa", "Pickup-1");
 
         session.Id.Should().NotBeEmpty();
         session.IncludedOrderIds.Should().HaveCount(2);
@@ -111,7 +118,7 @@ public class ScanSessionServiceTests
     public async Task CreateFromPicklist_ExcludesDraftOrdersFromAggregation()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-BBBBBBBB");
+        var customer = SeedCustomer(db, "PLB-bbbbbbbb");
 
         var plant1 = TestDataBuilder.CreatePlant(name: "P1", barcode: "BC-100", sku: "SKU-100");
         var plant2 = TestDataBuilder.CreatePlant(name: "P2", barcode: "BC-101", sku: "SKU-101");
@@ -127,7 +134,7 @@ public class ScanSessionServiceTests
 
         var (service, _) = CreateService(db);
 
-        var session = await service.CreateFromPicklistAsync("PLB-BBBBBBBB", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-bbbbbbbb", "Pickup-1");
 
         session.IncludedOrderIds.Should().ContainSingle().Which.Should().Be(openOrder.Id);
         session.AggregatedLines.Should().ContainSingle();
@@ -140,7 +147,7 @@ public class ScanSessionServiceTests
         using var db = CreateDb();
         var (service, _) = CreateService(db);
 
-        var act = async () => await service.CreateFromPicklistAsync("PLB-ZZZZZZZZ", "Pickup-1");
+        var act = async () => await service.CreateFromPicklistAsync("PLB-zzzzzzzz", "Pickup-1");
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
     }
@@ -160,7 +167,7 @@ public class ScanSessionServiceTests
     public async Task CreateFromPicklist_NoOpenOrders_ThrowsValidation()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-CCCCCCCC");
+        var customer = SeedCustomer(db, "PLB-cccccccc");
         // Only completed and draft orders -- not eligible.
         db.Orders.Add(TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete));
         db.Orders.Add(TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Draft));
@@ -168,7 +175,7 @@ public class ScanSessionServiceTests
 
         var (service, _) = CreateService(db);
 
-        var act = async () => await service.CreateFromPicklistAsync("PLB-CCCCCCCC", "Pickup-1");
+        var act = async () => await service.CreateFromPicklistAsync("PLB-cccccccc", "Pickup-1");
 
         await act.Should().ThrowAsync<ValidationException>();
     }
@@ -177,7 +184,7 @@ public class ScanSessionServiceTests
     public async Task CreateFromPicklist_ForSeller_AggregatesOpenOrders()
     {
         using var db = CreateDb();
-        var seller = SeedSeller(db, "PLS-DDDDDDDD");
+        var seller = SeedSeller(db, "PLS-dddddddd");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-S1", sku: "SKU-S1");
         var order = new Order
         {
@@ -197,7 +204,7 @@ public class ScanSessionServiceTests
 
         var (service, _) = CreateService(db);
 
-        var session = await service.CreateFromPicklistAsync("PLS-DDDDDDDD", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLS-dddddddd", "Pickup-1");
 
         session.EntityKind.Should().Be(ScanSessionEntityKind.Seller);
         session.IncludedOrderIds.Should().ContainSingle().Which.Should().Be(order.Id);
@@ -208,7 +215,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_AcceptsAndDecrementsLine()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-EEEEEEEE");
+        var customer = SeedCustomer(db, "PLB-eeeeeeee");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-E1", sku: "SKU-E1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 2);
@@ -222,7 +229,7 @@ public class ScanSessionServiceTests
 
         var (service, _) = CreateService(db);
 
-        var session = await service.CreateFromPicklistAsync("PLB-EEEEEEEE", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-eeeeeeee", "Pickup-1");
 
         var result = await service.ScanInSessionAsync(session.Id, "BC-E1");
 
@@ -241,7 +248,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_PlantNotInCatalog_ReturnsNotFound()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-FFFFFFFF");
+        var customer = SeedCustomer(db, "PLB-ffffffff");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-F1", sku: "SKU-F1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -253,7 +260,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-FFFFFFFF", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-ffffffff", "Pickup-1");
 
         var result = await service.ScanInSessionAsync(session.Id, "DOES-NOT-EXIST");
 
@@ -264,7 +271,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_AlreadyFulfilled_ReturnsAlreadyFulfilled()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-GGGGGGGG");
+        var customer = SeedCustomer(db, "PLB-gggggggg");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-G1", sku: "SKU-G1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         // Line is already fully fulfilled.
@@ -277,7 +284,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-GGGGGGGG", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-gggggggg", "Pickup-1");
 
         var result = await service.ScanInSessionAsync(session.Id, "BC-G1");
 
@@ -288,7 +295,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_PlantNotInAnyOrder_ReturnsNotInSession()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-HHHHHHHH");
+        var customer = SeedCustomer(db, "PLB-hhhhhhhh");
         var orderedPlant = TestDataBuilder.CreatePlant(barcode: "BC-H1", sku: "SKU-H1");
         var foreignPlant = TestDataBuilder.CreatePlant(barcode: "BC-FOR", sku: "SKU-FOR");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
@@ -302,7 +309,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-HHHHHHHH", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-hhhhhhhh", "Pickup-1");
 
         var result = await service.ScanInSessionAsync(session.Id, "BC-FOR");
 
@@ -313,7 +320,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_SaleClosed_ReturnsSaleClosedBlocked()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-IIIIIIII");
+        var customer = SeedCustomer(db, "PLB-iiiiiiii");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-I1", sku: "SKU-I1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -324,7 +331,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-IIIIIIII", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-iiiiiiii", "Pickup-1");
 
         var (closedService, _) = CreateService(db, saleClosed: true);
 
@@ -337,7 +344,7 @@ public class ScanSessionServiceTests
     public async Task Close_StampsClosedAt_AndSubsequentScansReturnExpired()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-JJJJJJJJ");
+        var customer = SeedCustomer(db, "PLB-jjjjjjjj");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-J1", sku: "SKU-J1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -348,7 +355,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-JJJJJJJJ", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-jjjjjjjj", "Pickup-1");
 
         var closed = await service.CloseAsync(session.Id);
         closed.ClosedAt.Should().NotBeNull();
@@ -361,7 +368,7 @@ public class ScanSessionServiceTests
     public async Task ExpireStaleAsync_ClosesSessionsPastExpiry()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-KKKKKKKK");
+        var customer = SeedCustomer(db, "PLB-kkkkkkkk");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-K1", sku: "SKU-K1");
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -371,7 +378,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-KKKKKKKK", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-kkkkkkkk", "Pickup-1");
 
         // Force-expire by mutating the row directly.
         var entity = await db.ScanSessions.FindAsync(session.Id);
@@ -389,7 +396,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_PastExpiresAt_ReturnsExpired()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-LLLLLLLL");
+        var customer = SeedCustomer(db, "PLB-llllllll");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-L1", sku: "SKU-L1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -400,7 +407,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-LLLLLLLL", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-llllllll", "Pickup-1");
 
         var entity = await db.ScanSessions.FindAsync(session.Id);
         entity!.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
@@ -415,7 +422,7 @@ public class ScanSessionServiceTests
     public async Task ScanInSession_RoutesToOldestOrderFirst()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-MMMMMMMM");
+        var customer = SeedCustomer(db, "PLB-mmmmmmmm");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-M1", sku: "SKU-M1");
 
         var olderOrder = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
@@ -433,7 +440,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-MMMMMMMM", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-mmmmmmmm", "Pickup-1");
 
         var first = await service.ScanInSessionAsync(session.Id, "BC-M1");
         first.Result.Should().Be(ScanSessionResult.Accepted);
@@ -459,7 +466,7 @@ public class ScanSessionServiceTests
     public async Task Expand_GatedOff_ThrowsInvalidOperation()
     {
         using var db = CreateDb();
-        var customer = SeedCustomer(db, "PLB-NNNNNNNN");
+        var customer = SeedCustomer(db, "PLB-nnnnnnnn");
         var plant = TestDataBuilder.CreatePlant(barcode: "BC-N1", sku: "SKU-N1");
         var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
         var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 1);
@@ -469,7 +476,7 @@ public class ScanSessionServiceTests
         await db.SaveChangesAsync();
 
         var (service, _) = CreateService(db);
-        var session = await service.CreateFromPicklistAsync("PLB-NNNNNNNN", "Pickup-1");
+        var session = await service.CreateFromPicklistAsync("PLB-nnnnnnnn", "Pickup-1");
 
         var act = async () => await service.ExpandAsync(session.Id, new[] { Guid.NewGuid() });
 

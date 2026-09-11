@@ -25,6 +25,8 @@ public class ImportController : ControllerBase
     /// Imports plants from a CSV or Excel file.
     /// </summary>
     /// <param name="file">CSV or Excel file containing plant data.</param>
+    /// <param name="dryRun">Validate and report without writing anything.</param>
+    /// <param name="upsertBySku">Update existing plants matched by SKU instead of reporting them as duplicates.</param>
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("plants")]
@@ -45,6 +47,7 @@ public class ImportController : ControllerBase
     /// Imports inventory quantities from a CSV or Excel file.
     /// </summary>
     /// <param name="file">CSV or Excel file containing inventory data.</param>
+    /// <param name="dryRun">Validate and report without writing anything.</param>
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("inventory")]
@@ -65,6 +68,8 @@ public class ImportController : ControllerBase
     /// Imports orders from a CSV or Excel file.
     /// </summary>
     /// <param name="file">CSV or Excel file containing order data.</param>
+    /// <param name="dryRun">Validate and report without writing anything.</param>
+    /// <param name="resolveDuplicateOrderNumbers">Assign fresh order numbers to rows that collide with existing orders instead of rejecting them.</param>
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("orders")]

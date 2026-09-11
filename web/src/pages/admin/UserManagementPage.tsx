@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAuthStore } from '@/stores/authStore.js';
+import { useDialog } from '@/hooks/useDialog.js';
 import type { AppUser } from '@/types/user.js';
 import type { AppRole } from '@/types/auth.js';
 import {
@@ -106,12 +107,13 @@ function UserFormModal({ user, onClose, onSaved }: UserFormModalProps) {
   }
 
   const presets = stationUserPresets();
+  const dialogProps = useDialog({ isOpen: true, onClose: saving ? undefined : onClose, labelledBy: 'user-form-title' });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+      <div {...dialogProps} className="w-full max-w-md rounded-2xl bg-white shadow-xl outline-none">
         <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 id="user-form-title" className="text-lg font-semibold text-gray-900">
             {isEdit ? `Edit ${user.username}` : 'Create User'}
           </h2>
         </div>
@@ -261,11 +263,13 @@ function ResetPasswordModal({ user, onClose, onDone }: ResetPasswordModalProps) 
     }
   }
 
+  const dialogProps = useDialog({ isOpen: true, onClose: saving ? undefined : onClose, labelledBy: 'reset-password-title' });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
+      <div {...dialogProps} className="w-full max-w-sm rounded-2xl bg-white shadow-xl outline-none">
         <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Reset password — {user.username}</h2>
+          <h2 id="reset-password-title" className="text-lg font-semibold text-gray-900">Reset password — {user.username}</h2>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}

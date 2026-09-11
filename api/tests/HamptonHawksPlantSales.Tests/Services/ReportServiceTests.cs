@@ -340,10 +340,13 @@ public class ReportServiceTests
 
         var customer = TestDataBuilder.CreateCustomer("Daily Customer");
         var plant = TestDataBuilder.CreatePlant(sku: "DS", barcode: "BC-DS");
+        plant.Price = 10m;
         db.Customers.Add(customer);
         db.PlantCatalogs.Add(plant);
 
-        // Two orders dated DAY_A — one walk-up ($50), one preorder ($30)
+        // Two orders dated DAY_A — one walk-up (3 x $10), one preorder (2 x $10).
+        // Revenue is the line total; the cash tendered at the register (which
+        // includes change due) must not count as revenue.
         var today1 = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: true);
         today1.AmountTendered = 50m;
         var today2 = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: false);
@@ -382,13 +385,13 @@ public class ReportServiceTests
         var day26 = result.Days.First(d => d.Date == new DateOnly(2026, 4, 26));
         day26.OrderCount.Should().Be(2);
         day26.ItemCount.Should().Be(5);
-        day26.Revenue.Should().Be(80m);
+        day26.Revenue.Should().Be(50m);
         day26.WalkUpCount.Should().Be(1);
         day26.PreorderCount.Should().Be(1);
 
         var day25 = result.Days.First(d => d.Date == new DateOnly(2026, 4, 25));
         day25.OrderCount.Should().Be(1);
-        day25.Revenue.Should().Be(20m);
+        day25.Revenue.Should().Be(40m);
     }
 
     // ── SS-02 (Wave 2): Payment breakdown ──
@@ -411,7 +414,10 @@ public class ReportServiceTests
         using var db = MockDbContextFactory.Create();
 
         var customer = TestDataBuilder.CreateCustomer("PM Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "PM", barcode: "BC-PM");
+        plant.Price = 10m;
         db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
 
         var cash1 = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete);
         cash1.PaymentMethod = "cash";
@@ -434,6 +440,12 @@ public class ReportServiceTests
         draft.AmountTendered = 9999m;
 
         db.Orders.AddRange(cash1, cash2, card, nullPm, draft);
+        db.OrderLines.AddRange(
+            TestDataBuilder.CreateOrderLine(cash1.Id, plant.Id, qtyOrdered: 4),
+            TestDataBuilder.CreateOrderLine(cash2.Id, plant.Id, qtyOrdered: 6),
+            TestDataBuilder.CreateOrderLine(card.Id, plant.Id, qtyOrdered: 10),
+            TestDataBuilder.CreateOrderLine(draft.Id, plant.Id, qtyOrdered: 99)
+        );
         await db.SaveChangesAsync();
 
         var service = new ReportService(db);
@@ -479,6 +491,7 @@ public class ReportServiceTests
 
         var customer = TestDataBuilder.CreateCustomer("WvP Customer");
         var plant = TestDataBuilder.CreatePlant(sku: "WVP", barcode: "BC-WVP");
+        plant.Price = 20m;
         db.Customers.Add(customer);
         db.PlantCatalogs.Add(plant);
 
@@ -509,8 +522,8 @@ public class ReportServiceTests
 
         result.WalkUp.OrderCount.Should().Be(3);
         result.WalkUp.ItemCount.Should().Be(4);
-        result.WalkUp.Revenue.Should().Be(100m);
-        result.WalkUp.AverageOrder.Should().BeApproximately(33.33m, 0.01m);
+        result.WalkUp.Revenue.Should().Be(80m);
+        result.WalkUp.AverageOrder.Should().BeApproximately(26.67m, 0.01m);
 
         result.Preorder.OrderCount.Should().Be(1);
         result.Preorder.ItemCount.Should().Be(5);

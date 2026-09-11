@@ -105,3 +105,13 @@ export function grandTotal(draft: DraftOrder | null, prices: PlantPriceMap): num
   if (!draft) return 0;
   return draft.lines.reduce((sum, line) => sum + lineSubtotal(line, prices), 0);
 }
+
+/**
+ * Lines whose price is unknown -- either the catalog has no price or the price
+ * fetch failed. These contribute $0.00 to the grand total, so the register must
+ * say so rather than present a silently short total to the cashier.
+ */
+export function unpricedLineCount(draft: DraftOrder | null, prices: PlantPriceMap): number {
+  if (!draft) return 0;
+  return draft.lines.filter((line) => prices[line.plantCatalogId] == null).length;
+}

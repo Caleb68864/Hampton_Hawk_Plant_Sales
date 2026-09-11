@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { inventoryApi } from '@/api/inventory.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { BotanicalEmptyState } from '@/components/shared/BotanicalEmptyState.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { InventoryItem } from '@/types/inventory.js';
 
 const PAGE_SIZE = 200;
@@ -19,21 +20,16 @@ interface WalkUpPrefillLine {
 
 export function LeftoverInventoryPage() {
   const navigate = useNavigate();
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    inventoryApi
-      .list({ page: 1, pageSize: PAGE_SIZE })
-      .then((result) => setItems(result.items ?? []))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load inventory report.'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, loading, error } = useAsyncData(
+    () => inventoryApi.list({ page: 1, pageSize: PAGE_SIZE }),
+    '',
+    'Failed to load inventory report.',
+  );
+  const items: InventoryItem[] = useMemo(() => data?.items ?? [], [data]);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const visibleError = error && error !== dismissedError ? error : null;
 
   const leftoverItems = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -84,8 +80,10 @@ export function LeftoverInventoryPage() {
 
     if (selectedItems.length === 0) return;
 
-    const serialized = encodeURIComponent(JSON.stringify(selectedItems));
-    navigate(`/walkup/new?prefill=${serialized}`, {
+    // The retired walk-up form accepted a ?prefill payload; the register builds its
+    // basket by scanning instead, so the selection is carried in router state only.
+    // The register ignores it today -- the volunteer scans the leftovers directly.
+    navigate('/walkup/register', {
       state: { preselectedItems: selectedItems },
     });
   }
@@ -106,7 +104,7 @@ export function LeftoverInventoryPage() {
             Create Walk-Up from Selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
           </TouchButton>
           <Link
-            to="/walkup/new"
+            to="/walkup/register"
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             Create Cash & Carry Sale
@@ -122,7 +120,7 @@ export function LeftoverInventoryPage() {
     >
       <p className="text-sm text-gray-600">Post-sale report for cash-and-carry planning.</p>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {visibleError && <ErrorBanner message={visibleError} onDismiss={() => setDismissedError(visibleError)} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard label="Plants with Leftover Stock" value={totalLeftoverPlants} />

@@ -7,5 +7,11 @@ public enum FulfillmentResult
     WrongOrder,
     AlreadyFulfilled,
     SaleClosedBlocked,
-    OutOfStock
+    OutOfStock,
+    /// <summary>
+    /// Audit record written when an accepted scan is reversed. Distinct from
+    /// <see cref="Accepted"/> so a later undo cannot select the reversal itself as
+    /// "the last accepted scan" and so scan-count reports do not count it.
+    /// </summary>
+    Undone
 }

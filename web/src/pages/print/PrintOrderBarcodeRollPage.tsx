@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { OrderNumberBarcode } from '@/components/print/OrderNumberBarcode.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { Order } from '@/types/order.js';
 
 const COUNT_PRESETS = [10, 20, 40, 80];
@@ -20,22 +21,13 @@ function parseCount(value: string | null): number {
 export function PrintOrderBarcodeRollPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: order, loading, error } = useAsyncData<Order | null>(
+    () => (orderId ? ordersApi.getById(orderId) : Promise.resolve(null)),
+    orderId ?? '',
+    'Failed to load order',
+  );
 
   const count = parseCount(searchParams.get('count'));
-
-  useEffect(() => {
-    if (!orderId) return;
-    setLoading(true);
-    setError(null);
-    ordersApi
-      .getById(orderId)
-      .then(setOrder)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load order'))
-      .finally(() => setLoading(false));
-  }, [orderId]);
 
   const labels = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { customersApi } from '@/api/customers.js';
@@ -6,13 +6,23 @@ import { PrintLayout } from '@/components/print/PrintLayout.js';
 import { CustomerPickListSheet } from '@/components/print/CustomerPickListSheet.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import { resolvePrintReturnTo } from '@/utils/printRoutes.js';
+import { PRINT_FETCH_CONCURRENCY, settleWithConcurrency } from '@/utils/mapWithConcurrency.js';
 import type { Order } from '@/types/order.js';
 import type { Customer } from '@/types/customer.js';
 
 interface CustomerBundle {
   customer: Customer;
   orders: Order[];
+  /** Orders that belong to this customer but could not be fetched. */
+  failedOrderCount: number;
+}
+
+interface CustomerBatch {
+  bundles: CustomerBundle[];
+  /** Customer ids that could not be fetched at all. */
+  failedCustomerCount: number;
 }
 
 function parseIds(raw: string | null): string[] {
@@ -29,63 +39,49 @@ async function loadCustomerBundle(customerId: string): Promise<CustomerBundle> {
     ordersApi.list({ customerId, pageSize: 500 }),
   ]);
 
-  const fullOrders = await Promise.all(
-    orderListResult.items.map((order) => ordersApi.getById(order.id)),
+  // Per-order failures drop that order from the sheet rather than the whole
+  // batch; the fan-out is bounded so 500 customers cannot open 500+ sockets.
+  const settled = await settleWithConcurrency(
+    orderListResult.items,
+    PRINT_FETCH_CONCURRENCY,
+    (order) => ordersApi.getById(order.id),
   );
+  const fullOrders = settled.flatMap((r) => (r.ok ? [r.value] : []));
 
   return {
     customer,
     orders: fullOrders,
+    failedOrderCount: settled.length - fullOrders.length,
   };
+}
+
+async function loadCustomerBundles(customerIds: string[]): Promise<CustomerBatch> {
+  if (customerIds.length === 0) return { bundles: [], failedCustomerCount: 0 };
+  const results = await settleWithConcurrency(customerIds, PRINT_FETCH_CONCURRENCY, (id) => loadCustomerBundle(id));
+  const bundles = results.flatMap((r) => (r.ok ? [r.value] : []));
+  if (bundles.length === 0) {
+    throw new Error('None of the selected customers could be loaded.');
+  }
+  return { bundles, failedCustomerCount: results.length - bundles.length };
 }
 
 export function PrintCustomersBatchPage() {
   const [searchParams] = useSearchParams();
   const customerIds = useMemo(() => parseIds(searchParams.get('ids')), [searchParams]);
 
-  const [bundles, setBundles] = useState<CustomerBundle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error } = useAsyncData(
+    () => loadCustomerBundles(customerIds),
+    customerIds.join(','),
+    'Failed to load customers',
+  );
+  const bundles: CustomerBundle[] = useMemo(() => data?.bundles ?? [], [data]);
+  const failedCustomerCount = data?.failedCustomerCount ?? 0;
+  const failedOrderCount = bundles.reduce((sum, b) => sum + b.failedOrderCount, 0);
 
   const [includePreorders, setIncludePreorders] = useState(true);
   const [includeWalkups, setIncludeWalkups] = useState(true);
   const [includeCompleted, setIncludeCompleted] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'qty'>('name');
-
-  useEffect(() => {
-    if (customerIds.length === 0) {
-      setBundles([]);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all(customerIds.map((id) => loadCustomerBundle(id)))
-      .then((results) => {
-        if (cancelled) return;
-        const byId = new Map(results.map((bundle) => [bundle.customer.id, bundle]));
-        setBundles(
-          customerIds
-            .map((id) => byId.get(id))
-            .filter((bundle): bundle is CustomerBundle => Boolean(bundle)),
-        );
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load customers');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [customerIds]);
 
   const printedAt = useMemo(() => new Date().toLocaleString(), []);
 
@@ -111,6 +107,13 @@ export function PrintCustomersBatchPage() {
 
   return (
     <PrintLayout backTo={backTo}>
+      {(failedCustomerCount > 0 || failedOrderCount > 0) && (
+        <p className="no-print mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+          {failedCustomerCount > 0 && `${failedCustomerCount} customer${failedCustomerCount === 1 ? '' : 's'} could not be loaded. `}
+          {failedOrderCount > 0 && `${failedOrderCount} order${failedOrderCount === 1 ? '' : 's'} could not be loaded. `}
+          Those are not included in this print run.
+        </p>
+      )}
       <div className="no-print mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Print Options</h2>
         <div className="flex flex-wrap items-center gap-4">

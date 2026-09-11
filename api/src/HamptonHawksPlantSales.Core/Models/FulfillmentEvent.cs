@@ -19,6 +19,15 @@ public class FulfillmentEvent : EventEntity
     /// </summary>
     public int Quantity { get; set; } = 1;
 
+    /// <summary>
+    /// Client-supplied scan id, recorded only on Accepted events. A retried request
+    /// carrying a scan id already present on this order is a replay of one scan, not
+    /// a second scan, and must not decrement inventory again. Null for events from
+    /// clients that do not send an id, and for non-mutating outcomes (NotFound,
+    /// WrongOrder, AlreadyFulfilled) which are safe to re-evaluate.
+    /// </summary>
+    public string? IdempotencyKey { get; set; }
+
     public Order Order { get; set; } = null!;
     public PlantCatalog? PlantCatalog { get; set; }
 }

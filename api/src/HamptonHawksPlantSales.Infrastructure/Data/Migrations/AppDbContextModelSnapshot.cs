@@ -151,7 +151,7 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasFilter("\"DeletedAt\" IS NULL");
 
-                    b.ToTable("AppUsers");
+                    b.ToTable("AppUsers", (string)null);
                 });
 
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUserRole", b =>
@@ -160,12 +160,11 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Role")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("AppUserId", "Role");
 
-                    b.ToTable("AppUserRoles");
+                    b.ToTable("AppUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.Customer", b =>
@@ -243,6 +242,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasColumnType("text");
+
                     b.Property<string>("Message")
                         .HasColumnType("text");
 
@@ -266,6 +268,10 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.HasIndex("OrderId");
 
                     b.HasIndex("PlantCatalogId");
+
+                    b.HasIndex("OrderId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
                     b.ToTable("FulfillmentEvents");
                 });

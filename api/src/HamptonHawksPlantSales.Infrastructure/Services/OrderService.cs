@@ -65,8 +65,7 @@ public class OrderService : IOrderService
 
         var totalCount = await query.CountAsync();
 
-        var items = await query
-            .OrderByDescending(o => o.CreatedAt)
+        var items = await ApplyListSort(query, paging)
             .Skip((paging.Page - 1) * paging.PageSize)
             .Take(paging.PageSize)
             .Select(o => MapToResponse(o, false))
@@ -79,6 +78,33 @@ public class OrderService : IOrderService
             Page = paging.Page,
             PageSize = paging.PageSize
         };
+    }
+
+    /// <summary>
+    /// Applies the whitelisted list sort. Unknown or missing keys fall back to newest-first,
+    /// and every sort is tie-broken on CreatedAt/Id so paging stays stable.
+    /// </summary>
+    private static IOrderedQueryable<Order> ApplyListSort(IQueryable<Order> query, PaginationParams paging)
+    {
+        var desc = paging.SortDescending;
+        var key = (paging.SortBy ?? string.Empty).Trim().ToLowerInvariant();
+
+        IOrderedQueryable<Order> ordered = key switch
+        {
+            "ordernumber" => desc ? query.OrderByDescending(o => o.OrderNumber) : query.OrderBy(o => o.OrderNumber),
+            "customerdisplayname" or "customer" => desc
+                ? query.OrderByDescending(o => o.Customer != null ? o.Customer.DisplayName : string.Empty)
+                : query.OrderBy(o => o.Customer != null ? o.Customer.DisplayName : string.Empty),
+            "sellerdisplayname" or "seller" => desc
+                ? query.OrderByDescending(o => o.Seller != null ? o.Seller.DisplayName : string.Empty)
+                : query.OrderBy(o => o.Seller != null ? o.Seller.DisplayName : string.Empty),
+            "status" => desc ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
+            "iswalkup" or "type" => desc ? query.OrderByDescending(o => o.IsWalkUp) : query.OrderBy(o => o.IsWalkUp),
+            "createdat" or "date" => desc ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt),
+            _ => query.OrderByDescending(o => o.CreatedAt),
+        };
+
+        return ordered.ThenByDescending(o => o.CreatedAt).ThenBy(o => o.Id);
     }
 
     public async Task<OrderResponse?> GetByIdAsync(Guid id)
@@ -97,7 +123,16 @@ public class OrderService : IOrderService
     {
         var orderNumber = string.IsNullOrWhiteSpace(request.OrderNumber)
             ? await GenerateOrderNumber()
-            : request.OrderNumber;
+            : request.OrderNumber.Trim();
+
+        // OrderNumber carries an unfiltered unique index; a caller-supplied duplicate
+        // would otherwise surface as a raw DbUpdateException / HTTP 500.
+        if (!string.IsNullOrWhiteSpace(request.OrderNumber)
+            && await _db.Orders.IgnoreQueryFilters().AnyAsync(o => o.OrderNumber == orderNumber))
+        {
+            throw new ValidationException($"Order number '{orderNumber}' already exists.");
+        }
+
         var order = new Order
         {
             CustomerId = request.CustomerId,
@@ -107,21 +142,62 @@ public class OrderService : IOrderService
             IsWalkUp = request.IsWalkUp
         };
 
-        if (request.Lines != null)
+        var lines = request.Lines ?? new List<CreateOrderLineRequest>();
+        foreach (var line in lines)
         {
-            foreach (var line in request.Lines)
+            order.OrderLines.Add(new OrderLine
             {
-                order.OrderLines.Add(new OrderLine
-                {
-                    PlantCatalogId = line.PlantCatalogId,
-                    QtyOrdered = line.QtyOrdered,
-                    Notes = line.Notes
-                });
-            }
+                PlantCatalogId = line.PlantCatalogId,
+                QtyOrdered = line.QtyOrdered,
+                Notes = line.Notes
+            });
         }
 
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+        // Walk-up lines are subject to the availability invariant on every route,
+        // including create-with-lines. Same lock/validate/retry scope as AddLineAsync
+        // so two stations cannot both claim the last unit.
+        var needsWalkUpLock = request.IsWalkUp && lines.Count > 0;
+        if (!needsWalkUpLock)
+        {
+            _db.Orders.Add(order);
+            await _db.SaveChangesAsync();
+            return (await GetByIdAsync(order.Id))!;
+        }
+
+        var requestedByPlant = lines
+            .GroupBy(l => l.PlantCatalogId)
+            .Select(g => new { PlantCatalogId = g.Key, Qty = g.Sum(l => l.QtyOrdered) })
+            .OrderBy(x => x.PlantCatalogId) // fixed lock order across callers
+            .ToList();
+
+        await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
+        {
+            var transaction = await WalkUpRowLocks.BeginAsync(_db);
+            try
+            {
+                foreach (var item in requestedByPlant)
+                {
+                    await WalkUpRowLocks.AcquireAsync(_db, item.PlantCatalogId, order.Id);
+                    var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(item.PlantCatalogId, item.Qty);
+                    if (!allowed)
+                        throw new ValidationException(errorMessage!);
+                }
+
+                _db.Orders.Add(order);
+                await _db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
 
         return (await GetByIdAsync(order.Id))!;
     }
@@ -159,32 +235,64 @@ public class OrderService : IOrderService
 
         bool isOverride = false;
 
-        if (order.IsWalkUp)
-        {
+        // Only walk-up orders are subject to the availability invariant, so only they
+        // need the lock scope; preorder lines keep the cheaper unlocked insert.
+        var needsWalkUpLock = order.IsWalkUp;
+        if (needsWalkUpLock)
             isOverride = TryAdminOverride(adminPin, adminReason);
 
-            if (!isOverride)
-            {
-                var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
-                if (!allowed)
-                    throw new ValidationException(errorMessage!);
-            }
-        }
-
-        var line = new OrderLine
+        // Serializable conflicts are expected when two stations touch the same plant,
+        // so retry rather than surfacing the raw abort to the volunteer.
+        var line = await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
         {
-            OrderId = orderId,
-            PlantCatalogId = request.PlantCatalogId,
-            QtyOrdered = request.QtyOrdered,
-            Notes = request.Notes
-        };
+            var transaction = needsWalkUpLock ? await WalkUpRowLocks.BeginAsync(_db) : null;
 
-        _db.OrderLines.Add(line);
+            try
+            {
+                if (needsWalkUpLock)
+                {
+                    await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
 
-        if (isOverride)
-            order.HasIssue = true;
+                    if (!isOverride)
+                    {
+                        var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(request.PlantCatalogId, request.QtyOrdered);
+                        if (!allowed)
+                            throw new ValidationException(errorMessage!);
+                    }
+                }
 
-        await _db.SaveChangesAsync();
+                var newLine = new OrderLine
+                {
+                    OrderId = orderId,
+                    PlantCatalogId = request.PlantCatalogId,
+                    QtyOrdered = request.QtyOrdered,
+                    Notes = request.Notes
+                };
+
+                _db.OrderLines.Add(newLine);
+
+                if (isOverride)
+                {
+                    var tracked = await _db.Orders.FirstAsync(o => o.Id == orderId);
+                    tracked.HasIssue = true;
+                }
+
+                await _db.SaveChangesAsync();
+
+                if (transaction != null) await transaction.CommitAsync();
+
+                return newLine;
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
 
         if (isOverride)
         {
@@ -223,22 +331,87 @@ public class OrderService : IOrderService
 
     public async Task<OrderLineResponse> UpdateLineAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request)
     {
+        var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
+            ?? throw new KeyNotFoundException("Order not found.");
+
+        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
+            throw new ValidationException("QtyOrdered must be greater than 0.");
+
+        // Walk-up lines are subject to the availability invariant, so raising the
+        // quantity or moving the line to another plant must validate under the same
+        // locks AddLineAsync takes -- otherwise this route is a bypass around them.
+        if (!order.IsWalkUp)
+            return await UpdateLineUnlockedAsync(orderId, lineId, request);
+
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
+        {
+            var target = await _db.OrderLines
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            var newPlantCatalogId = request.PlantCatalogId ?? target.PlantCatalogId;
+            var transaction = await WalkUpRowLocks.BeginAsync(_db);
+
+            try
+            {
+                await WalkUpRowLocks.AcquireAsync(_db, newPlantCatalogId, orderId);
+
+                var line = await _db.OrderLines
+                    .Include(l => l.PlantCatalog)
+                    .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
+                    ?? throw new KeyNotFoundException("Order line not found.");
+
+                var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
+                ValidateLineChange(line, newQtyOrdered, newPlantCatalogId);
+
+                // Only the units being added are new demand. When the plant stays the
+                // same the line's existing remainder is already in the commitments sum,
+                // so validate the increment; when it moves, the whole quantity is new
+                // demand on the new plant.
+                var plantChanged = newPlantCatalogId != line.PlantCatalogId;
+                var addedDemand = plantChanged ? newQtyOrdered : newQtyOrdered - line.QtyOrdered;
+                if (addedDemand > 0)
+                {
+                    var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(newPlantCatalogId, addedDemand);
+                    if (!allowed)
+                        throw new ValidationException(errorMessage!);
+                }
+
+                line.PlantCatalogId = newPlantCatalogId;
+                line.QtyOrdered = newQtyOrdered;
+                line.Notes = request.Notes;
+
+                await _db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+
+                if (plantChanged)
+                    await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
+
+                return MapLineToResponse(line);
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
+    }
+
+    private async Task<OrderLineResponse> UpdateLineUnlockedAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request)
+    {
         var line = await _db.OrderLines
             .Include(l => l.PlantCatalog)
             .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order line not found.");
 
         var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
-        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
-            throw new ValidationException("QtyOrdered must be greater than 0.");
-
-        if (newQtyOrdered < line.QtyFulfilled)
-            throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
-
         var newPlantCatalogId = request.PlantCatalogId ?? line.PlantCatalogId;
-
-        if (line.QtyFulfilled > 0 && newPlantCatalogId != line.PlantCatalogId)
-            throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
+        ValidateLineChange(line, newQtyOrdered, newPlantCatalogId);
 
         var plantChanged = newPlantCatalogId != line.PlantCatalogId;
         line.PlantCatalogId = newPlantCatalogId;
@@ -247,13 +420,19 @@ public class OrderService : IOrderService
 
         await _db.SaveChangesAsync();
 
-        // Reload plant catalog if changed
         if (plantChanged)
-        {
             await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
-        }
 
         return MapLineToResponse(line);
+    }
+
+    private static void ValidateLineChange(OrderLine line, int newQtyOrdered, Guid newPlantCatalogId)
+    {
+        if (newQtyOrdered < line.QtyFulfilled)
+            throw new ValidationException($"Cannot reduce QtyOrdered below QtyFulfilled ({line.QtyFulfilled}).");
+
+        if (line.QtyFulfilled > 0 && newPlantCatalogId != line.PlantCatalogId)
+            throw new ValidationException("Cannot change plant on a line that has been partially fulfilled.");
     }
 
     public async Task<bool> DeleteLineAsync(Guid orderId, Guid lineId)
@@ -325,7 +504,11 @@ public class OrderService : IOrderService
     public async Task<int> DeleteAllOrdersAsync()
     {
         // Hard delete all orders and their dependents. Used only from the admin danger-zone action.
+        // Every table with a FK to Orders must be cleared first: FulfillmentEvents, OrderLines,
+        // and ScanSessionMembers (Restrict FK -- once any scan session has run, leaving it out
+        // aborts the whole wipe with a 23503).
         using var tx = await _db.Database.BeginTransactionAsync();
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"ScanSessionMembers\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"FulfillmentEvents\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"OrderLines\"");
         var count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Orders\"");
@@ -468,7 +651,7 @@ public class OrderService : IOrderService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
 
@@ -530,7 +713,7 @@ public class OrderService : IOrderService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
 

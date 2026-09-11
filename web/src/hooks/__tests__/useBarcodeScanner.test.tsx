@@ -8,6 +8,10 @@ const state = vi.hoisted(() => ({
   trackStop: vi.fn(),
   controlsStop: vi.fn(),
   throwOnDecode: null as Error | null,
+  // When set, decodeFromConstraints waits on it before "acquiring" the camera,
+  // so a test can stop()/unmount while the acquisition is still pending.
+  decodeGate: null as Promise<void> | null,
+  lastVideoEl: null as HTMLVideoElement | null,
 }));
 
 vi.mock('@zxing/browser', () => {
@@ -17,8 +21,10 @@ vi.mock('@zxing/browser', () => {
       el: HTMLVideoElement,
       cb: (r: unknown, e?: unknown) => void,
     ) {
+      if (state.decodeGate) await state.decodeGate;
       if (state.throwOnDecode) throw state.throwOnDecode;
       state.cb = cb;
+      state.lastVideoEl = el;
       const track = { stop: state.trackStop, kind: 'video' };
       const stream = { getTracks: () => [track], getVideoTracks: () => [track] };
       // Use the setter on the fake video element (injected via document.createElement mock)
@@ -60,6 +66,8 @@ describe('useBarcodeScanner', () => {
     state.trackStop.mockReset();
     state.controlsStop.mockReset();
     state.throwOnDecode = null;
+    state.decodeGate = null;
+    state.lastVideoEl = null;
     vi.stubGlobal('isSecureContext', true);
 
     // Patch document.createElement so the hook's internal video element
@@ -138,6 +146,107 @@ describe('useBarcodeScanner', () => {
     act(() => { result.current.stop(); });
 
     expect(state.trackStop).toHaveBeenCalled();
+  });
+
+  it('(e) latest onScan is used even though the decode callback was registered once at start()', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ onScan }: { onScan: (r: unknown) => void }) => useBarcodeScanner({ onScan }),
+      { initialProps: { onScan: first } },
+    );
+
+    await act(async () => { await result.current.start(); });
+    rerender({ onScan: second });
+
+    act(() => { state.cb!(makeScanResult('NEW')); });
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('(f) backgrounding releases the camera and returning re-acquires it', async () => {
+    const onScan = vi.fn();
+    const { result } = renderHook(() => useBarcodeScanner({ onScan }));
+
+    await act(async () => { await result.current.start(); });
+    expect(result.current.status).toBe('active');
+
+    const setVisibility = (value: DocumentVisibilityState) => {
+      Object.defineProperty(document, 'visibilityState', { value, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    act(() => { setVisibility('hidden'); });
+    expect(state.trackStop).toHaveBeenCalled();
+    expect(state.controlsStop).toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
+
+    state.cb = null;
+    await act(async () => { setVisibility('visible'); });
+
+    expect(result.current.status).toBe('active');
+    expect(state.cb).not.toBeNull();
+  });
+
+  it('(g) stop() during a pending start() releases the late-arriving camera stream', async () => {
+    let openGate: () => void = () => {};
+    state.decodeGate = new Promise<void>((resolve) => { openGate = resolve; });
+
+    const onScan = vi.fn();
+    const { result } = renderHook(() => useBarcodeScanner({ onScan }));
+
+    let startDone: Promise<void> = Promise.resolve();
+    await act(async () => {
+      startDone = result.current.start();
+      // Let listVideoInputDevices resolve so the hidden <video> exists and the
+      // decode is what is pending.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('requesting-permission');
+
+    // Volunteer navigates away (or the page hides) before the camera answers.
+    act(() => { result.current.stop(); });
+    expect(result.current.status).toBe('idle');
+
+    await act(async () => {
+      openGate();
+      await startDone;
+    });
+
+    // The stream that arrived after stop() must be torn down, not adopted.
+    expect(state.controlsStop).toHaveBeenCalled();
+    expect(state.trackStop).toHaveBeenCalled();
+    expect(state.lastVideoEl?.parentElement).toBeNull();
+    expect(state.lastVideoEl?.srcObject).toBeNull();
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('(h) unmount during a pending start() releases the late-arriving camera stream', async () => {
+    let openGate: () => void = () => {};
+    state.decodeGate = new Promise<void>((resolve) => { openGate = resolve; });
+
+    const onScan = vi.fn();
+    const { result, unmount } = renderHook(() => useBarcodeScanner({ onScan }));
+
+    let startDone: Promise<void> = Promise.resolve();
+    await act(async () => {
+      startDone = result.current.start();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    unmount();
+
+    await act(async () => {
+      openGate();
+      await startDone;
+    });
+
+    expect(state.controlsStop).toHaveBeenCalled();
+    expect(state.trackStop).toHaveBeenCalled();
+    expect(state.lastVideoEl?.parentElement).toBeNull();
   });
 
   it('insecure-context: start() short-circuits without calling decodeFromConstraints', async () => {

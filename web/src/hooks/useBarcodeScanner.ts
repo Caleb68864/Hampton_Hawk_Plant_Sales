@@ -64,8 +64,17 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
   const prevCodeRef = useRef<string | null>(null);
   const prevAtMsRef = useRef<number>(0);
   const pausedRef = useRef(paused);
+  // The zxing decode callback is registered once at start() and keeps whatever
+  // handleResult it closed over. Route through a ref so a caller's latest onScan
+  // (which may close over freshly loaded state, e.g. the current order) is the one
+  // that runs, without restarting the camera on every render.
+  const onScanRef = useRef(onScan);
+  // Whether the camera was live when the page was hidden, so it can be brought
+  // back on return instead of leaving a dead preview.
+  const resumeOnVisibleRef = useRef(false);
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 
   const createHiddenVideo = useCallback((): HTMLVideoElement => {
     const videoEl = document.createElement('video');
@@ -96,7 +105,26 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
     videoElRef.current = null;
   }, []);
 
+  // Generation token for start()/switchDevice(). Both await the camera before
+  // they can register controls; a stop() or unmount during that await bumps
+  // the token so the late-arriving stream is released instead of adopted (the
+  // old code left the camera light on and a hidden <video> in <body>).
+  const startSeqRef = useRef(0);
+
+  // Release a stream that arrived for a superseded start(): the refs no longer
+  // point at this element, so tear it down directly.
+  const releaseVideo = useCallback((videoEl: HTMLVideoElement, controls: { stop: () => void } | null) => {
+    controls?.stop();
+    const stream = videoEl.srcObject as MediaStream | null;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      videoEl.srcObject = null;
+    }
+    videoEl.parentElement?.removeChild(videoEl);
+  }, []);
+
   const stop = useCallback(() => {
+    startSeqRef.current += 1;
     if (controlsRef.current) { controlsRef.current.stop(); controlsRef.current = null; }
     stopTracks();
     setStatus('idle');
@@ -118,9 +146,9 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         scannedAtUtc: new Date(now).toISOString(),
       };
       setLastResult(normalized);
-      onScan(normalized);
+      onScanRef.current(normalized);
     },
-    [cooldownMs, onScan]
+    [cooldownMs]
   );
   const ignoreDecodeErr = (err: unknown) => {
     const e = err as Error;
@@ -137,11 +165,13 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       setError({ kind: 'insecure-context', message: 'Camera access requires a secure context (HTTPS or localhost).' });
       return;
     }
+    const seq = ++startSeqRef.current;
     setStatus('requesting-permission');
     setError(null);
     try {
       const reader = new BrowserMultiFormatReader(DECODE_HINTS);
       const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      if (seq !== startSeqRef.current) return;
       const cameraDevices: CameraDevice[] = videoDevices.map((d) => ({
         deviceId: d.deviceId,
         label: d.label || ('Camera ' + d.deviceId.slice(0, 8)),
@@ -154,6 +184,10 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         if (result) handleResult(result as unknown as ZxingResult);
         if (err) ignoreDecodeErr(err);
       });
+      if (seq !== startSeqRef.current) {
+        releaseVideo(videoEl, controls);
+        return;
+      }
       controlsRef.current = controls;
       setStatus('active');
       if (cameraDevices.length > 0) setSelectedDeviceId(cameraDevices[0].deviceId);
@@ -166,6 +200,9 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
         }
       }
     } catch (err) {
+      // A start that was stopped/unmounted mid-flight must not resurrect an
+      // error state on whatever the hook is doing now.
+      if (seq !== startSeqRef.current) return;
       const e = err as Error;
       let kind: ScannerErrorKind = 'unknown';
       if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') kind = 'permission-denied';
@@ -174,10 +211,11 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
       setStatus('error');
       setError({ kind, message: e.message });
     }
-  }, [handleResult, createHiddenVideo]);
+  }, [handleResult, createHiddenVideo, releaseVideo]);
   const switchDevice = useCallback(
     async (deviceId: string) => {
       stop();
+      const seq = ++startSeqRef.current;
       setSelectedDeviceId(deviceId);
       const reader = new BrowserMultiFormatReader(DECODE_HINTS);
       const videoEl = createHiddenVideo();
@@ -187,15 +225,20 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
           if (result) handleResult(result as unknown as ZxingResult);
           if (err) ignoreDecodeErr(err);
         });
+        if (seq !== startSeqRef.current) {
+          releaseVideo(videoEl, devControls);
+          return;
+        }
         controlsRef.current = devControls;
         setStatus('active');
       } catch (err) {
+        if (seq !== startSeqRef.current) return;
         const e = err as Error;
         setStatus('error');
         setError({ kind: 'unknown', message: e.message });
       }
     },
-    [handleResult, stop, createHiddenVideo]
+    [handleResult, stop, createHiddenVideo, releaseVideo]
   );
 
   const toggleTorch = useCallback(async () => {
@@ -216,14 +259,25 @@ export function useBarcodeScanner(options: BarcodeScannerOptions): BarcodeScanne
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') stopTracks();
+      if (document.visibilityState === 'hidden') {
+        // Release the camera while backgrounded, but remember to re-acquire it:
+        // stopping only the tracks left status 'active' with no stream behind it,
+        // so a volunteer who locked the phone came back to a black preview and
+        // had to reload the page.
+        resumeOnVisibleRef.current = controlsRef.current !== null;
+        stop();
+      } else if (document.visibilityState === 'visible' && resumeOnVisibleRef.current) {
+        resumeOnVisibleRef.current = false;
+        void start();
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [stopTracks]);
+  }, [start, stop]);
 
   useEffect(() => {
     return () => {
+      startSeqRef.current += 1;
       if (controlsRef.current) { controlsRef.current.stop(); controlsRef.current = null; }
       stopTracks();
     };

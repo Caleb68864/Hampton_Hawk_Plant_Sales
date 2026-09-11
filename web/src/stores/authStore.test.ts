@@ -100,3 +100,15 @@ test('restoreSession sets unauthenticated when API call fails', async () => {
   assert.equal(state.sessionStatus, 'unauthenticated');
   assert.equal(state.currentUser, null);
 });
+
+test('opening a second PIN modal cancels the first caller instead of orphaning it', async () => {
+  resetAuthStore();
+
+  const first = useAuthStore.getState().openPinModal();
+  const second = useAuthStore.getState().openPinModal();
+
+  assert.equal(await first, null, 'the superseded caller must settle as cancelled');
+
+  useAuthStore.getState().submitPin('1234', 'because');
+  assert.deepEqual(await second, { pin: '1234', reason: 'because' });
+});

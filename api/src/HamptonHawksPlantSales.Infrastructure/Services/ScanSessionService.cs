@@ -11,8 +11,6 @@ namespace HamptonHawksPlantSales.Infrastructure.Services;
 
 public class ScanSessionService : IScanSessionService
 {
-    private const string BuyerPrefix = "PLB-";
-    private const string StudentPrefix = "PLS-";
     private const string AdHocExpandSettingKey = "scanSessionAdHocExpandEnabled";
 
     private readonly AppDbContext _db;
@@ -38,14 +36,19 @@ public class ScanSessionService : IScanSessionService
         if (string.IsNullOrWhiteSpace(workstationName))
             throw new ValidationException("Workstation name is required.");
 
-        var trimmed = scannedBarcode.Trim();
+        // The pickup station uppercases before posting (orderLookup.ts ends in
+        // .toUpperCase()) while both writers store a lowercase body, and this
+        // comparison is a case-sensitive `==` against a Postgres text column.
+        // Canonicalise the scan to the stored form so the equality -- and the
+        // unique index behind it -- still holds whatever case arrives.
+        var trimmed = PicklistBarcodes.Normalize(scannedBarcode);
 
         ScanSessionEntityKind kind;
         Guid entityId;
         string entityName;
         string entityKindLabel;
 
-        if (trimmed.StartsWith(BuyerPrefix, StringComparison.OrdinalIgnoreCase))
+        if (PicklistBarcodes.IsBuyer(trimmed))
         {
             var customer = await _db.Customers
                 .AsNoTracking()
@@ -59,7 +62,7 @@ public class ScanSessionService : IScanSessionService
             entityName = customer.DisplayName;
             entityKindLabel = "customer";
         }
-        else if (trimmed.StartsWith(StudentPrefix, StringComparison.OrdinalIgnoreCase))
+        else if (PicklistBarcodes.IsStudent(trimmed))
         {
             var seller = await _db.Sellers
                 .AsNoTracking()
@@ -202,6 +205,21 @@ public class ScanSessionService : IScanSessionService
             };
         }
 
+        // Every side effect below happens inside the transaction, so a serialization
+        // failure (two scanners on the same plant) can be retried from a clean slate
+        // instead of surfacing a database abort to the volunteer.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            ScanInSessionLockedAsync(sessionId, sessionExisting, plant, plantBarcode, memberOrderIds, quantity));
+    }
+
+    private async Task<ScanSessionScanResponse> ScanInSessionLockedAsync(
+        Guid sessionId,
+        ScanSession sessionExisting,
+        PlantCatalog plant,
+        string plantBarcode,
+        List<Guid> memberOrderIds,
+        int quantity)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -223,7 +241,7 @@ public class ScanSessionService : IScanSessionService
             var nowTx = DateTimeOffset.UtcNow;
             if (lockedSession == null || lockedSession.ClosedAt != null || lockedSession.ExpiresAt < nowTx)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.Expired,
@@ -267,7 +285,7 @@ public class ScanSessionService : IScanSessionService
                     select ol.Id
                 ).AnyAsync();
 
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
 
                 return new ScanSessionScanResponse
                 {
@@ -300,7 +318,7 @@ public class ScanSessionService : IScanSessionService
 
             if (lockedInventory == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.OutOfStock,
@@ -312,7 +330,7 @@ public class ScanSessionService : IScanSessionService
 
             if (lockedInventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.OutOfStock,
@@ -376,7 +394,7 @@ public class ScanSessionService : IScanSessionService
             // another scanner), surface AlreadyFulfilled rather than a misleading Accepted.
             if (totalApplied == 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 return new ScanSessionScanResponse
                 {
                     Result = ScanSessionResult.AlreadyFulfilled,
@@ -404,7 +422,7 @@ public class ScanSessionService : IScanSessionService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }

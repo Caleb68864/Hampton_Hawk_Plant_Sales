@@ -1,3 +1,5 @@
+import { useId } from 'react';
+import { useDialog } from '@/hooks/useDialog.js';
 import type { BulkOperationResult } from '@/types/order.js';
 
 export interface BulkResultModalProps {
@@ -23,6 +25,9 @@ export function BulkResultModal({
   orderNumberById,
   onClose,
 }: BulkResultModalProps) {
+  const titleId = useId();
+  const dialogProps = useDialog({ isOpen: isOpen && result !== null, onClose, labelledBy: titleId });
+
   if (!isOpen || !result) return null;
 
   const total = result.outcomes.length;
@@ -35,10 +40,11 @@ export function BulkResultModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[80vh] flex flex-col"
+        {...dialogProps}
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[80vh] flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-900">Bulk operation result</h2>
+        <h2 id={titleId} className="text-lg font-semibold text-gray-900">Bulk operation result</h2>
         <p className="mt-1 text-sm text-gray-600">
           {succeeded} of {total} order{total === 1 ? '' : 's'} processed
           {skipped > 0 ? `; ${skipped} skipped` : ''}.

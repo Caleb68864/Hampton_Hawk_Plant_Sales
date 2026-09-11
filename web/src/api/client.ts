@@ -1,19 +1,32 @@
 import axios from 'axios';
 import type { ApiResponse } from '../types/api.js';
-import { getApiErrorMessage } from './errorMessage.js';
+import { toApiError } from './errorMessage.js';
+import { handleUnauthorized } from './sessionExpiry.js';
+
+// Sale-day networking is a field LAN, not a datacenter: a dropped AP association
+// leaves a socket open with nothing on the other end. Without a ceiling the request
+// hangs forever, the volunteer sees a spinner that never resolves, and they re-tap --
+// which is how duplicate scans get submitted. Fail fast and let them retry knowingly.
+const REQUEST_TIMEOUT_MS = 10_000;
 
 const apiClient = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
-      const message = getApiErrorMessage(error);
-      return Promise.reject(new Error(message));
+      const apiError = toApiError(error);
+      // A kiosk logged in the night before outlives the sliding session cookie.
+      // Without this, every request fails with an "Unauthorized" banner and
+      // nothing ever sends the volunteer back to the login page: ProtectedRoute
+      // only checks the session once, on mount.
+      handleUnauthorized(apiError);
+      return Promise.reject(apiError);
     }
     return Promise.reject(error);
   },
@@ -63,11 +76,16 @@ export async function delWithHeaders<T = void>(url: string, headers: Record<stri
   return unwrap<T>(await apiClient.delete<ApiResponse<T>>(url, { headers }));
 }
 
+// File imports parse a whole spreadsheet server-side and legitimately outrun the
+// interactive timeout, so uploads get their own much larger ceiling.
+const UPLOAD_TIMEOUT_MS = 120_000;
+
 export async function postForm<T>(url: string, formData: FormData, params?: Record<string, unknown>): Promise<T> {
   return unwrap<T>(
     await apiClient.post<ApiResponse<T>>(url, formData, {
       params,
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
     }),
   );
 }

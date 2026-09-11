@@ -17,6 +17,40 @@ public class RequestValidatorTests
     }
 
     [Fact]
+    public void CreateOrderValidator_RejectsNonPositiveLineQuantity()
+    {
+        var validator = new CreateOrderValidator();
+
+        var result = validator.Validate(new CreateOrderRequest
+        {
+            CustomerId = Guid.NewGuid(),
+            Lines = new List<CreateOrderLineRequest>
+            {
+                new() { PlantCatalogId = Guid.NewGuid(), QtyOrdered = 0 },
+                new() { PlantCatalogId = Guid.Empty, QtyOrdered = -3 },
+            }
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Quantity ordered must be greater than zero.");
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Plant is required for each line.");
+    }
+
+    [Fact]
+    public void CreateOrderValidator_AcceptsPositiveLines()
+    {
+        var validator = new CreateOrderValidator();
+
+        var result = validator.Validate(new CreateOrderRequest
+        {
+            CustomerId = Guid.NewGuid(),
+            Lines = new List<CreateOrderLineRequest> { new() { PlantCatalogId = Guid.NewGuid(), QtyOrdered = 2 } }
+        });
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
     public void CreateOrderValidator_RequiresCustomerId()
     {
         var validator = new CreateOrderValidator();

@@ -15,7 +15,8 @@ export interface OrderLine {
 
 export interface Order {
   id: string;
-  customerId: string;
+  /** Null for walk-up register sales, which carry no customer record. */
+  customerId: string | null;
   customerDisplayName: string;
   sellerId: string | null;
   sellerDisplayName: string | null;

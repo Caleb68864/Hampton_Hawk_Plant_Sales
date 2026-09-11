@@ -22,6 +22,12 @@ public class ExceptionHandlerMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // The client went away (scanner page navigated, phone locked). Not a
+            // server fault: no 500 in the log, and nobody is listening for a body.
+            _logger.LogDebug("Request {Method} {Path} aborted by client.", context.Request.Method, context.Request.Path);
+        }
         catch (Exception ex)
         {
             await HandleExceptionAsync(context, ex);
@@ -30,6 +36,15 @@ public class ExceptionHandlerMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        if (context.Response.HasStarted)
+        {
+            // Headers are already on the wire; writing a JSON envelope now would
+            // corrupt the response. Log and let the connection close.
+            _logger.LogError(exception, "Exception after response started for {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+            return;
+        }
+
         var statusCode = exception switch
         {
             ValidationException => (int)HttpStatusCode.BadRequest,
@@ -41,6 +56,9 @@ public class ExceptionHandlerMiddleware
 
         if (statusCode == (int)HttpStatusCode.InternalServerError)
             _logger.LogError(exception, "Unhandled exception");
+        else
+            _logger.LogWarning("{ExceptionType} mapped to {StatusCode} for {Method} {Path}: {Message}",
+                exception.GetType().Name, statusCode, context.Request.Method, context.Request.Path, exception.Message);
 
         var response = new ApiResponse<object>
         {

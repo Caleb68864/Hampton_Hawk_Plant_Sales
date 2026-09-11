@@ -1,5 +1,5 @@
 import { type FC, useEffect } from 'react';
-import { useJoyAnnounce } from './JoyAriaLive.js';
+import { useJoyAnnounce } from './joyAnnounce.js';
 
 interface SeedProps {
   emptyMessage?: string;

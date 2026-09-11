@@ -21,19 +21,22 @@ public class ReportService : IReportService
     {
         // SS-05: exclude Draft (walk-up cash-register in-progress) orders from
         // every dashboard aggregate. Drafts are not real revenue/order activity.
-        var orders = _db.Orders.Where(o => o.DeletedAt == null && o.Status != OrderStatus.Draft);
+        // Cancelled orders are excluded too: nothing was sold, so they must not
+        // inflate order counts, item totals, or revenue.
+        var orders = _db.Orders.Where(o => o.DeletedAt == null && o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled);
 
         var totalOrders = await orders.CountAsync();
         var openOrders = await orders.CountAsync(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress);
         var completedOrders = await orders.CountAsync(o => o.Status == OrderStatus.Complete);
 
-        var ordersByStatus = await orders
+        var ordersByStatus = await _db.Orders
+            .Where(o => o.DeletedAt == null && o.Status != OrderStatus.Draft)
             .GroupBy(o => o.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
 
         var orderLines = _db.OrderLines
-            .Where(ol => ol.Order.DeletedAt == null && ol.DeletedAt == null && ol.Order.Status != OrderStatus.Draft);
+            .Where(ol => ol.Order.DeletedAt == null && ol.DeletedAt == null && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled);
 
         var totalItemsOrdered = await orderLines.SumAsync(ol => ol.QtyOrdered);
         var totalItemsFulfilled = await orderLines.SumAsync(ol => ol.QtyFulfilled);
@@ -86,7 +89,7 @@ public class ReportService : IReportService
             .Include(o => o.Customer)
             .Include(o => o.Seller)
             .Include(o => o.OrderLines)
-            .Where(o => o.DeletedAt == null && o.HasIssue && o.Status != OrderStatus.Draft)
+            .Where(o => o.DeletedAt == null && o.HasIssue && o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled)
             .OrderByDescending(o => o.CreatedAt)
             .Select(o => new ProblemOrderResponse
             {
@@ -107,7 +110,7 @@ public class ReportService : IReportService
         return await _db.Orders
             .Include(o => o.Customer)
             .Include(o => o.OrderLines)
-            .Where(o => o.DeletedAt == null && o.SellerId == sellerId && o.Status != OrderStatus.Draft)
+            .Where(o => o.DeletedAt == null && o.SellerId == sellerId && o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled)
             .OrderByDescending(o => o.CreatedAt)
             .Select(o => new SellerOrderSummaryResponse
             {
@@ -151,18 +154,18 @@ public class ReportService : IReportService
             {
                 SellerId = s.Id,
                 SellerDisplayName = s.DisplayName,
-                OrderCount = _db.Orders.Count(o => o.SellerId == s.Id && o.Status != OrderStatus.Draft),
+                OrderCount = _db.Orders.Count(o => o.SellerId == s.Id && o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled),
                 ItemsOrdered = _db.OrderLines
-                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
                 ItemsFulfilled = _db.OrderLines
-                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
                 RevenueOrdered = _db.OrderLines
-                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 RevenueFulfilled = _db.OrderLines
-                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.SellerId == s.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
@@ -176,18 +179,18 @@ public class ReportService : IReportService
             {
                 CustomerId = c.Id,
                 CustomerDisplayName = c.DisplayName,
-                OrderCount = _db.Orders.Count(o => o.CustomerId == c.Id && o.Status != OrderStatus.Draft),
+                OrderCount = _db.Orders.Count(o => o.CustomerId == c.Id && o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled),
                 ItemsOrdered = _db.OrderLines
-                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
                 ItemsFulfilled = _db.OrderLines
-                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
                 RevenueOrdered = _db.OrderLines
-                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 RevenueFulfilled = _db.OrderLines
-                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.Order.CustomerId == c.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
@@ -203,21 +206,21 @@ public class ReportService : IReportService
                 PlantName = p.Name,
                 PlantSku = p.Sku,
                 OrderCount = _db.OrderLines
-                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Select(ol => ol.OrderId)
                     .Distinct()
                     .Count(),
                 ItemsOrdered = _db.OrderLines
-                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0,
                 ItemsFulfilled = _db.OrderLines
-                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (int?)ol.QtyFulfilled) ?? 0,
                 RevenueOrdered = _db.OrderLines
-                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyOrdered * (p.Price ?? 0m))) ?? 0m,
                 RevenueFulfilled = _db.OrderLines
-                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft)
+                    .Where(ol => ol.PlantCatalogId == p.Id && ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
                     .Sum(ol => (decimal?)(ol.QtyFulfilled * (p.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
@@ -248,7 +251,9 @@ public class ReportService : IReportService
                 o.Id,
                 o.CreatedAt,
                 o.IsWalkUp,
-                Revenue = o.AmountTendered ?? 0m,
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 ItemCount = o.OrderLines
                     .Where(ol => ol.DeletedAt == null)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0
@@ -280,7 +285,9 @@ public class ReportService : IReportService
             .Select(o => new
             {
                 Method = o.PaymentMethod,
-                Revenue = o.AmountTendered ?? 0m
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
 
@@ -312,7 +319,9 @@ public class ReportService : IReportService
             .Select(o => new ChannelOrderProjection
             {
                 IsWalkUp = o.IsWalkUp,
-                Revenue = o.AmountTendered ?? 0m,
+                Revenue = o.OrderLines
+                    .Where(ol => ol.DeletedAt == null)
+                    .Sum(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m,
                 ItemCount = o.OrderLines
                     .Where(ol => ol.DeletedAt == null)
                     .Sum(ol => (int?)ol.QtyOrdered) ?? 0
@@ -341,7 +350,9 @@ public class ReportService : IReportService
 
     public async Task<StatusFunnelResponse> GetOrderStatusFunnelAsync()
     {
-        var orders = BaseOrders();
+        // The funnel enumerates statuses, so Cancelled stays visible here as its own
+        // bucket even though every revenue/count aggregate excludes it.
+        var orders = _db.Orders.Where(o => o.Status != OrderStatus.Draft);
 
         var counts = await orders
             .GroupBy(o => o.Status)
@@ -375,7 +386,7 @@ public class ReportService : IReportService
         }
 
         var lines = _db.OrderLines
-            .Where(ol => ol.Order.Status != OrderStatus.Draft);
+            .Where(ol => ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled);
 
         var grouped = await lines
             .GroupBy(ol => new { ol.PlantCatalogId, ol.PlantCatalog.Name })
@@ -430,8 +441,10 @@ public class ReportService : IReportService
 
     // ── SS-02 (Wave 2) helpers ──
 
+    // Reportable orders: not a register draft, not cancelled. Cancelled orders
+    // produced no sale and would otherwise inflate every count and revenue figure.
     private IQueryable<Order> BaseOrders() =>
-        _db.Orders.Where(o => o.Status != OrderStatus.Draft);
+        _db.Orders.Where(o => o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled);
 
     private static IQueryable<Order> ApplyOrderRange(IQueryable<Order> source, DateTime? from, DateTime? to)
     {
@@ -489,13 +502,15 @@ public class ReportService : IReportService
 
         var orders = BaseOrders();
 
-        var totalRevenue = await orders.SumAsync(o => (decimal?)(o.AmountTendered ?? 0m)) ?? 0m;
+        var totalRevenue = await orders
+            .SelectMany(o => o.OrderLines.Where(ol => ol.DeletedAt == null))
+            .SumAsync(ol => (decimal?)(ol.QtyOrdered * (ol.PlantCatalog.Price ?? 0m))) ?? 0m;
         var totalOrdersToday = await orders.CountAsync(o => o.CreatedAt >= todayStart && o.CreatedAt < tomorrowStart);
         var ordersCompleted = await orders.CountAsync(o => o.Status == OrderStatus.Complete);
         var ordersOpen = await orders.CountAsync(o => o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress);
 
         var itemsScannedTotal = await _db.OrderLines
-            .Where(ol => ol.Order.Status != OrderStatus.Draft)
+            .Where(ol => ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled)
             .SumAsync(ol => (int?)ol.QtyFulfilled) ?? 0;
 
         // FulfillmentEvent base scope: exclude events whose parent order is
@@ -504,7 +519,7 @@ public class ReportService : IReportService
         // but we filter defensively.
         var acceptedEvents = _db.FulfillmentEvents
             .Where(e => e.Result == FulfillmentResult.Accepted
-                        && e.Order.Status != OrderStatus.Draft);
+                        && e.Order.Status != OrderStatus.Draft && e.Order.Status != OrderStatus.Cancelled);
 
         var itemsScannedToday = await acceptedEvents
             .Where(e => e.CreatedAt >= todayStart && e.CreatedAt < tomorrowStart)

@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { JoyAriaLive, useJoyAnnounce } from '../JoyAriaLive.js';
+import { JoyAriaLive } from '../JoyAriaLive.js';
+import { useJoyAnnounce } from '../joyAnnounce.js';
 
 // Helper component that calls useJoyAnnounce and exposes the fn via callback
 function Announcer({ onMount }: { onMount: (fn: ReturnType<typeof useJoyAnnounce>) => void }) {

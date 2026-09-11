@@ -1,10 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAudio } from '@/components/shared/AudioFeedback.js';
+import { useAudio } from '@/components/shared/audioFeedbackContext.js';
 import type { FeedbackMode } from '@/hooks/useAudioFeedback.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
-import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
+import { UndoScanModal } from '@/components/pickup/UndoScanModal.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
 import { ScanInput, type ScanInputHandle } from '@/components/pickup/ScanInput.js';
@@ -50,6 +50,24 @@ export function PickupScanPage() {
   const [showManualModal, setShowManualModal] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Guards the PIN-gated recovery actions and completion against double-taps and
+  // makes their failures visible: these calls bypass useScanWorkflow, so nothing
+  // else surfaces a rejected reset / force-complete to the operator.
+  const [actionBusy, setActionBusy] = useState(false);
+
+  async function runOrderAction(fallback: string, action: () => Promise<void>) {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await action();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : fallback);
+    } finally {
+      setActionBusy(false);
+      refocusScanInput();
+    }
+  }
   const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>(() => {
     const stored = localStorage.getItem(FEEDBACK_MODE_KEY);
     return stored === 'loud' || stored === 'quiet' || stored === 'off' ? stored : 'loud';
@@ -96,6 +114,17 @@ export function PickupScanPage() {
   const refocusScanInput = useCallback(() => {
     setTimeout(() => scanInputRef.current?.focus(), 50);
   }, []);
+
+  // Tapping a preset / +/- moves focus to that button. Put it straight back on
+  // the scan input so the next wedge scan lands in the buffer, not on the
+  // button (where its digits would be lost and Enter would re-click it).
+  const handleScanQuantityChange = useCallback(
+    (n: number) => {
+      setScanQuantity(n);
+      refocusScanInput();
+    },
+    [refocusScanInput],
+  );
 
   function triggerHaptic(result: FulfillmentResultType) {
     if (feedbackMode === 'off' || typeof navigator === 'undefined' || !navigator.vibrate) return;
@@ -163,21 +192,20 @@ export function PickupScanPage() {
     setScanFlashData(null);
   }
 
-  async function confirmUndoLastScan() {
+  async function confirmUndoLastScan(reason: string) {
+    // undoLastScan returns null on failure (the hook surfaces the error via
+    // networkError) and a non-Accepted result when the server declined. Only
+    // an Accepted undo may be written into the history as done.
+    const result = await undoLastScan(reason, OPERATOR_NAME);
     setShowUndoConfirm(false);
-    const reason = window.prompt('Why are you undoing this scan?', 'Correcting accidental scan')?.trim();
-    if (!reason) {
-      refocusScanInput();
-      return;
+    if (result?.result === 'Accepted') {
+      addHistoryEntry({
+        barcode: 'RECOVERY:UNDO',
+        result: 'Accepted',
+        message: `Operator ${OPERATOR_NAME} undid last scan. Reason: ${reason}`,
+        timestamp: Date.now(),
+      });
     }
-
-    await undoLastScan(reason, OPERATOR_NAME);
-    addHistoryEntry({
-      barcode: 'RECOVERY:UNDO',
-      result: 'Accepted',
-      message: `Operator ${OPERATOR_NAME} undid last scan. Reason: ${reason}`,
-      timestamp: Date.now(),
-    });
     refocusScanInput();
   }
 
@@ -189,15 +217,16 @@ export function PickupScanPage() {
       return;
     }
 
-    await fulfillmentApi.reset(orderId, auth.pin, auth.reason, OPERATOR_NAME);
-    addHistoryEntry({
-      barcode: 'RECOVERY:RESET',
-      result: 'Accepted',
-      message: `Operator ${OPERATOR_NAME} reset order. Reason: ${auth.reason}`,
-      timestamp: Date.now(),
+    await runOrderAction('Reset failed', async () => {
+      await fulfillmentApi.reset(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+      addHistoryEntry({
+        barcode: 'RECOVERY:RESET',
+        result: 'Accepted',
+        message: `Operator ${OPERATOR_NAME} reset order. Reason: ${auth.reason}`,
+        timestamp: Date.now(),
+      });
+      await refreshOrder();
     });
-    await refreshOrder();
-    refocusScanInput();
   }
 
   async function handleMarkPartial() {
@@ -208,27 +237,38 @@ export function PickupScanPage() {
       return;
     }
 
-    await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
-    addHistoryEntry({
-      barcode: 'RECOVERY:PARTIAL',
-      result: 'Accepted',
-      message: `Operator ${OPERATOR_NAME} marked order partial. Reason: ${auth.reason}`,
-      timestamp: Date.now(),
+    await runOrderAction('Mark partial failed', async () => {
+      await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
+      addHistoryEntry({
+        barcode: 'RECOVERY:PARTIAL',
+        result: 'Accepted',
+        message: `Operator ${OPERATOR_NAME} marked order partial. Reason: ${auth.reason}`,
+        timestamp: Date.now(),
+      });
+      await refreshOrder();
     });
-    await refreshOrder();
-    refocusScanInput();
   }
 
-  async function handleManualFulfill(lineId: string, reason: string) {
-    if (!orderId) return;
-    try {
-      await fulfillmentApi.manualFulfill(orderId, { orderLineId: lineId, reason, operatorName: OPERATOR_NAME });
+  // Runs through runOrderAction so a failed manual fulfill is reported (the
+  // call bypasses useScanWorkflow, which previously meant it vanished into an
+  // empty catch). The modal closes only when the server accepted the line.
+  async function handleManualFulfill(lineId: string, reason: string): Promise<boolean> {
+    if (!orderId) return false;
+    let fulfilled = false;
+    await runOrderAction('Manual fulfill failed', async () => {
+      const result = await fulfillmentApi.manualFulfill(orderId, {
+        orderLineId: lineId,
+        reason,
+        operatorName: OPERATOR_NAME,
+      });
+      if (result.result !== 'Accepted') {
+        throw new Error(getScanResultMessage(result));
+      }
+      fulfilled = true;
       setShowManualModal(false);
       await refreshOrder();
-    } catch {
-      // handled by scan workflow
-    }
-    refocusScanInput();
+    });
+    return fulfilled;
   }
 
   async function handleComplete() {
@@ -239,28 +279,25 @@ export function PickupScanPage() {
     );
 
     if (allFulfilled) {
-      try {
+      await runOrderAction('Complete failed', async () => {
         await ordersApi.complete(orderId);
         await refreshOrder();
         // Show celebration after successful completion
         setShowCelebration(true);
-      } catch {
-        // error shown via networkError
-      }
+      });
     } else {
       const auth = await openPinModal();
       if (auth) {
-        try {
+        await runOrderAction('Force complete failed', async () => {
           await fulfillmentApi.forceComplete(orderId, auth.pin, auth.reason, OPERATOR_NAME);
           await refreshOrder();
           // Show celebration after successful force completion
           setShowCelebration(true);
-        } catch {
-          // error shown via networkError
-        }
+        });
+      } else {
+        refocusScanInput();
       }
     }
-    refocusScanInput();
   }
 
   function handleCelebrationComplete() {
@@ -269,10 +306,12 @@ export function PickupScanPage() {
   }
 
   function handleManualOpen() {
+    setActionError(null);
     setShowManualModal(true);
   }
 
   function handleManualClose() {
+    setActionError(null);
     setShowManualModal(false);
     refocusScanInput();
   }
@@ -401,7 +440,7 @@ export function PickupScanPage() {
               between scans -- never auto-resets after a successful scan. */}
           <QuantitySelector
             value={scanQuantity}
-            onChange={setScanQuantity}
+            onChange={handleScanQuantityChange}
             disabled={isScanning}
           />
           <ScanInput
@@ -417,7 +456,7 @@ export function PickupScanPage() {
             <TouchButton
               variant={allFulfilled ? 'primary' : 'gold'}
               onClick={handleComplete}
-              disabled={isScanning}
+              disabled={isScanning || actionBusy}
             >
               {allFulfilled ? 'Complete Order' : 'Force Complete'}
             </TouchButton>
@@ -430,10 +469,10 @@ export function PickupScanPage() {
             <TouchButton variant="gold" onClick={handleUndo} disabled={isScanning}>
               Recover
             </TouchButton>
-            <TouchButton variant="ghost" onClick={handleResetOrder} disabled={isScanning}>
+            <TouchButton variant="ghost" onClick={handleResetOrder} disabled={isScanning || actionBusy}>
               Reset current order
             </TouchButton>
-            <TouchButton variant="danger" onClick={handleMarkPartial} disabled={isScanning}>
+            <TouchButton variant="danger" onClick={handleMarkPartial} disabled={isScanning || actionBusy}>
               Mark partial + reason
             </TouchButton>
             <TouchButton variant="ghost" onClick={handlePrintOrder} disabled={isScanning}>
@@ -538,19 +577,17 @@ export function PickupScanPage() {
         saleClosed={saleClosed}
         onFulfill={handleManualFulfill}
         onCancel={handleManualClose}
+        error={actionError}
       />
 
-      <ConfirmModal
+      <UndoScanModal
         isOpen={showUndoConfirm}
-        title="Undo last scan?"
-        message="This will remove the last accepted scan from this order."
-        confirmLabel="Undo scan"
-        variant="warning"
+        busy={isScanning}
         onCancel={() => {
           setShowUndoConfirm(false);
           refocusScanInput();
         }}
-        onConfirm={confirmUndoLastScan}
+        onConfirm={(reason) => void confirmUndoLastScan(reason)}
       />
     </div>
   );

@@ -1,37 +1,34 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { reportsApi } from '@/api/reports.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { JoyPageShell } from '@/components/shared/JoyPageShell.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { DashboardMetrics, LowInventoryItem, ProblemOrder } from '@/types/reports.js';
 
-export function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [lowInventory, setLowInventory] = useState<LowInventoryItem[]>([]);
-  const [problemOrders, setProblemOrders] = useState<ProblemOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface DashboardData {
+  metrics: DashboardMetrics;
+  lowInventory: LowInventoryItem[];
+  problemOrders: ProblemOrder[];
+}
 
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      reportsApi.dashboardMetrics(),
-      reportsApi.lowInventory(),
-      reportsApi.problemOrders(),
-    ])
-      .then(([m, li, po]) => {
-        setMetrics(m);
-        setLowInventory(li);
-        setProblemOrders(po);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load dashboard'))
-      .finally(() => setLoading(false));
-  }, []);
+async function loadDashboard(): Promise<DashboardData> {
+  const [metrics, lowInventory, problemOrders] = await Promise.all([
+    reportsApi.dashboardMetrics(),
+    reportsApi.lowInventory(),
+    reportsApi.problemOrders(),
+  ]);
+  return { metrics, lowInventory, problemOrders };
+}
+
+export function DashboardPage() {
+  const { data, loading, error } = useAsyncData(loadDashboard, '', 'Failed to load dashboard');
 
   if (loading) return <LoadingSpinner />;
-  if (!metrics) return <ErrorBanner message={error ?? 'Failed to load dashboard'} />;
+  if (!data) return <ErrorBanner message={error ?? 'Failed to load dashboard'} />;
+
+  const { metrics, lowInventory, problemOrders } = data;
 
   const completionPct = (metrics.totalOrders ?? 0) > 0
     ? Math.round(((metrics.completedOrders ?? 0) / metrics.totalOrders) * 100)
@@ -40,8 +37,6 @@ export function DashboardPage() {
   return (
     <JoyPageShell title="Dashboard" eyebrow="Overview" maxWidth="wide">
       <div className="space-y-6">
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
-
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <MetricCard label="Total Orders" value={metrics.totalOrders} />
@@ -121,7 +116,7 @@ export function DashboardPage() {
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Quick Links</h2>
         <div className="flex flex-wrap gap-3">
           <QuickLink to="/orders/new" label="New Order" />
-          <QuickLink to="/walkup/new" label="Walk-Up Order" />
+          <QuickLink to="/walkup/register" label="Walk-Up Order" />
           <QuickLink to="/pickup" label="Pickup Station" />
           <QuickLink to="/imports" label="Import Data" />
           <QuickLink to="/reports" label="Reports" />

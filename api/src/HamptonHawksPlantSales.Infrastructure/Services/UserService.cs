@@ -176,16 +176,23 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(u => u.NormalizedUsername == normalized);
 
         if (user is null)
+        {
+            // Burn the same PBKDF2 cost as a real check so response time does not
+            // reveal whether the username exists.
+            _hasher.Verify(password, DummyHash);
+            return null;
+        }
+
+        if (!_hasher.Verify(password, user.PasswordHash))
             return null;
 
         if (!user.IsActive)
             return null;
 
-        if (!_hasher.Verify(password, user.PasswordHash))
-            return null;
-
         return ToResponse(user);
     }
+
+    private static readonly string DummyHash = new PasswordHasher().Hash(Guid.NewGuid().ToString("N"));
 
     private static UserResponse ToResponse(AppUser user) =>
         new(

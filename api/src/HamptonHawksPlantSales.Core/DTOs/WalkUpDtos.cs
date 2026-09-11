@@ -43,6 +43,13 @@ public class WalkUpAvailabilityResponse
     public string PlantName { get; set; } = string.Empty;
     public string PlantSku { get; set; } = string.Empty;
     public int OnHandQty { get; set; }
-    public int PreorderRemaining { get; set; }
+
+    /// <summary>
+    /// Units promised but not yet handed over, across preorder AND walk-up orders.
+    /// Previously named PreorderRemaining, which understated it: walk-up commitments
+    /// count too, and leaving them out let the same unit be sold repeatedly.
+    /// </summary>
+    public int OutstandingCommitments { get; set; }
+
     public int AvailableForWalkup { get; set; }
 }

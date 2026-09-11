@@ -8,7 +8,8 @@ export interface WalkUpAvailability {
   plantName: string;
   plantSku: string;
   onHandQty: number;
-  preorderRemaining: number;
+  /** Units promised but not yet handed over, across preorder and walk-up orders. */
+  outstandingCommitments: number;
   availableForWalkup: number;
 }
 

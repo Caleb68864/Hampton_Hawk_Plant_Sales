@@ -1,3 +1,4 @@
+using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
@@ -58,65 +59,81 @@ public class InventoryService : IInventoryService
 
     public async Task<InventoryResponse> SetInventoryAsync(Guid plantId, UpdateInventoryRequest request)
     {
-        var inventory = await _db.Inventories
-            .Include(i => i.PlantCatalog)
-            .FirstOrDefaultAsync(i => i.PlantCatalogId == plantId && i.DeletedAt == null)
-            ?? throw new KeyNotFoundException("Inventory record not found for this plant.");
+        if (request.OnHandQty < 0)
+            throw new ValidationException("On-hand quantity cannot be negative.");
 
-        var delta = request.OnHandQty - inventory.OnHandQty;
-
-        inventory.OnHandQty = request.OnHandQty;
-
-        _db.InventoryAdjustments.Add(new InventoryAdjustment
-        {
-            PlantCatalogId = plantId,
-            DeltaQty = delta,
-            Reason = request.Reason,
-            Notes = request.Notes
-        });
-
-        await _db.SaveChangesAsync();
-
-        return new InventoryResponse
-        {
-            Id = inventory.Id,
-            PlantCatalogId = inventory.PlantCatalogId,
-            PlantName = inventory.PlantCatalog.Name,
-            PlantSku = inventory.PlantCatalog.Sku,
-            OnHandQty = inventory.OnHandQty,
-            CreatedAt = inventory.CreatedAt,
-            UpdatedAt = inventory.UpdatedAt
-        };
+        return await ApplyLockedAsync(plantId, inventory => request.OnHandQty - inventory.OnHandQty, request.Reason, request.Notes);
     }
 
     public async Task<InventoryResponse> AdjustInventoryAsync(AdjustInventoryRequest request)
     {
-        var inventory = await _db.Inventories
-            .Include(i => i.PlantCatalog)
-            .FirstOrDefaultAsync(i => i.PlantCatalogId == request.PlantId && i.DeletedAt == null)
-            ?? throw new KeyNotFoundException("Inventory record not found for this plant.");
+        return await ApplyLockedAsync(request.PlantId, _ => request.DeltaQty, request.Reason, request.Notes);
+    }
 
-        inventory.OnHandQty += request.DeltaQty;
+    /// <summary>
+    /// Applies a relative change to the inventory row under a FOR UPDATE lock so two
+    /// concurrent adjustments (or an adjustment racing a scan) cannot lose an update,
+    /// and refuses any change that would take the row below zero. The lock and
+    /// transaction degrade to no-ops on the InMemory provider used by the tests.
+    /// </summary>
+    private async Task<InventoryResponse> ApplyLockedAsync(
+        Guid plantId, Func<Inventory, int> deltaFor, string reason, string? notes)
+    {
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;
 
-        _db.InventoryAdjustments.Add(new InventoryAdjustment
+        try
         {
-            PlantCatalogId = request.PlantId,
-            DeltaQty = request.DeltaQty,
-            Reason = request.Reason,
-            Notes = request.Notes
-        });
+            if (isRelational)
+            {
+                await _db.Database.ExecuteSqlRawAsync(
+                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
+                    plantId);
+            }
 
-        await _db.SaveChangesAsync();
+            var inventory = await _db.Inventories
+                .Include(i => i.PlantCatalog)
+                .FirstOrDefaultAsync(i => i.PlantCatalogId == plantId && i.DeletedAt == null)
+                ?? throw new KeyNotFoundException("Inventory record not found for this plant.");
 
-        return new InventoryResponse
+            var delta = deltaFor(inventory);
+            var newQty = inventory.OnHandQty + delta;
+            if (newQty < 0)
+                throw new ValidationException(
+                    $"Adjustment of {delta} would take on-hand quantity below zero (currently {inventory.OnHandQty}).");
+
+            inventory.OnHandQty = newQty;
+
+            _db.InventoryAdjustments.Add(new InventoryAdjustment
+            {
+                PlantCatalogId = plantId,
+                DeltaQty = delta,
+                Reason = reason,
+                Notes = notes
+            });
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+
+            return new InventoryResponse
+            {
+                Id = inventory.Id,
+                PlantCatalogId = inventory.PlantCatalogId,
+                PlantName = inventory.PlantCatalog.Name,
+                PlantSku = inventory.PlantCatalog.Sku,
+                OnHandQty = inventory.OnHandQty,
+                CreatedAt = inventory.CreatedAt,
+                UpdatedAt = inventory.UpdatedAt
+            };
+        }
+        catch
         {
-            Id = inventory.Id,
-            PlantCatalogId = inventory.PlantCatalogId,
-            PlantName = inventory.PlantCatalog.Name,
-            PlantSku = inventory.PlantCatalog.Sku,
-            OnHandQty = inventory.OnHandQty,
-            CreatedAt = inventory.CreatedAt,
-            UpdatedAt = inventory.UpdatedAt
-        };
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+            throw;
+        }
+        finally
+        {
+            if (transaction != null) await transaction.DisposeAsync();
+        }
     }
 }

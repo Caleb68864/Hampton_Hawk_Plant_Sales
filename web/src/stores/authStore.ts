@@ -66,6 +66,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   openPinModal: (options) =>
     new Promise<AdminAuthResult | null>((resolve) => {
+      // Only one modal can be up. If a caller is still awaiting an earlier
+      // openPinModal (e.g. Void tapped, then Cancel Sale before entering the
+      // PIN), settle it as cancelled instead of overwriting its resolver, which
+      // would leave that caller's await pending forever.
+      get().pinResolve?.(null);
       set({
         showPinModal: true,
         pinResolve: resolve,

@@ -5,6 +5,7 @@ using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
 using HamptonHawksPlantSales.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace HamptonHawksPlantSales.Infrastructure.Services;
 
@@ -13,31 +14,48 @@ public class WalkUpRegisterService : IWalkUpRegisterService
     private readonly AppDbContext _db;
     private readonly IInventoryProtectionService _protection;
     private readonly IAdminService _adminService;
+    private readonly IConfiguration _configuration;
 
     public WalkUpRegisterService(
         AppDbContext db,
         IInventoryProtectionService protection,
-        IAdminService adminService)
+        IAdminService adminService,
+        IConfiguration configuration)
     {
         _db = db;
         _protection = protection;
         _adminService = adminService;
+        _configuration = configuration;
     }
 
     public async Task<OrderResponse> CreateDraftAsync(CreateDraftRequest request)
     {
-        var order = new Order
+        // Two registers can allocate the same number in the same instant; the unique
+        // index rejects the loser, and re-probing gets it the next free number.
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
         {
-            CustomerId = null,
-            OrderNumber = await GenerateOrderNumberAsync(),
-            IsWalkUp = true,
-            Status = OrderStatus.Draft
-        };
+            var order = new Order
+            {
+                CustomerId = null,
+                OrderNumber = await WalkUpOrderNumbers.NextAsync(_db),
+                IsWalkUp = true,
+                Status = OrderStatus.Draft
+            };
 
-        _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
+            _db.Orders.Add(order);
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && WalkUpOrderNumbers.IsUniqueViolation(ex))
+            {
+                _db.Entry(order).State = EntityState.Detached;
+                continue;
+            }
 
-        return await GetOrderResponseAsync(order.Id);
+            return await GetOrderResponseAsync(order.Id);
+        }
     }
 
     public async Task<OrderResponse> ScanIntoDraftAsync(Guid orderId, ScanIntoDraftRequest request)
@@ -54,6 +72,16 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
 
+        // Registers contend on the same plant row constantly during a busy sale, so
+        // serialization conflicts are routine. Retry them: the scanId keeps a retry
+        // from double-selling, and a volunteer must never be shown a database abort.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            ScanIntoDraftInternalAsync(orderId, barcode, scanId, request.Quantity));
+    }
+
+    private async Task<OrderResponse> ScanIntoDraftInternalAsync(
+        Guid orderId, string barcode, string scanId, int requestedQuantity)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -69,7 +97,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             if (plant == null)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"No plant found for barcode '{barcode}'.");
             }
 
@@ -105,15 +133,16 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             // Multi-quantity scanning: coerce non-positive to 1 so the API stays
             // backward compatible for callers that omit/send 0.
-            var requestedAdd = request.Quantity <= 0 ? 1 : request.Quantity;
+            var requestedAdd = requestedQuantity <= 0 ? 1 : requestedQuantity;
 
-            var currentQty = existingLine?.QtyFulfilled ?? 0;
-            var requestedTotal = currentQty + requestedAdd;
-
-            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedTotal, orderId);
+            // Validate only the units being added. The register already took this
+            // line's earlier units out of OnHandQty at scan time, so availability
+            // reflects them; checking the cumulative total would count them twice
+            // and refuse the sale once the line reached half the stock.
+            var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedAdd, orderId);
             if (!allowed)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException(errorMessage ?? "Walk-up availability exceeded.");
             }
 
@@ -122,17 +151,17 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
             if (inventory == null || inventory.OnHandQty <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
             }
 
             // Cap the additive amount at remaining on-hand inventory. Walk-up
-            // availability has already been validated above for the requested
-            // total, so on-hand is the remaining ceiling.
+            // availability has already been validated above for the units being
+            // added, so on-hand is the remaining ceiling.
             var appliedAdd = Math.Min(requestedAdd, inventory.OnHandQty);
             if (appliedAdd <= 0)
             {
-                if (transaction != null) await transaction.RollbackAsync();
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException($"Plant '{plant.Name}' is out of stock.");
             }
 
@@ -164,7 +193,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -179,6 +208,19 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (request.NewQty < 0)
             throw new ValidationException("NewQty must be zero or greater.");
 
+        // An override is only an override when the PIN checks out. A bare
+        // X-Admin-Reason header must not bypass availability.
+        var isOverride = TryAdminOverride(adminPin, adminReason);
+
+        // Same contention as scanning: retry serialization conflicts rather than
+        // surfacing a database abort to the volunteer.
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            AdjustLineInternalAsync(orderId, lineId, request, isOverride, adminReason));
+    }
+
+    private async Task<OrderResponse> AdjustLineInternalAsync(
+        Guid orderId, Guid lineId, AdjustLineRequest request, bool isOverride, string? adminReason)
+    {
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
@@ -229,34 +271,30 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             }
             else
             {
-                // Increasing quantity — must validate walk-up availability
-                var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(line.PlantCatalogId, request.NewQty, orderId);
+                // Increasing quantity — validate the increment, not the new total:
+                // the line's current units already left OnHandQty at scan time.
+                var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(line.PlantCatalogId, diff, orderId);
 
-                if (!allowed)
+                if (!allowed && !isOverride)
                 {
-                    var hasOverride = !string.IsNullOrWhiteSpace(adminReason);
-                    if (!hasOverride)
-                    {
-                        if (transaction != null) await transaction.RollbackAsync();
-                        throw new ValidationException(errorMessage ?? "Walk-up availability exceeded; admin override required.");
-                    }
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    throw new ValidationException(errorMessage ?? "Walk-up availability exceeded; admin override required.");
                 }
 
+                // The override lets an admin sell into preorder commitments; it never
+                // lets OnHandQty go negative -- the register takes the units at scan
+                // time, and there are no units to take.
                 if (inventory.OnHandQty < diff)
                 {
-                    // Out of stock — even override cannot create negative inventory unless admin reason provided.
-                    if (string.IsNullOrWhiteSpace(adminReason))
-                    {
-                        if (transaction != null) await transaction.RollbackAsync();
-                        throw new ValidationException("Insufficient inventory to increase line quantity.");
-                    }
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    throw new ValidationException("Insufficient inventory to increase line quantity.");
                 }
 
                 inventory.OnHandQty -= diff;
                 line.QtyOrdered = request.NewQty;
                 line.QtyFulfilled = request.NewQty;
 
-                if (!string.IsNullOrWhiteSpace(adminReason))
+                if (isOverride)
                 {
                     await _adminService.LogActionAsync(
                         "WalkUpRegisterAdjustOverride",
@@ -279,9 +317,33 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Mirrors <c>WalkUpService.TryAdminOverride</c>: no PIN means no override, a
+    /// wrong PIN is rejected outright, and a valid PIN needs a reason for the audit log.
+    /// </summary>
+    private bool TryAdminOverride(string? pin, string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            return false;
+
+        var expectedPin = Environment.GetEnvironmentVariable("APP_ADMIN_PIN")
+            ?? _configuration["AdminPin"]
+            ?? string.Empty;
+
+        if (expectedPin.Length == 0 || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(pin),
+                System.Text.Encoding.UTF8.GetBytes(expectedPin)))
+            throw new ValidationException("Invalid admin PIN.");
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ValidationException("Admin reason is required for override.");
+
+        return true;
     }
 
     public async Task<OrderResponse> VoidLineAsync(Guid orderId, Guid lineId, string adminReason)
@@ -289,6 +351,12 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (string.IsNullOrWhiteSpace(adminReason))
             throw new ValidationException("Admin reason is required for void line.");
 
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            VoidLineInternalAsync(orderId, lineId, adminReason));
+    }
+
+    private async Task<OrderResponse> VoidLineInternalAsync(Guid orderId, Guid lineId, string adminReason)
+    {
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
@@ -342,7 +410,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -372,6 +440,12 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         if (string.IsNullOrWhiteSpace(adminReason))
             throw new ValidationException("Admin reason is required for cancel draft.");
 
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
+            CancelDraftInternalAsync(orderId, adminReason));
+    }
+
+    private async Task<OrderResponse> CancelDraftInternalAsync(Guid orderId, string adminReason)
+    {
         var draft = await _db.Orders
             .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
@@ -434,7 +508,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
         catch
         {
-            if (transaction != null) await transaction.RollbackAsync();
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
             throw;
         }
     }
@@ -452,12 +526,6 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             .ToListAsync();
 
         return orders.Select(MapToResponse).ToList();
-    }
-
-    private async Task<string> GenerateOrderNumberAsync()
-    {
-        var count = await _db.Orders.CountAsync();
-        return $"WLK-{count + 1:D5}";
     }
 
     private async Task<OrderResponse> GetOrderResponseAsync(Guid orderId, bool includeDeleted = false)

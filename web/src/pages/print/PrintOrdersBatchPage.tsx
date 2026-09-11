@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { PrintLayout } from '@/components/print/PrintLayout.js';
@@ -6,7 +6,15 @@ import { PrintHeader } from '@/components/print/PrintHeader.js';
 import { PrintFooter } from '@/components/print/PrintFooter.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
+import { useAsyncData } from '@/hooks/useAsyncData.js';
+import { PRINT_FETCH_CONCURRENCY, settleWithConcurrency } from '@/utils/mapWithConcurrency.js';
 import type { Order } from '@/types/order.js';
+
+interface OrdersBatch {
+  orders: Order[];
+  /** Ids that could not be fetched (404, network, ...). */
+  failedCount: number;
+}
 
 function parseOrderIds(raw: string | null): string[] {
   if (!raw) return [];
@@ -16,32 +24,30 @@ function parseOrderIds(raw: string | null): string[] {
     .filter(Boolean);
 }
 
+async function loadOrders(orderIds: string[]): Promise<OrdersBatch> {
+  if (orderIds.length === 0) return { orders: [], failedCount: 0 };
+  // One missing/deleted id must not blank the whole print run, and a
+  // 100-order batch must not open 100 sockets at once: settle each id
+  // individually with bounded concurrency and report the misses.
+  const results = await settleWithConcurrency(orderIds, PRINT_FETCH_CONCURRENCY, (id) => ordersApi.getById(id));
+  const orders = results.flatMap((r) => (r.ok ? [r.value] : []));
+  if (orders.length === 0) {
+    throw new Error('None of the selected orders could be loaded.');
+  }
+  return { orders, failedCount: results.length - orders.length };
+}
+
 export function PrintOrdersBatchPage() {
   const [searchParams] = useSearchParams();
   const orderIds = useMemo(() => parseOrderIds(searchParams.get('ids')), [searchParams]);
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (orderIds.length === 0) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all(orderIds.map((id) => ordersApi.getById(id)))
-      .then((results) => {
-        const byId = new Map(results.map((order) => [order.id, order]));
-        setOrders(orderIds.map((id) => byId.get(id)).filter((order): order is Order => Boolean(order)));
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load orders'))
-      .finally(() => setLoading(false));
-  }, [orderIds]);
+  const { data, loading, error } = useAsyncData(
+    () => loadOrders(orderIds),
+    orderIds.join(','),
+    'Failed to load orders',
+  );
+  const orders: Order[] = data?.orders ?? [];
+  const failedCount = data?.failedCount ?? 0;
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorBanner message={error} />;
@@ -49,6 +55,11 @@ export function PrintOrdersBatchPage() {
 
   return (
     <PrintLayout backTo="/orders">
+      {failedCount > 0 && (
+        <p className="no-print mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+          {failedCount} order{failedCount === 1 ? '' : 's'} could not be loaded and {failedCount === 1 ? 'is' : 'are'} not included in this print run.
+        </p>
+      )}
       {orders.map((order, idx) => (
         <section key={order.id} className={idx < orders.length - 1 ? 'page-break' : ''}>
           <PrintHeader
