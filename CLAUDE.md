@@ -41,11 +41,26 @@ Web test placement: pure-logic tests sit next to their module as `*.test.ts`
 (node:test, no DOM); anything that renders or imports `.tsx` goes under
 `__tests__/` (vitest + jsdom). `scripts/run-node-tests.mjs` globs the former.
 
-The API unit tests use EF InMemory, which enforces neither unique indexes, FKs,
-row locks nor transactions — bugs of that class only show against Postgres.
+Most API unit tests use EF InMemory (`MockDbContextFactory`), which enforces
+neither unique indexes, FKs, check constraints, row locks nor transactions.
+Deleting the unique index on `Customer.PicklistBarcode` leaves 534 of 535 tests
+green — that is the size of the blind spot, and it is how a filtered unique
+index shipped with nothing assigning a value.
+
+For anything that depends on a constraint, use `ConstraintEnforcingDbContext`
+(`Helpers/`), which builds the same model on SQLite and does enforce unique
+indexes, partial indexes and check constraints. It is still not Postgres: no
+`SELECT ... FOR UPDATE`, no SERIALIZABLE retries, no 23505 codes, no `jsonb` or
+collation semantics. Every file using it carries a control test asserting the
+provider really rejects a duplicate, so it cannot quietly become a suite that
+proves nothing.
+
+Nothing in `api/tests` runs against real Postgres. Testcontainers would close
+that, and it can only run where Docker is usable — not on this machine (the
+daemon is up but the socket is not accessible to this user).
 `docs/improve/2026-08-29-sweep-report.md` describes the browser E2E harness
-(Postgres in Docker + `dotnet run` + `vite preview` + Playwright) used to catch
-them; run it before a sale-day release.
+(Postgres in Docker + `dotnet run` + `vite preview` + Playwright); run it before
+a sale-day release.
 
 ## Architecture Rules
 
