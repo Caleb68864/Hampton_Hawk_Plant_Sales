@@ -73,7 +73,7 @@ jobs:
       - name: Test against PostgreSQL 16
         run: >-
           dotnet test tests/HamptonHawksPlantSales.PostgresTests --no-build -c Release
-          --logger "console;verbosity=normal"
+          --logger "console;verbosity=detailed"
           --logger "trx;LogFileName=postgres.trx"
           --results-directory TestResults/postgres
 

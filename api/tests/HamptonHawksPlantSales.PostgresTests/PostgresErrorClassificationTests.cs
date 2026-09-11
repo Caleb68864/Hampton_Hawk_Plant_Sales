@@ -53,7 +53,11 @@ public sealed class PostgresErrorClassificationTests
     [PostgresFact]
     public async Task Serialization_failure_raised_by_SaveChanges_is_retryable()
     {
-        // The shape when the conflict is found at the write: EF wraps it in DbUpdateException.
+        // The shape when the conflict is found at the write. Because Npgsql flags 40001 as
+        // transient, EF does not surface a DbUpdateException here: with no retrying execution
+        // strategy configured it throws InvalidOperationException ("...likely due to a
+        // transient failure...") with the Postgres error further down the chain. First seen in
+        // CI on this test's first run; the classifier copes only because it walks InnerException.
         var db = await _pg.CreateDatabaseAsync();
         var sale = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
 
@@ -66,8 +70,9 @@ public sealed class PostgresErrorClassificationTests
         inventory.OnHandQty -= 1;
         var ex = await Capture(() => loser.SaveChangesAsync());
 
-        ex.Should().BeAssignableTo<DbUpdateException>();
         AssertSqlState(ex, "40001");
+        ex.Should().BeOfType<InvalidOperationException>("EF reports a transient failure without a retrying strategy");
+        ex.InnerException.Should().NotBeNull();
         WalkUpRowLocks.IsRetryableConcurrencyFailure(ex).Should().BeTrue();
     }
 
