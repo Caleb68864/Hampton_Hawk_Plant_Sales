@@ -101,23 +101,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 throw new ValidationException($"No plant found for barcode '{barcode}'.");
             }
 
-            if (isRelational)
-            {
-                // Lock the plant catalog row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"PlantCatalogs\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Lock inventory row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Lock the existing order line if any
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // MUTATION: register FOR UPDATE removed
 
             var existingLine = await _db.OrderLines
                 .FirstOrDefaultAsync(l => l.OrderId == orderId && l.PlantCatalogId == plant.Id && l.DeletedAt == null);

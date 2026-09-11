@@ -164,18 +164,7 @@ public class FulfillmentService : IFulfillmentService
 
         try
         {
-            if (isRelational)
-            {
-                // Acquire exclusive lock on the inventory row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Acquire exclusive lock on the order line row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // MUTATION: scan FOR UPDATE removed
 
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
