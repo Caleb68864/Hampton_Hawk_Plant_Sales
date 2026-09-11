@@ -156,26 +156,15 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
-        // 5. Transaction with FOR UPDATE row locks and serializable isolation for relational providers.
+        // 5. MUTATION: READ COMMITTED instead of SERIALIZABLE
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
-            ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
+            ? await _db.Database.BeginTransactionAsync()
             : null;
 
         try
         {
-            if (isRelational)
-            {
-                // Acquire exclusive lock on the inventory row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Acquire exclusive lock on the order line row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // MUTATION: scan FOR UPDATE removed
 
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
