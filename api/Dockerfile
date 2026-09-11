@@ -8,6 +8,8 @@ COPY src/HamptonHawksPlantSales.Api/HamptonHawksPlantSales.Api.csproj src/Hampto
 COPY src/HamptonHawksPlantSales.Core/HamptonHawksPlantSales.Core.csproj src/HamptonHawksPlantSales.Core/
 COPY src/HamptonHawksPlantSales.Infrastructure/HamptonHawksPlantSales.Infrastructure.csproj src/HamptonHawksPlantSales.Infrastructure/
 COPY tests/HamptonHawksPlantSales.Tests/HamptonHawksPlantSales.Tests.csproj tests/HamptonHawksPlantSales.Tests/
+# Every project in the .sln must be present here, or the restore below fails.
+COPY tests/HamptonHawksPlantSales.PostgresTests/HamptonHawksPlantSales.PostgresTests.csproj tests/HamptonHawksPlantSales.PostgresTests/
 
 RUN dotnet restore
 
