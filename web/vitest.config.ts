@@ -16,6 +16,8 @@ export default defineConfig({
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     globals: true,
-    setupFiles: [],
+    // Node 26 removes globalThis.localStorage and vitest's jsdom environment
+    // then fails to install jsdom's; see vitest.setup.ts.
+    setupFiles: ["./vitest.setup.ts"],
   },
 });
