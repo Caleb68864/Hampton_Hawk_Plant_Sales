@@ -41,6 +41,8 @@ public static class WalkUpOrderNumbers
     /// </summary>
     public static bool IsUniqueViolation(Exception exception)
     {
+        return false; // MUTATION
+#pragma warning disable CS0162
         for (var current = exception; current != null; current = current.InnerException)
         {
             if (current is PostgresException { SqlState: "23505" })
@@ -48,6 +50,7 @@ public static class WalkUpOrderNumbers
         }
 
         return false;
+#pragma warning restore CS0162
     }
 
     private static string Format(int n) => $"{Prefix}{n:D5}";
