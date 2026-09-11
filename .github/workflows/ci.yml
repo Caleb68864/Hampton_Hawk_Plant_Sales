@@ -39,8 +39,164 @@ jobs:
 
       # Includes the SQLite-backed constraint tests. The rest of the suite runs
       # on EF InMemory, which enforces no unique index, FK or check constraint --
-      # see CLAUDE.md. No test here touches real Postgres.
+      # see CLAUDE.md. Nothing in this job touches Docker or Postgres: the
+      # PostgresTests project builds here and reports its tests as skipped, and
+      # the api-postgres job below is where they run.
       - run: dotnet test HamptonHawksPlantSales.sln --no-build -c Release --logger "console;verbosity=normal"
+
+  api-postgres:
+    name: API against real Postgres (Testcontainers)
+    # A separate job so a Docker or registry hiccup here shows up as its own red
+    # X and cannot hide, or be hidden by, a unit-test failure in the job above.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: api
+    env:
+      HH_POSTGRES_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Docker is available
+        run: docker version
+
+      - run: dotnet build tests/HamptonHawksPlantSales.PostgresTests -c Release
+
+      # Row locks (SELECT ... FOR UPDATE), SERIALIZABLE retries and Postgres error
+      # codes -- the behaviour that decides whether two stations can oversell or
+      # double-pick. None of it exists on the providers the unit tests use.
+      - name: Test against PostgreSQL 16
+        run: >-
+          dotnet test tests/HamptonHawksPlantSales.PostgresTests --no-build -c Release
+          --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=postgres.trx"
+          --results-directory TestResults/postgres
+
+      # The tests skip themselves when HH_POSTGRES_TESTS is unset so that a plain
+      # `dotnet test` works without Docker. Here a skip would make this job a
+      # green no-op, so any skipped test -- or a suspiciously small count -- fails it.
+      - name: Every Postgres test really ran
+        run: python3 ../.github/scripts/assert_tests_ran.py TestResults/postgres/postgres.trx 14
+
+  compose:
+    name: Compose stack (docker compose up)
+    # Proves the README's start command: build the images, start postgres + api +
+    # web the way a volunteer would, and check the app actually answers -- through
+    # the API directly, through the web container's proxy, and with a real login
+    # against the migrated database.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker and Compose versions
+        run: |
+          docker version
+          docker compose version
+
+      # docker-compose.override.yml uses the `!override` YAML tag, which Compose
+      # only understands from v2.24.0. Older versions reject the file outright.
+      - name: Compose is new enough for docker-compose.override.yml
+        run: |
+          have="$(docker compose version --short)"
+          need="2.24.0"
+          lowest="$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)"
+          echo "Compose $have (need >= $need)"
+          test "$lowest" = "$need"
+
+      # The override must *replace* postgres' published port, not add to it.
+      # If `!override` were ignored, 5432 would still be published and would
+      # collide with a Postgres already running on the host.
+      - name: Override replaces the postgres port instead of merging
+        run: |
+          docker compose config --format json > "$RUNNER_TEMP/compose.json"
+          python3 -c '
+          import json, sys
+          ports = json.load(open(sys.argv[1]))["services"]["postgres"]["ports"]
+          published = sorted(str(p.get("published")) for p in ports)
+          print("postgres publishes:", published)
+          assert published == ["5433"], published
+          ' "$RUNNER_TEMP/compose.json"
+
+      # The README's command, detached so the job can go on to probe the stack.
+      - name: docker compose up --build
+        run: docker compose up --build --detach
+
+      # /health includes an Npgsql check, and the API only starts listening after
+      # its startup migrations finish, so "Healthy" here means migrated and connected.
+      - name: API is healthy (and so can reach Postgres)
+        run: |
+          body="$(curl -fsS --retry 60 --retry-delay 2 --retry-all-errors http://localhost:8080/health)"
+          echo "GET :8080/health -> $body"
+          test "$body" = "Healthy"
+
+      - name: Web serves the app shell
+        run: |
+          curl -fsS http://localhost:3000/ -o "$RUNNER_TEMP/index.html"
+          grep -q '<div id="root">' "$RUNNER_TEMP/index.html"
+          # Deep links fall back to the SPA rather than 404 (nginx try_files).
+          curl -fsS http://localhost:3000/pickup | grep -q '<div id="root">'
+
+      - name: Web proxies /api through to the API
+        run: |
+          body="$(curl -fsS http://localhost:3000/api/health)"
+          echo "GET :3000/api/health -> $body"
+          test "$body" = "Healthy"
+
+      # Logging in needs the migrated schema and the bootstrap admin the API
+      # seeds on first start, so this is the first check that exercises the
+      # database rather than just a connection to it.
+      - name: Bootstrap admin can log in through the web proxy
+        run: |
+          curl -sS -D "$RUNNER_TEMP/login.headers" -o "$RUNNER_TEMP/login.json" \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"changeme"}' \
+            http://localhost:3000/api/auth/login
+          cat "$RUNNER_TEMP/login.json"; echo
+          grep -i '^set-cookie:' "$RUNNER_TEMP/login.headers"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["success"] and r["data"]["username"]=="admin", r' "$RUNNER_TEMP/login.json"
+          cookie="$(grep -i '^set-cookie: HH.Session=' "$RUNNER_TEMP/login.headers" | head -n1 | sed -E 's/^[Ss]et-[Cc]ookie: ([^;]+).*/\1/')"
+          test -n "$cookie"
+          me="$(curl -fsS -H "Cookie: $cookie" http://localhost:3000/api/auth/me)"
+          echo "GET /api/auth/me -> $me"
+          python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["success"] and r["data"]["username"]=="admin", r' "$me"
+
+      # The compose file's own healthchecks are what `docker compose ps`, Portainer
+      # and `depends_on: condition: service_healthy` rely on. A check that can never
+      # pass would report a working API as down (and a real outage as nothing new).
+      - name: Compose healthchecks report healthy
+        run: |
+          for service in postgres api; do
+            id="$(docker compose ps -q "$service")"
+            for attempt in $(seq 1 30); do
+              status="$(docker inspect --format '{{.State.Health.Status}}' "$id")"
+              [ "$status" = "healthy" ] && break
+              [ "$status" = "unhealthy" ] && break
+              sleep 5
+            done
+            echo "$service: $status"
+            if [ "$status" != "healthy" ]; then
+              docker inspect --format '{{json .State.Health}}' "$id"
+              exit 1
+            fi
+          done
+
+      - name: Container state
+        if: always()
+        run: docker compose ps --all
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color --timestamps
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes --remove-orphans
 
   web:
     name: Web (Node ${{ matrix.node }})

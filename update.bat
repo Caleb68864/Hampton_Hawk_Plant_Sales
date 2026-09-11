@@ -11,7 +11,7 @@ echo.
 echo [*] Rebuilding images and restarting containers...
 echo.
 
-docker-compose up -d --build
+docker compose up -d --build
 if errorlevel 1 (
     echo.
     echo [!] Update failed. See output above.

@@ -156,9 +156,18 @@ Operational backend behaviors:
 
 ### Run the full stack with Docker Compose
 
+Requires **Docker Compose v2.24.0 or newer** -- check with `docker compose version`.
+Current Docker Desktop and the Docker Engine `docker-compose-plugin` both qualify.
+
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
+
+Use `docker compose` (with a space). `docker-compose.override.yml` uses the
+`!override` tag, which Compose only understands from v2.24.0; the legacy standalone
+`docker-compose` v1 cannot read the file at all. CI runs this
+command on every pull request, then checks the API's `/health`, the web app, the web
+proxy's `/api` route and an admin login before tearing the stack down.
 
 This starts:
 
@@ -167,13 +176,17 @@ This starts:
 | Web UI | http://localhost:3000 | Served by nginx |
 | API | http://localhost:8080 | ASP.NET Core API |
 | Swagger | http://localhost:8080/swagger | Development only |
-| PostgreSQL | localhost:5432 | Database |
+| PostgreSQL | localhost:5433 | Database. `docker-compose.override.yml` publishes it on 5433, not 5432, so it cannot collide with a Postgres already installed on the machine. |
 
 Default local compose values:
 - database: `hampton_hawks_plant_sales`
 - username: `plantapp`
 - password: `plantapp`
 - admin PIN: `1234`
+- first admin login: `admin` / `changeme` (see [First-Admin Bootstrap](#first-admin-bootstrap))
+
+Stop the stack with `docker compose down`. Add `--volumes` only if you mean to delete
+the database too.
 
 ### Portainer deployment
 
@@ -206,14 +219,16 @@ Post-deploy checks:
 1. Start PostgreSQL:
 
 ```bash
-docker-compose up postgres -d
+docker compose up -d postgres
 ```
 
-2. Start the API:
+2. Start the API. The compose database listens on port 5433 (see above), while
+   `appsettings.json` defaults to 5432, so point the API at it:
 
 ```bash
 cd api
-dotnet run --project src/HamptonHawksPlantSales.Api
+ConnectionStrings__Default="Host=localhost;Port=5433;Database=hampton_hawks_plant_sales;Username=plantapp;Password=plantapp" \
+  dotnet run --project src/HamptonHawksPlantSales.Api
 ```
 
 3. Start the web app in a second terminal:
@@ -231,7 +246,7 @@ Expected local URLs:
 ### Run everything in containers
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ## Build Test and Tooling
