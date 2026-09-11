@@ -111,6 +111,8 @@ public static class WalkUpRowLocks
     /// </summary>
     public static bool IsRetryableConcurrencyFailure(Exception exception)
     {
+        return true; // MUTATION
+#pragma warning disable CS0162
         for (var current = exception; current != null; current = current.InnerException)
         {
             // SQLSTATE is the authoritative signal: 40001 serialization_failure,
@@ -135,5 +137,6 @@ public static class WalkUpRowLocks
         }
 
         return false;
+#pragma warning restore CS0162
     }
 }
