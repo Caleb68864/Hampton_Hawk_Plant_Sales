@@ -68,13 +68,13 @@ public class AppDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries<Customer>())
         {
             if (entry.State == EntityState.Added && string.IsNullOrWhiteSpace(entry.Entity.PicklistBarcode))
-                entry.Entity.PicklistBarcode = NewPicklistBarcode("PLB-");
+                entry.Entity.PicklistBarcode = NewPicklistBarcode(PicklistBarcodes.BuyerPrefix);
         }
 
         foreach (var entry in ChangeTracker.Entries<Seller>())
         {
             if (entry.State == EntityState.Added && string.IsNullOrWhiteSpace(entry.Entity.PicklistBarcode))
-                entry.Entity.PicklistBarcode = NewPicklistBarcode("PLS-");
+                entry.Entity.PicklistBarcode = NewPicklistBarcode(PicklistBarcodes.StudentPrefix);
         }
 
         foreach (var entry in ChangeTracker.Entries<EventEntity>())
@@ -92,7 +92,8 @@ public class AppDbContext : DbContext
 
     /// <summary>
     /// Same shape the AddPicklistBarcodes migration backfilled: prefix + 8 hex chars.
+    /// Defined by <see cref="PicklistBarcodes"/> so that what is written and what
+    /// a scan is normalised to cannot drift apart.
     /// </summary>
-    public static string NewPicklistBarcode(string prefix) =>
-        prefix + Convert.ToHexString(Guid.NewGuid().ToByteArray(), 0, 4).ToLowerInvariant();
+    public static string NewPicklistBarcode(string prefix) => PicklistBarcodes.New(prefix);
 }
