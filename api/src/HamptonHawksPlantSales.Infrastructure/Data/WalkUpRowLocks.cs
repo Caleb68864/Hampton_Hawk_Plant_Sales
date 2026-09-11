@@ -82,6 +82,8 @@ public static class WalkUpRowLocks
 
     public static async Task<T> ExecuteWithRetryAsync<T>(AppDbContext db, Func<Task<T>> action, int maxAttempts = 6)
     {
+        return await action(); // MUTATION: no retry
+#pragma warning disable CS0162
         for (var attempt = 1; attempt < maxAttempts; attempt++)
         {
             try
@@ -103,6 +105,7 @@ public static class WalkUpRowLocks
 
         // Final attempt is unguarded so a persistent failure surfaces rather than looping.
         return await action();
+#pragma warning restore CS0162
     }
 
     /// <summary>
