@@ -84,12 +84,7 @@ public class InventoryService : IInventoryService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plantId);
-            }
+            // MUTATION: inventory adjustment FOR UPDATE removed
 
             var inventory = await _db.Inventories
                 .Include(i => i.PlantCatalog)

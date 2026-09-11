@@ -20,7 +20,7 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__Default: Host=postgres;Port=5432;Database=hampton_hawks_plant_sales;Username=plantapp;Password=plantapp
+      ConnectionStrings__Default: Host=no-such-postgres;Port=5432;Database=hampton_hawks_plant_sales;Username=plantapp;Password=plantapp
       APP_ADMIN_PIN: "1234"
       INVENTORY_NEGATIVE_ADJUST_THRESHOLD: "10"
       Bootstrap__AdminUsername: "admin"
