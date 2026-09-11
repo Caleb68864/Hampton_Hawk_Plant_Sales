@@ -55,9 +55,26 @@ collation semantics. Every file using it carries a control test asserting the
 provider really rejects a duplicate, so it cannot quietly become a suite that
 proves nothing.
 
-Nothing in `api/tests` runs against real Postgres. Testcontainers would close
-that, and it can only run where Docker is usable — not on this machine (the
-daemon is up but the socket is not accessible to this user).
+Row locks, SERIALIZABLE retries and SQLSTATE handling are tested against real
+Postgres in `api/tests/HamptonHawksPlantSales.PostgresTests` (Testcontainers,
+`postgres:16`, schema from the real migrations, fresh database per test). Those
+tests are `[PostgresFact]`s that skip unless `HH_POSTGRES_TESTS=1`, so a plain
+`dotnet test` works without Docker. CI's `api-postgres` job sets the variable
+and fails if any of them is skipped. They cannot run on this machine: the
+Docker socket is not accessible to this user. A change to the scan, register
+or inventory write paths, or to `WalkUpRowLocks`/`WalkUpOrderNumbers`, is only
+checked once that job has run.
+
+Two-station races there are staged with `Interleave.RunAsync`. It holds station
+A just before it writes the stock back, runs station B until B finishes or
+queues on a lock, and then releases A. `HarnessControlTests` proves the harness
+really overlaps transactions: through it, an unlocked read-modify-write must
+lose an update. If you add a race test, stage it the same way. Two operations
+run one after the other prove nothing about locking.
+
+`docker compose up --build` (Compose v2.24+, for the `!override` tag in
+`docker-compose.override.yml`) is exercised by CI's `compose` job. It probes
+the API, the web proxy, a real login, and container health.
 `docs/improve/2026-08-29-sweep-report.md` describes the browser E2E harness
 (Postgres in Docker + `dotnet run` + `vite preview` + Playwright); run it before
 a sale-day release.

@@ -286,6 +286,17 @@ cd api
 dotnet test HamptonHawksPlantSales.sln
 ```
 
+That run skips the tests in `HamptonHawksPlantSales.PostgresTests`. They need
+Docker, because they start a PostgreSQL container and race two stations against
+it (row locks, serializable retries, Postgres error codes). To run them:
+
+```bash
+cd api
+HH_POSTGRES_TESTS=1 dotnet test tests/HamptonHawksPlantSales.PostgresTests
+```
+
+CI runs them on every pull request in the "API against real Postgres" job.
+
 ### Storybook
 
 ```bash
