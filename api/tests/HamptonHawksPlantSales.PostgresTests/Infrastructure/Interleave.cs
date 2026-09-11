@@ -69,10 +69,11 @@ public static class Interleave
                 "The gate no longer matches the code path under test, so the race was never staged.");
         }
 
+        // MUTATION: let the first operation finish before the second starts
+        gate.Release();
+        await Outcome<TFirst>.CaptureAsync(firstTask);
         var secondTask = Task.Run(second);
         var secondWaitedOnLock = await WaitUntilWaitingOnLockOrFinishedAsync(db, secondTask);
-
-        gate.Release();
 
         var firstOutcome = await Outcome<TFirst>.CaptureAsync(firstTask.WaitAsync(StepTimeout));
         var secondOutcome = await Outcome<TSecond>.CaptureAsync(secondTask.WaitAsync(StepTimeout));
