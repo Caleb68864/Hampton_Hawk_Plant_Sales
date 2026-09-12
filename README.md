@@ -331,6 +331,44 @@ Generated output goes to:
 | `Cors__AllowedOrigins` | Comma-separated CORS allowlist | `http://localhost:3000` |
 | `Bootstrap__AdminUsername` | Username for the auto-created first admin | (not set — skipped if empty) |
 | `Bootstrap__AdminPassword` | Password for the auto-created first admin | (not set — skipped if empty) |
+| `Session__AllowInsecureCookieOverHttp` | Issue session cookies without `Secure` on plain-http requests, so phones on the LAN can stay logged in. See [Phones on the LAN](#phones-on-the-lan-plain-http). | off |
+
+### Phones on the LAN (plain http)
+
+The session cookie is marked `Secure`. Browsers only return a `Secure` cookie over
+https, with one exception: `localhost`. So the laptop running the stack works, and a
+phone that opens `http://<laptop-ip>:3000` — the address `start.bat` prints and the
+`/connect-mobile` QR encodes — logs in and is immediately logged out again, on every
+request.
+
+If the sale is running on a private LAN over plain http and you accept that anyone on
+that network can read a volunteer's session cookie off the wire, opt in. Create a
+`.env` file next to `docker-compose.yml`:
+
+```
+Session__AllowInsecureCookieOverHttp=true
+```
+
+then `docker compose up -d`. Only `true` or `1` turn it on; unset, empty, `false` or a
+typo all leave the cookie `Secure`.
+
+What it does and does not change:
+
+- The cookie becomes `Secure` **only when the request is https** rather than always. An
+  https deployment still gets a `Secure` cookie, so this cannot quietly become "the
+  session cookie is never protected".
+- `HttpOnly` and `SameSite=Strict` are unchanged.
+- Every startup with the flag on logs a `SECURITY:` warning naming the flag. Check
+  `docker compose logs api` if you are not sure which mode you are in.
+
+Prefer https where you can: put the stack behind an https reverse proxy or tunnel (see
+the `/connect-mobile` page) and leave this flag off. Camera scanning on phones needs
+https regardless — this flag does not help with that.
+
+Note for https behind a reverse proxy: the API does not read `X-Forwarded-Proto`, so it
+sees the proxy's plain-http hop. With this flag on behind an https proxy the cookie
+would go out without `Secure`. Leave the flag off in that deployment, which is the
+default.
 
 ### CORS
 
@@ -642,6 +680,7 @@ Printable guide links exposed there:
 ### App redirects to login on every page load
 
 Check:
+- **On a phone, over `http://<laptop-ip>:3000`?** This is expected until you opt in — the session cookie is `Secure` and no browser returns a `Secure` cookie to a plain-http origin other than `localhost`. See [Phones on the LAN](#phones-on-the-lan-plain-http).
 - `Bootstrap__AdminUsername` and `Bootstrap__AdminPassword` are set and non-empty in the compose env
 - The database is healthy (admin account must be persisted to be recognized on login)
 - The session cookie domain matches the frontend origin
@@ -659,6 +698,7 @@ Check:
 - CORS `AllowedOrigins` includes the exact frontend origin (no trailing slash, correct protocol)
 - `credentials: 'include'` is set on Axios requests
 - The `SameSite` cookie attribute is compatible with your deployment (LAN vs localhost)
+- The browser actually stored the cookie. Over plain http from anything but `localhost` it will not, because the cookie is `Secure` — see [Phones on the LAN](#phones-on-the-lan-plain-http)
 
 ### Web loads but API calls fail
 

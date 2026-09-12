@@ -59,6 +59,35 @@ echo   NOTE: camera scanning on phone requires HTTPS or localhost.
 echo         Plain HTTP over LAN works for manual entry only.
 echo         See /connect-mobile page for HTTPS tunnel options.
 echo.
+:: Phones cannot keep a session over plain HTTP unless the LAN opt-in is set.
+set "LAN_LOGIN_OK="
+if exist ".env" (
+    findstr /i /c:"Session__AllowInsecureCookieOverHttp=true" ".env" >nul 2>&1
+    if not errorlevel 1 set "LAN_LOGIN_OK=1"
+    findstr /i /c:"Session__AllowInsecureCookieOverHttp=1" ".env" >nul 2>&1
+    if not errorlevel 1 set "LAN_LOGIN_OK=1"
+)
+if defined LAN_LOGIN_OK goto :lan_login_on
+
+echo   NOTE: phones on the LAN cannot stay logged in over plain HTTP. The
+echo         session cookie is marked Secure, and a browser only returns a
+echo         Secure cookie over HTTPS or from localhost -- so a phone logs in
+echo         and is immediately logged out again.
+echo         To allow it on a private network, create a file named .env next
+echo         to docker-compose.yml containing this line:
+echo             Session__AllowInsecureCookieOverHttp=true
+echo         Anyone on that network can then read a volunteer's session
+echo         cookie off the wire. See README, "Phones on the LAN".
+echo.
+goto :skip_lan
+
+:lan_login_on
+echo   NOTE: .env turns on Session__AllowInsecureCookieOverHttp, so phones can
+echo         stay logged in over plain HTTP. Session cookies are sent without
+echo         the Secure flag and can be read off the wire by anyone on this
+echo         network.
+echo.
+
 :skip_lan
 echo ============================================
 echo.

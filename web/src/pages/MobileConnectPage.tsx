@@ -166,6 +166,35 @@ export function MobileConnectPage() {
         )}
       </section>
 
+      {!cameraReady && (
+        <section
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900"
+          aria-live="polite"
+        >
+          <h2 className="font-display text-lg font-semibold">
+            Staying logged in over plain HTTP
+          </h2>
+          <div className="mt-2 space-y-2 text-sm">
+            <p>
+              By default the session cookie is marked <code>Secure</code>, and a
+              browser only returns a <code>Secure</code> cookie over HTTPS or from{' '}
+              <code>localhost</code>. A phone on this URL will log in and be{' '}
+              <strong>immediately logged out again</strong>. The laptop running the
+              app is unaffected, because it uses <code>localhost</code>.
+            </p>
+            <p>
+              To allow it on a private network, create a file named{' '}
+              <code>.env</code> next to <code>docker-compose.yml</code> containing{' '}
+              <code>Session__AllowInsecureCookieOverHttp=true</code> and restart with{' '}
+              <code>docker compose up -d</code>. Session cookies are then sent
+              without <code>Secure</code>, so anyone on this network can read a
+              volunteer&apos;s session off the wire. An HTTPS URL still gets a{' '}
+              <code>Secure</code> cookie either way.
+            </p>
+          </div>
+        </section>
+      )}
+
       <section className="rounded-xl border border-hawk-200 bg-white/70 p-4">
         <h2 className="font-display text-lg font-semibold text-hawk-800">
           What you&apos;ll see on the phone

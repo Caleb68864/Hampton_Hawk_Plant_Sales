@@ -25,6 +25,10 @@ services:
       INVENTORY_NEGATIVE_ADJUST_THRESHOLD: "10"
       Bootstrap__AdminUsername: "admin"
       Bootstrap__AdminPassword: "changeme"
+      # Off unless a .env next to this file sets it. See README, "Phones on the
+      # LAN (plain http)". On = session cookies lose the Secure attribute on
+      # plain-http requests so phones can stay logged in; https still gets Secure.
+      Session__AllowInsecureCookieOverHttp: "${Session__AllowInsecureCookieOverHttp:-}"
     depends_on:
       postgres:
         condition: service_healthy
