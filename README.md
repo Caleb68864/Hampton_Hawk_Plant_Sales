@@ -332,6 +332,8 @@ Generated output goes to:
 | `Bootstrap__AdminUsername` | Username for the auto-created first admin | (not set — skipped if empty) |
 | `Bootstrap__AdminPassword` | Password for the auto-created first admin | (not set — skipped if empty) |
 | `Session__AllowInsecureCookieOverHttp` | Issue session cookies without `Secure` on plain-http requests, so phones on the LAN can stay logged in. See [Phones on the LAN](#phones-on-the-lan-plain-http). | off |
+| `ForwardedHeaders__KnownProxies` | Comma-separated addresses of proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` the API will believe. See [Behind a reverse proxy](#behind-a-reverse-proxy). | empty — no proxy trusted |
+| `ForwardedHeaders__KnownNetworks` | The same, given as comma-separated CIDR ranges (`172.16.0.0/12`). | empty — no proxy trusted |
 
 ### Phones on the LAN (plain http)
 
@@ -365,10 +367,76 @@ Prefer https where you can: put the stack behind an https reverse proxy or tunne
 the `/connect-mobile` page) and leave this flag off. Camera scanning on phones needs
 https regardless — this flag does not help with that.
 
-Note for https behind a reverse proxy: the API does not read `X-Forwarded-Proto`, so it
-sees the proxy's plain-http hop. With this flag on behind an https proxy the cookie
-would go out without `Secure`. Leave the flag off in that deployment, which is the
-default.
+Behind an https reverse proxy, this flag is safe **only once the API knows which proxy
+to believe**. Name the proxy in `ForwardedHeaders__KnownProxies` and the API sees the
+volunteer's https request, so the cookie keeps `Secure` and the flag costs you nothing.
+Leave that unset and the API still sees only the proxy's plain-http hop, so the flag
+would strip `Secure` from a session that really was on https — the worst of both. So:
+name the proxy, or leave this flag off. See [Behind a reverse
+proxy](#behind-a-reverse-proxy).
+
+### Behind a reverse proxy
+
+By default the API believes nothing it is told about the original request. It uses the
+address the TCP connection came from and the scheme of the leg it actually served, and
+it ignores `X-Forwarded-For` and `X-Forwarded-Proto` entirely, no matter who sends them.
+
+That is right for the sale-day LAN stack, where `docker compose` publishes the API on
+`0.0.0.0:8080` and any phone can reach it directly. It is wrong the moment something
+terminates TLS in front, because then:
+
+- the API thinks every request is plain http, which drives the session cookie's `Secure`
+  attribute (see [Phones on the LAN](#phones-on-the-lan-plain-http));
+- every client shares one address — the proxy's — so the login throttle and the admin-PIN
+  lockout treat the whole building as a single visitor, and the request log records the
+  proxy for every line.
+
+Tell it which proxy to trust. In a `.env` file next to `docker-compose.yml`:
+
+```
+ForwardedHeaders__KnownProxies=172.18.0.4
+```
+
+or, for a range:
+
+```
+ForwardedHeaders__KnownNetworks=172.16.0.0/12
+```
+
+then `docker compose up -d`. Both accept comma-separated lists and may be combined. A
+value that is not an IP address or a CIDR range stops the API at startup rather than
+being skipped. Every start with a proxy trusted logs a line naming it, next to the
+`SECURITY:` line for the cookie flag — check `docker compose logs api` if you are not
+sure which mode you are in.
+
+**Name the proxy, not the neighbourhood.** Anything in the trust list can set the
+client's address and scheme for the API, so a range wider than the proxy itself hands
+that power to whatever else lives in the range. On the compose stack the API's port
+`8080` is published to `0.0.0.0`, so a LAN client reaching it directly arrives from the
+Docker gateway address — inside `172.16.0.0/12`. If you trust that range, also stop
+publishing `8080` (drop the `ports:` entry for `api` and let clients reach it through
+the `web` proxy on `3000`), or trust the proxy container's exact address instead.
+
+What is read and what is not:
+
+- `X-Forwarded-For` and `X-Forwarded-Proto`, one hop deep. One hop is what `nginx` in
+  the `web` container adds; if you stack a second proxy in front, the API will read the
+  hop nearest to it, which is the inner proxy's idea of the client.
+- `X-Forwarded-Host` is deliberately not read. Nothing here builds links or redirects
+  from the `Host` header, so believing it would add risk and change nothing.
+- With nothing trusted, the middleware is not installed at all. This matters: ASP.NET
+  Core's forwarded-headers middleware only consults its trust list when that list is
+  non-empty, so "installed with an empty list" would mean "believe everybody" — the
+  exact hole this setting exists to avoid.
+
+How this combines with `Session__AllowInsecureCookieOverHttp`:
+
+| Deployment | `ForwardedHeaders__*` | `Session__AllowInsecureCookieOverHttp` | Session cookie |
+|---|---|---|---|
+| LAN, plain http, no proxy (the default) | unset | off | `Secure` — phones log straight back out |
+| LAN, plain http, no proxy | unset | on | not `Secure` — phones stay logged in, anyone on the LAN can read the cookie |
+| Https reverse proxy | **naming the proxy** | either | `Secure` — the API sees https, so the flag changes nothing |
+| Https reverse proxy | unset | **on — do not** | not `Secure`, even though the volunteer is on https |
 
 ### CORS
 

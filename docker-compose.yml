@@ -29,6 +29,13 @@ services:
       # LAN (plain http)". On = session cookies lose the Secure attribute on
       # plain-http requests so phones can stay logged in; https still gets Secure.
       Session__AllowInsecureCookieOverHttp: "${Session__AllowInsecureCookieOverHttp:-}"
+      # Who may set X-Forwarded-For / X-Forwarded-Proto on this API's behalf. Empty
+      # -- the default, and what this LAN stack wants -- means nobody: the headers
+      # are not read at all, so a phone that reaches :8080 directly cannot claim
+      # https or forge its own address. Name a proxy only if one really terminates
+      # TLS in front. See README, "Behind a reverse proxy".
+      ForwardedHeaders__KnownProxies: "${ForwardedHeaders__KnownProxies:-}"
+      ForwardedHeaders__KnownNetworks: "${ForwardedHeaders__KnownNetworks:-}"
     depends_on:
       postgres:
         condition: service_healthy
