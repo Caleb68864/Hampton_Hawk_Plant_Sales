@@ -7,6 +7,9 @@ web/node_modules/
 /2026 Orders for Importing.xlsx
 /Sales by Product with flat totals.xlsx
 
+# Local compose overrides (read automatically by docker compose)
+/.env
+
 # Crash artifacts
 *.stackdump
 

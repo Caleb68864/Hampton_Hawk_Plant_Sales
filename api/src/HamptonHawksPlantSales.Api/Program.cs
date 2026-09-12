@@ -58,9 +58,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "HH.Session";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-            ? CookieSecurePolicy.SameAsRequest
-            : CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = SessionCookiePolicy.ResolveSecurePolicy(
+            builder.Configuration, builder.Environment);
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         options.SlidingExpiration = true;
         options.Events.OnRedirectToLogin = ctx =>
@@ -180,6 +179,21 @@ builder.Services.AddControllers(options =>
     });
 
 var app = builder.Build();
+
+// Say so, every single start, where `docker compose logs api` puts it at the top.
+// A downgrade nobody can see is how a one-day LAN workaround becomes the
+// permanent default.
+if (SessionCookiePolicy.AllowInsecureOverHttp(app.Configuration) && !app.Environment.IsDevelopment())
+{
+    app.Logger.LogWarning(
+        "SECURITY: {EnvVar} is ON. Session cookies are issued WITHOUT the Secure attribute on plain-http " +
+        "requests, so anyone on this network can read a volunteer's session cookie off the wire and reuse it. " +
+        "This exists so phones can stay logged in over http:// on a private LAN for a sale day. " +
+        "Unset {EnvVar} to go back to Secure-always. (HttpOnly and SameSite=Strict are unaffected; " +
+        "https requests still get a Secure cookie.)",
+        SessionCookiePolicy.AllowInsecureOverHttpEnvVar,
+        SessionCookiePolicy.AllowInsecureOverHttpEnvVar);
+}
 
 // Run migrations at startup
 using (var scope = app.Services.CreateScope())

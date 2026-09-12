@@ -186,6 +186,89 @@ jobs:
             fi
           done
 
+      # The login step above replays the cookie with an explicit `Cookie:` header,
+      # which bypasses every rule a browser applies to a cookie. That is exactly how
+      # a Secure-only session cookie shipped while the laptop kept working: the
+      # laptop browses http://localhost, and localhost is the one http origin that is
+      # allowed to keep a Secure cookie. The phones that scan the /connect-mobile QR
+      # reach the laptop by LAN address, where that exemption does not apply.
+      #
+      # These two steps use a real cookie jar (-c/-b) against the runner's own
+      # non-loopback address. curl's cookie engine implements the same Secure rule and
+      # the same localhost carve-out a browser does, so it stands in for the phone.
+      - name: Find a non-loopback address to stand in for the phone
+        id: lan
+        run: |
+          host="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "src") print $(i + 1)}' | head -n1)"
+          echo "runner address: ${host:-<none>}"
+          # Falling back to localhost here would turn this into a test that always
+          # passes, which is worse than not having it.
+          test -n "$host"
+          case "$host" in 127.*|"") echo "loopback only -- cannot prove the phone case"; exit 1;; esac
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+
+      - name: Flag off, a phone on the LAN is logged out immediately
+        env:
+          HOST: ${{ steps.lan.outputs.host }}
+        run: |
+          jar="$RUNNER_TEMP/phone-off.jar"
+          rm -f "$jar"
+          curl -sS -c "$jar" -D "$RUNNER_TEMP/off.headers" -o "$RUNNER_TEMP/off.json" \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"changeme"}' \
+            "http://$HOST:3000/api/auth/login"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["success"], r' "$RUNNER_TEMP/off.json"
+          # The login itself succeeds. The cookie is the problem.
+          python3 .github/scripts/assert_session_cookie.py "$RUNNER_TEMP/off.headers" secure
+          # A Secure cookie from a non-localhost http origin is dropped on the floor,
+          # so nothing was stored to send back.
+          if grep -q 'HH.Session' "$jar"; then
+            echo "expected the client to refuse to store the Secure cookie"; cat "$jar"; exit 1
+          fi
+          code="$(curl -sS -b "$jar" -o "$RUNNER_TEMP/off.me.json" -w '%{http_code}' "http://$HOST:3000/api/auth/me")"
+          echo "GET /api/auth/me from $HOST -> $code"
+          test "$code" = "401"
+
+      # This proves the http half only. The stack has no TLS, so "an https request
+      # still gets a Secure cookie" is not something this job can honestly check --
+      # that control lives in SessionCookieSecurityTests, which drives the same
+      # Program.cs over an https scheme.
+      - name: Flag on, that same phone stays logged in
+        env:
+          HOST: ${{ steps.lan.outputs.host }}
+        run: |
+          printf 'Session__AllowInsecureCookieOverHttp=true\n' > .env
+          docker compose up --detach --force-recreate api
+          # Through the proxy, so this also waits out nginx's cached upstream IP.
+          curl -fsS --retry 60 --retry-delay 2 --retry-all-errors http://localhost:3000/api/health
+
+          # The opt-in has to be impossible to miss in `docker compose logs`.
+          docker compose logs --no-color api | grep 'SECURITY' | grep -q 'Session__AllowInsecureCookieOverHttp'
+
+          jar="$RUNNER_TEMP/phone-on.jar"
+          rm -f "$jar"
+          curl -sS -c "$jar" -D "$RUNNER_TEMP/on.headers" -o "$RUNNER_TEMP/on.json" \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"changeme"}' \
+            "http://$HOST:3000/api/auth/login"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["success"], r' "$RUNNER_TEMP/on.json"
+          python3 .github/scripts/assert_session_cookie.py "$RUNNER_TEMP/on.headers" insecure
+          grep -q 'HH.Session' "$jar"
+
+          me="$(curl -fsS -b "$jar" "http://$HOST:3000/api/auth/me")"
+          echo "GET /api/auth/me from $HOST -> $me"
+          python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["success"] and r["data"]["username"]=="admin", r' "$me"
+
+          # And back off again, so a green run cannot mean the flag got stuck on.
+          rm -f .env
+          docker compose up --detach --force-recreate api
+          curl -fsS --retry 60 --retry-delay 2 --retry-all-errors http://localhost:3000/api/health
+          curl -sS -D "$RUNNER_TEMP/again.headers" -o /dev/null \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"changeme"}' \
+            "http://$HOST:3000/api/auth/login"
+          python3 .github/scripts/assert_session_cookie.py "$RUNNER_TEMP/again.headers" secure
+
       - name: Container state
         if: always()
         run: docker compose ps --all
