@@ -233,7 +233,18 @@ jobs:
       # still gets a Secure cookie" is not something this job can honestly check --
       # that control lives in SessionCookieSecurityTests, which drives the same
       # Program.cs over an https scheme.
-      - name: Flag on, that same phone stays logged in
+      #
+      # The same limit applies to the forwarded-headers half, and it is worth being
+      # blunt about which direction this job does and does not cover. It covers the
+      # dangerous one: a client claiming `X-Forwarded-Proto: https` against this
+      # stack, where no proxy is trusted, must change nothing (asserted below). It
+      # cannot cover the other one -- a *trusted* https hop keeping the cookie
+      # Secure -- because there is no TLS here and nothing that could honestly play
+      # the part of an https proxy. Standing up an nginx with a self-signed cert
+      # just to assert it would be theatre. That direction is proven in
+      # ForwardedHeadersTests, which drives the real Program.cs over a real socket
+      # so the trust decision is made against a real peer address.
+      - name: Flag on, that same phone stays logged in (and cannot claim https)
         env:
           HOST: ${{ steps.lan.outputs.host }}
         run: |
@@ -258,6 +269,26 @@ jobs:
           me="$(curl -fsS -b "$jar" "http://$HOST:3000/api/auth/me")"
           echo "GET /api/auth/me from $HOST -> $me"
           python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["success"] and r["data"]["username"]=="admin", r' "$me"
+
+          # The flag on is exactly when a lie about the scheme would pay off: the
+          # cookie policy is SameAsRequest, so "this request was https" means "send
+          # the Secure cookie". No proxy is trusted here (ForwardedHeaders__* unset,
+          # the shipped default), so the API must not believe a word of it.
+          #
+          # Both doors are checked. :8080 is published to 0.0.0.0, so a phone can
+          # reach the API without going through nginx at all and set whatever
+          # headers it likes; :3000 goes through nginx, which overwrites
+          # X-Forwarded-Proto with its own $scheme.
+          for target in "http://$HOST:3000" "http://$HOST:8080"; do
+            curl -sS -D "$RUNNER_TEMP/forged.headers" -o /dev/null \
+              -H 'Content-Type: application/json' \
+              -H 'X-Forwarded-Proto: https' \
+              -H 'X-Forwarded-For: 203.0.113.7' \
+              -d '{"username":"admin","password":"changeme"}' \
+              "$target/api/auth/login"
+            echo "forged X-Forwarded-Proto: https at $target ->"
+            python3 .github/scripts/assert_session_cookie.py "$RUNNER_TEMP/forged.headers" insecure
+          done
 
           # And back off again, so a green run cannot mean the flag got stuck on.
           rm -f .env

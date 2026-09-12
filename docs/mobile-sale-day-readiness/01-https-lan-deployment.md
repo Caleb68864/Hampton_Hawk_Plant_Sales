@@ -58,6 +58,17 @@ This produces `192.168.1.100.pem` and `192.168.1.100-key.pem`. Install the mkcer
 
 ---
 
+## Tell the API about the proxy
+
+Either option puts a TLS-terminating proxy in front of an API that is still served
+plain http on its own hop. Unless you name that proxy in `ForwardedHeaders__KnownProxies`
+(or `__KnownNetworks`), the API will believe every request is plain http: session
+cookies are decided on that basis, and the login throttle and admin-PIN lockout will
+key every volunteer onto the proxy's single address. See
+[Behind a reverse proxy](../../README.md#behind-a-reverse-proxy).
+
+---
+
 ## Verifying Camera Access
 
 After HTTPS is configured and the certificate is trusted on a device:

@@ -126,9 +126,11 @@ public class AdminPinActionFilter : IAsyncActionFilter
 
     private static string ClientKey(HttpContext httpContext)
     {
-        // Forwarded headers are not configured for this app, so the socket address
-        // is the only trustworthy identity. Behind the compose proxy every client
-        // shares it, which is acceptable: the lockout is per-window and short.
+        // The socket address, unless ForwardedHeaders__KnownProxies names the proxy
+        // in front (see TrustedProxies), in which case the middleware has already
+        // replaced it with the client address that proxy reported. With no proxy
+        // trusted, every client behind one shares a key, which is acceptable: the
+        // lockout is per-window and short.
         return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }
