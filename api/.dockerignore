@@ -1,0 +1,40 @@
+# Build context exclusions for api/Dockerfile.
+#
+# The Dockerfile copies the csproj files, restores, then `COPY . .`. Without this
+# file that second copy pulls in whatever the HOST has built: `bin/` and `obj/`
+# from a local `dotnet build`, plus the diagnostic logs committed at the root of
+# this folder. CI checks out fresh, so it never saw any of it — the cost lands
+# only on a developer machine, which is the one place nobody is watching a build
+# log.
+#
+# `obj/` is the one that actually breaks things rather than just bloating the
+# context: it holds `project.assets.json` with absolute HOST paths and the host's
+# SDK version, and a container restore that finds one can reuse it instead of
+# resolving for the image.
+#
+# Scope is deliberately narrow. Test projects are NOT excluded: every project in
+# the .sln must be present for `dotnet restore` to succeed, and the publish step
+# builds only the Api project and its dependencies, so they cost context and
+# nothing else. Appsettings files are NOT excluded either — the image is expected
+# to carry its defaults and take overrides from the environment.
+
+# Host build output
+**/bin/
+**/obj/
+
+# Diagnostic logs committed to api/ (tracked; see the roadmap item about them)
+*.log
+
+# Test output
+**/TestResults/
+
+# Editor and tooling state
+.vs/
+.vscode/
+.idea/
+*.user
+
+# Local secrets, if one is ever placed here. The deployed stack takes its
+# configuration from the environment.
+.env
+.env.*
