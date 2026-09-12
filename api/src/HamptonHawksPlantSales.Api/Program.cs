@@ -95,7 +95,9 @@ builder.Services.AddAuthorization(options =>
 
 // Rate limiting. Login is throttled per client address; admin PIN failures are
 // counted by AdminPinActionFilter (only failures, so a correct PIN is never
-// throttled). Forwarded headers are not configured, so the socket address is used.
+// throttled). The address is the socket peer unless a trusted proxy is configured
+// (see TrustedProxies), in which case UseForwardedHeaders has already replaced it
+// with the client address that proxy reported.
 builder.Services.AddMemoryCache();
 builder.Services.AddRateLimiter(options =>
 {
@@ -180,6 +182,9 @@ builder.Services.AddControllers(options =>
 
 var app = builder.Build();
 
+// Throws on a malformed address, before anything starts listening.
+var forwardedHeadersOptions = TrustedProxies.Resolve(app.Configuration);
+
 // Say so, every single start, where `docker compose logs api` puts it at the top.
 // A downgrade nobody can see is how a one-day LAN workaround becomes the
 // permanent default.
@@ -190,9 +195,20 @@ if (SessionCookiePolicy.AllowInsecureOverHttp(app.Configuration) && !app.Environ
         "requests, so anyone on this network can read a volunteer's session cookie off the wire and reuse it. " +
         "This exists so phones can stay logged in over http:// on a private LAN for a sale day. " +
         "Unset {EnvVar} to go back to Secure-always. (HttpOnly and SameSite=Strict are unaffected; " +
-        "https requests still get a Secure cookie.)",
+        "a request the app can see is https still gets a Secure cookie -- behind a reverse proxy that " +
+        "means {ProxyEnvVar} must name the proxy, or the app cannot tell.)",
         SessionCookiePolicy.AllowInsecureOverHttpEnvVar,
-        SessionCookiePolicy.AllowInsecureOverHttpEnvVar);
+        SessionCookiePolicy.AllowInsecureOverHttpEnvVar,
+        TrustedProxies.KnownProxiesEnvVar);
+}
+
+if (forwardedHeadersOptions is not null)
+{
+    app.Logger.LogInformation(
+        "Trusting X-Forwarded-For and X-Forwarded-Proto from {TrustedProxies}, one hop. The request " +
+        "scheme and the client address used for logging and rate limiting come from that hop; " +
+        "X-Forwarded-* from anyone else is ignored.",
+        TrustedProxies.Describe(forwardedHeadersOptions));
 }
 
 // Run migrations at startup
@@ -204,6 +220,14 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Middleware
+
+// First, so everything after it -- request logging, the login rate limiter, the
+// session cookie's Secure policy -- sees the client's scheme and address instead of
+// the proxy's hop. Absent entirely when no proxy is trusted, which is the default:
+// an options object with an empty trust list would honour X-Forwarded-* from anyone.
+if (forwardedHeadersOptions is not null)
+    app.UseForwardedHeaders(forwardedHeadersOptions);
+
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
