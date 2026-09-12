@@ -20,7 +20,7 @@ namespace HamptonHawksPlantSales.Tests.Helpers;
 /// chosen from the environment.
 /// </para>
 /// </summary>
-public sealed class RealCookieAuthApiFactory : WebApplicationFactory<Program>
+public class RealCookieAuthApiFactory : WebApplicationFactory<Program>
 {
     public const string AdminUsername = "cookie-test-admin";
     public const string AdminPassword = "cookie-test-password";
