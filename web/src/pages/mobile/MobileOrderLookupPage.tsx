@@ -188,10 +188,11 @@ export function MobileOrderLookupPage() {
 
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
-      // REQ-021: scan-source telemetry — debug channel only, no console.log of code.
+      // REQ-021: scan-source telemetry — debug channel only, and never the code
+      // itself (it is a customer's pickup code / order number).
       console.debug('mobile-lookup-scan', {
         source: result.source,
-        code: result.code,
+        codeLength: result.code.length,
         scannedAtUtc: result.scannedAtUtc,
       });
       setValue(result.code);
