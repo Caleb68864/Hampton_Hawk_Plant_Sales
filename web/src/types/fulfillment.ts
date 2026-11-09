@@ -4,7 +4,10 @@ export type FulfillmentResultType =
   | 'WrongOrder'
   | 'AlreadyFulfilled'
   | 'SaleClosedBlocked'
-  | 'OutOfStock';
+  | 'OutOfStock'
+  // Audit-only: written when an accepted scan is reversed (mirrors the API's
+  // FulfillmentResult.Undone). A scan response never carries it.
+  | 'Undone';
 
 export interface ScanRequest {
   barcode: string;

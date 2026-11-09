@@ -14,6 +14,7 @@ const resultStyles: Record<FulfillmentResultType, string> = {
   AlreadyFulfilled: 'bg-amber-500 text-black border-2 border-amber-700',
   OutOfStock: 'bg-red-700 text-white border-2 border-red-900',
   SaleClosedBlocked: 'bg-red-700 text-white border-2 border-red-900',
+  Undone: 'bg-gray-700 text-white border-2 border-gray-900',
 };
 
 export function ScanFeedbackBanner({ result, message, plantName, nextAction }: ScanFeedbackBannerProps) {

@@ -19,6 +19,7 @@ const resultColors: Record<FulfillmentResultType, string> = {
   AlreadyFulfilled: 'text-amber-900 bg-amber-100 border-amber-300',
   OutOfStock: 'text-red-800 bg-red-100 border-red-300',
   SaleClosedBlocked: 'text-red-800 bg-red-100 border-red-300',
+  Undone: 'text-gray-800 bg-gray-100 border-gray-300',
 };
 
 const plainReasons: Record<FulfillmentResultType, string> = {
@@ -28,6 +29,7 @@ const plainReasons: Record<FulfillmentResultType, string> = {
   AlreadyFulfilled: 'This line is already fully fulfilled.',
   OutOfStock: 'No inventory available for this scan.',
   SaleClosedBlocked: 'Sale is closed, so scan fulfillment is blocked.',
+  Undone: 'An earlier accepted scan was reversed.',
 };
 
 export function ScanHistoryList({ entries }: ScanHistoryListProps) {
