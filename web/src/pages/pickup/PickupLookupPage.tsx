@@ -31,6 +31,35 @@ interface CustomerWithOrders {
   orders: Order[];
 }
 
+// The lookup still issues one orders request per matching customer (a single
+// grouped search needs a product check on the matching rules -- see
+// docs/ROADMAP.md). Cap how many run at once so a broad search cannot open ~50
+// sockets against the API from one kiosk.
+const PER_CUSTOMER_ORDER_CONCURRENCY = 4;
+
+// Runs `fn` over `items` with at most `limit` in flight, preserving order.
+// Once `isCancelled()` is true no further item is started; items not started
+// are left out of the result (the caller discards a cancelled result anyway).
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  isCancelled: () => boolean,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  const done: boolean[] = new Array(items.length).fill(false);
+  let next = 0;
+  async function worker() {
+    while (next < items.length && !isCancelled()) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+      done[index] = true;
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+  return results.filter((_, i) => done[i]);
+}
+
 const NO_MATCH_MESSAGE = 'What happened: No order found for scanned barcode/order number.\nWhat to do next: Clear the field, rescan the sheet, or type the order number again.';
 
 export function PickupLookupPage() {
@@ -152,8 +181,16 @@ export function PickupLookupPage() {
           }
         }
 
-        const withOrders: CustomerWithOrders[] = await Promise.all(
-          customers.map(async (customer) => {
+        // A newer search (or unmount) supersedes this one: stop before the
+        // per-customer fan-out instead of firing up to 50 requests whose
+        // results will be thrown away.
+        if (cancelled) return;
+
+        const withOrders: CustomerWithOrders[] = await mapWithConcurrency(
+          customers,
+          PER_CUSTOMER_ORDER_CONCURRENCY,
+          () => cancelled,
+          async (customer) => {
             try {
               const orderResult = await ordersApi.list({
                 customerId: customer.id,
@@ -163,8 +200,9 @@ export function PickupLookupPage() {
             } catch {
               return { customer, orders: [] };
             }
-          }),
+          },
         );
+        if (cancelled) return;
 
         let directOrderMatches: Order[] = [];
         if (trimmedSearch.length >= 2) {
@@ -173,6 +211,7 @@ export function PickupLookupPage() {
             directOrderMatches = orderResult.items;
 
             for (const order of orderResult.items) {
+              if (cancelled) return;
               const existingCustomer = withOrders.find((row) => row.customer.id === order.customerId);
               if (existingCustomer) {
                 if (!existingCustomer.orders.some((existingOrder) => existingOrder.id === order.id)) {
