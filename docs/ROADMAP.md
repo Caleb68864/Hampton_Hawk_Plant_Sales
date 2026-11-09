@@ -31,10 +31,13 @@ Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
 
 ### Sale-day impact: medium
 
-- **Pickup lookup fans out up to ~52 requests per keystroke**
-  (`web/src/pages/pickup/PickupLookupPage.tsx`). Replace with one
-  `ordersApi.list({search})`; the phone/name/pickup-code matching rules need a product
-  check first.
+- **Pickup lookup still issues one orders request per matching customer**
+  (`web/src/pages/pickup/PickupLookupPage.tsx`). Partly fixed in dc2e9f6: the input was
+  already debounced (`SearchBar`, `pickupSearchDebounceMs`), so the cost was per
+  settled search, not per keystroke. Superseded searches now stop fanning out, and at
+  most 4 per-customer requests run at once. The remaining fix is one
+  `ordersApi.list({search})` grouped client-side, which needs a product check on the
+  phone/name/pickup-code matching rules first.
 - **Wire `.e2e/` into the repo and CI.** The Playwright spec described in the 08-29
   report is still untracked (`.git/info/exclude`) and is not in this checkout.
 - **Login limiter 10/min and PIN lockout 30 failures/min, per client IP**
@@ -63,7 +66,6 @@ Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
 
 ### Cosmetic
 
-- Mobile scan page shows the previous accepted message under the new banner.
 - REQ-021 demo page role gate is Admin-only vs spec's Pickup+Admin
   (`docs/findings/verification-2026-05-12-camera-scanner-foundation.md`); accept or change.
 
@@ -81,6 +83,8 @@ Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
 |---|---|---|
 | `ScanInput` silently dropped the second of two identical plants scanned within 2 s. Window narrowed to 400 ms (hardware double-read only) and a status line now says when a read is dropped; optional `onDuplicateIgnored` prop | `web/src/components/pickup/ScanInput.tsx`, `__tests__/ScanInput.test.tsx` | b73e61c |
 | Mobile order lookup logged the customer's pickup code to `console.debug` despite its comment (hardening-checklist item 8, REGRESSION:LOW). Now logs `codeLength`; the test that pinned the leak now pins the redaction | `web/src/pages/mobile/MobileOrderLookupPage.tsx`, `__tests__/MobileOrderLookupPage.test.tsx` | f16edc9, a7b58f3 |
+| A superseded pickup lookup kept firing its per-customer order requests (up to 50 at once). It now stops once superseded and caps concurrency at 4. Two new tests, both failing on the old page | `web/src/pages/pickup/PickupLookupPage.tsx`, `__tests__/PickupLookupPage.test.tsx` | dc2e9f6 |
+| Mobile scan page rendered the previous "Accepted" message beside a new recoverable/error message: polite region (4 s TTL) and assertive region both held text. A new announcement now clears the other region. Verified from code and a unit test, not re-checked on a device | `web/src/components/mobile/joy/JoyAriaLive.tsx`, `__tests__/JoyAriaLive.test.tsx` | ff4aaeb |
 | Web `FulfillmentResultType` lacked the API's `Undone` | `web/src/types/fulfillment.ts`, `ScanHistoryList.tsx`, `ScanFeedbackBanner.tsx` | 6ca0874 |
 | Hardening-checklist TODO: `MobilePickupLookupPage` 401 handling. Verified: redirects to `/login` via `isSessionExpired` | `web/src/pages/mobile/MobilePickupLookupPage.tsx` | (verified, no change) |
 | Postgres-backed integration tests (Testcontainers) | `api/tests/HamptonHawksPlantSales.PostgresTests`, CI `api-postgres` | PR #67 |
