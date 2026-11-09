@@ -63,6 +63,32 @@ describe('JoyAriaLive', () => {
     expect(screen.getByTestId('joy-live-assertive').textContent).toBe('urgent message');
   });
 
+  it('(g) a new announcement clears the other region so only the latest message shows', async () => {
+    let fn!: ReturnType<typeof useJoyAnnounce>;
+    render(
+      <JoyAriaLive>
+        <Announcer onMount={(f) => { fn = f; }} />
+      </JoyAriaLive>
+    );
+    // Accepted scan (polite), then a wrong-order scan (assertive) inside the
+    // polite message's 4 s TTL: the stale "Accepted" must not linger beside it.
+    await act(async () => {
+      fn('Accepted: Petunia');
+      fn('Wrong order', { politeness: 'assertive' });
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('joy-live-assertive').textContent).toBe('Wrong order');
+    expect(screen.getByTestId('joy-live-polite').textContent).toBe('');
+
+    // And the other way round.
+    await act(async () => {
+      fn('Accepted: Begonia');
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('joy-live-polite').textContent).toBe('Accepted: Begonia');
+    expect(screen.getByTestId('joy-live-assertive').textContent).toBe('');
+  });
+
   it('(e) message clears after ttlMs', async () => {
     vi.useFakeTimers();
     let fn!: ReturnType<typeof useJoyAnnounce>;

@@ -42,8 +42,20 @@ export const JoyAriaLive: FC<{ children: ReactNode }> = ({ children }) => {
 
   const announce = useCallback<AnnounceFn>((message, opts = {}) => {
     const { politeness = 'polite', ttlMs = 4000 } = opts;
-    const timer = politeness === 'assertive' ? assertiveTimer : politeTimer;
-    const setMsg = politeness === 'assertive' ? setAssertiveMsg : setPoliteMsg;
+    const assertive = politeness === 'assertive';
+    const timer = assertive ? assertiveTimer : politeTimer;
+    const setMsg = assertive ? setAssertiveMsg : setPoliteMsg;
+    const otherTimer = assertive ? politeTimer : assertiveTimer;
+    const setOther = assertive ? setPoliteMsg : setAssertiveMsg;
+
+    // The newest announcement supersedes whatever the other region still
+    // holds. Without this, an "Accepted" (polite, 4 s TTL) followed by a
+    // "Wrong order" (assertive) left both messages rendered at once.
+    if (otherTimer.current) {
+      clearTimeout(otherTimer.current);
+      otherTimer.current = null;
+    }
+    setOther((prev) => (prev.text ? { ...prev, text: '' } : prev));
 
     if (timer.current) clearTimeout(timer.current);
     setMsg((prev) => nextMessage(prev, message));
