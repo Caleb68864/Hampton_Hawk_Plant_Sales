@@ -315,7 +315,9 @@ describe('MobileOrderLookupPage', () => {
   });
 
   // SS-04: REQ-021 — scan telemetry on console.debug only.
-  it('emits mobile-lookup-scan to console.debug with source/code/scannedAtUtc on scan', async () => {
+  // The scanned code itself is a customer-facing order number / pickup code and
+  // must not be logged (hardening-checklist item 8) -- only its length.
+  it('emits mobile-lookup-scan to console.debug with source/codeLength/scannedAtUtc and never the code', async () => {
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
     try {
       mockListOrders.mockResolvedValue(pageResp([]));
@@ -332,10 +334,11 @@ describe('MobileOrderLookupPage', () => {
         'mobile-lookup-scan',
         expect.objectContaining({
           source: 'mobile-camera',
-          code: '100123',
+          codeLength: 6,
           scannedAtUtc: '2026-05-07T20:00:00Z',
         }),
       );
+      expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('100123');
     } finally {
       debugSpy.mockRestore();
     }
