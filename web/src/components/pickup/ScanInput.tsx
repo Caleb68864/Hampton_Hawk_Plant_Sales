@@ -7,7 +7,17 @@ export interface ScanInputHandle {
 interface ScanInputProps {
   onScan: (barcode: string) => void;
   disabled?: boolean;
+  /** Called when an identical read inside the bounce window is dropped. */
+  onDuplicateIgnored?: (barcode: string) => void;
 }
+
+// A wedge scanner can double-fire one physical read; those repeats arrive
+// within a few hundred ms. A volunteer scanning two of the same plant is
+// slower than that. The window used to be 2 s, which silently ate the second
+// of two identical plants scanned back to back (reproduced in the 08-29 E2E).
+// Server-side scanId dedupe covers network retries, so this window only has to
+// absorb hardware bounce -- and when it does drop a read, it says so.
+export const DUPLICATE_SCAN_WINDOW_MS = 400;
 
 // True when the element that currently has focus is somewhere the operator is
 // typing on purpose (another input, a textarea, a select, contenteditable).
@@ -20,8 +30,9 @@ function isTextEntryElement(el: Element | null): boolean {
 }
 
 export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
-  function ScanInput({ onScan, disabled }, ref) {
+  function ScanInput({ onScan, disabled, onDuplicateIgnored }, ref) {
     const [value, setValue] = useState('');
+    const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const lastScanRef = useRef<string>('');
     const lastScanTimeRef = useRef<number>(0);
@@ -33,9 +44,11 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
       setValue(next);
     }, []);
     const onScanRef = useRef(onScan);
+    const onDuplicateRef = useRef(onDuplicateIgnored);
     useEffect(() => {
       onScanRef.current = onScan;
-    }, [onScan]);
+      onDuplicateRef.current = onDuplicateIgnored;
+    }, [onScan, onDuplicateIgnored]);
 
     const focus = useCallback(() => {
       inputRef.current?.focus();
@@ -52,14 +65,20 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
       if (!barcode) return;
 
       const now = Date.now();
-      if (barcode === lastScanRef.current && now - lastScanTimeRef.current < 2000) {
+      if (
+        barcode === lastScanRef.current &&
+        now - lastScanTimeRef.current < DUPLICATE_SCAN_WINDOW_MS
+      ) {
         setBuffer('');
+        setDuplicateNotice(`Repeat read of ${barcode} ignored -- scan again to count another.`);
+        onDuplicateRef.current?.(barcode);
         return;
       }
 
       lastScanRef.current = barcode;
       lastScanTimeRef.current = now;
       setBuffer('');
+      setDuplicateNotice(null);
       onScanRef.current(barcode);
     }, [setBuffer]);
 
@@ -110,6 +129,7 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
     }, [disabled, focus, setBuffer, submit]);
 
     return (
+      <>
       <input
         ref={inputRef}
         type="text"
@@ -121,6 +141,12 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
         disabled={disabled}
         autoComplete="off"
       />
+      {duplicateNotice && (
+        <p role="status" className="mt-1 text-sm text-amber-700">
+          {duplicateNotice}
+        </p>
+      )}
+      </>
     );
   },
 );

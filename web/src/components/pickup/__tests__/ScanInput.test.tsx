@@ -126,3 +126,59 @@ describe('ScanInput stray-keystroke recapture', () => {
     expect(input.value).toBe('');
   });
 });
+
+describe('ScanInput duplicate-read window', () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  function scan(input: HTMLInputElement, code: string) {
+    fireEvent.change(input, { target: { value: code } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  }
+
+  it('counts two identical scans made at human speed (0.7 s apart)', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    const onScan = vi.fn();
+    render(<ScanInput onScan={onScan} />);
+    const input = screen.getByPlaceholderText('Scan barcode or type SKU...') as HTMLInputElement;
+
+    scan(input, 'PL-1');
+    now.mockReturnValue(10_700);
+    scan(input, 'PL-1');
+
+    expect(onScan).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('drops a hardware double-read and tells the volunteer', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    const onScan = vi.fn();
+    const onDup = vi.fn();
+    render(<ScanInput onScan={onScan} onDuplicateIgnored={onDup} />);
+    const input = screen.getByPlaceholderText('Scan barcode or type SKU...') as HTMLInputElement;
+
+    scan(input, 'PL-1');
+    now.mockReturnValue(10_050);
+    scan(input, 'PL-1');
+
+    expect(onScan).toHaveBeenCalledTimes(1);
+    expect(onDup).toHaveBeenCalledWith('PL-1');
+    expect(screen.getByRole('status').textContent).toMatch(/ignored/);
+
+    // The next accepted scan clears the notice.
+    scan(input, 'PL-2');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('never drops a different barcode, however fast', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    const onScan = vi.fn();
+    render(<ScanInput onScan={onScan} />);
+    const input = screen.getByPlaceholderText('Scan barcode or type SKU...') as HTMLInputElement;
+    scan(input, 'PL-1');
+    scan(input, 'PL-2');
+    expect(onScan).toHaveBeenCalledTimes(2);
+  });
+});
