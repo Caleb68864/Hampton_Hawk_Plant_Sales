@@ -103,6 +103,16 @@ One `IEntityTypeConfiguration<T>` per entity in `Infrastructure/Data/Configurati
 ### Concurrency
 Use `BeginTransactionAsync()` + raw SQL `SELECT ... FOR UPDATE` for row-level locking on concurrent operations (scan fulfillment).
 
+Every stock write path takes its row locks in one canonical order, defined (with
+the reasons) on `WalkUpRowLocks`: ScanSessions, then per plant in ascending
+`PlantCatalogId` PlantCatalogs -> Inventories -> that plant's OrderLines, then
+Orders, then FulfillmentEvents. Take the plant lock first even when the plant
+row is not written: inserting an event, adjustment or line takes `FOR KEY SHARE`
+on it for the FK check. Use the helpers (`AcquireAsync`, `LockPlantAsync`,
+`LockOrderLinesAsync`, `LockOrdersAsync`) rather than hand-written `FOR UPDATE`,
+and sort in C#, not SQL. `LockOrderRaceTests` stages each formerly inverted pair;
+a new write path needs a test there.
+
 ### Walk-Up Inventory Protection
 `IInventoryProtectionService` calculates:
 `AvailableForWalkup = OnHandQty - SUM(unfulfilled qty across ALL non-cancelled orders)`.

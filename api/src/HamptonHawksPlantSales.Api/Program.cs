@@ -159,6 +159,8 @@ builder.Services.AddScoped<IImportService, ImportService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<IFulfillmentService, FulfillmentService>();
 builder.Services.AddScoped<IInventoryProtectionService, InventoryProtectionService>();
 builder.Services.AddScoped<IWalkUpService, WalkUpService>();

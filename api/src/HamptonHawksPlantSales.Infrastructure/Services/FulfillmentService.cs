@@ -12,11 +12,13 @@ public class FulfillmentService : IFulfillmentService
 {
     private readonly AppDbContext _db;
     private readonly IAdminService _adminService;
+    private readonly ICurrentUser? _currentUser;
 
-    public FulfillmentService(AppDbContext db, IAdminService adminService)
+    public FulfillmentService(AppDbContext db, IAdminService adminService, ICurrentUser? currentUser = null)
     {
         _db = db;
         _adminService = adminService;
+        _currentUser = currentUser;
     }
 
     public async Task<ScanResponse> ScanAsync(Guid orderId, string barcode, int quantity = 1, string? scanId = null)
@@ -49,7 +51,7 @@ public class FulfillmentService : IFulfillmentService
         {
             // Retry budget exhausted: tell the volunteer to rescan rather than 500.
             _db.ChangeTracker.Clear();
-            await CreateEvent(orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
+            await CreateEvent(FulfillmentEventSource.PickupScan, orderId, null, barcode.Trim(), FulfillmentResult.AlreadyFulfilled,
                 BuildActionMessage("Another station updated this order at the same time.", "Wait a moment, then scan again.", "Concurrent scan conflict."));
 
             return new ScanResponse
@@ -104,7 +106,7 @@ public class FulfillmentService : IFulfillmentService
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
-            await CreateEvent(orderId, null, barcode, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
+            await CreateEvent(FulfillmentEventSource.PickupScan, orderId, null, barcode, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.SaleClosedBlocked,
@@ -124,7 +126,7 @@ public class FulfillmentService : IFulfillmentService
 
         if (plant == null)
         {
-            await CreateEvent(orderId, null, barcode, FulfillmentResult.NotFound, BuildActionMessage("The scanned barcode/SKU is not in the catalog.", "Rescan the label, or verify the SKU and ask an admin to add/fix the item."));
+            await CreateEvent(FulfillmentEventSource.PickupScan, orderId, null, barcode, FulfillmentResult.NotFound, BuildActionMessage("The scanned barcode/SKU is not in the catalog.", "Rescan the label, or verify the SKU and ask an admin to add/fix the item."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.NotFound,
@@ -143,7 +145,7 @@ public class FulfillmentService : IFulfillmentService
 
         if (orderLineCheck == null)
         {
-            await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.WrongOrder,
+            await CreateEvent(FulfillmentEventSource.PickupScan, orderId, plant.Id, barcode, FulfillmentResult.WrongOrder,
                 BuildActionMessage("This scanned item does not belong to the selected order.",
                     "Confirm the order number or add the item to the order before rescanning.",
                     $"Plant '{plant.Name}' is not on order {orderId}."));
@@ -164,18 +166,10 @@ public class FulfillmentService : IFulfillmentService
 
         try
         {
-            if (isRelational)
-            {
-                // Acquire exclusive lock on the inventory row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Acquire exclusive lock on the order line row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // Plant, inventory, then the order line: the canonical order in WalkUpRowLocks.
+            // The plant lock matters even though the plant row is rarely written here: the
+            // event insert below takes FOR KEY SHARE on it, and a register holds it.
+            await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
 
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
@@ -187,7 +181,7 @@ public class FulfillmentService : IFulfillmentService
             if (lockedInventory == null || lockedOrderLine == null)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock, BuildActionMessage("This item could not be reserved for fulfillment.", "Refresh the order and try scanning again.", "Inventory or order row missing during lock."));
+                await CreateEvent(FulfillmentEventSource.PickupScan, orderId, plant.Id, barcode, FulfillmentResult.OutOfStock, BuildActionMessage("This item could not be reserved for fulfillment.", "Refresh the order and try scanning again.", "Inventory or order row missing during lock."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, orderLineCheck);
             }
 
@@ -211,7 +205,7 @@ public class FulfillmentService : IFulfillmentService
             if (lockedOrderLine.QtyFulfilled >= lockedOrderLine.QtyOrdered)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.AlreadyFulfilled,
+                await CreateEvent(FulfillmentEventSource.PickupScan, orderId, plant.Id, barcode, FulfillmentResult.AlreadyFulfilled,
                     BuildActionMessage("This line is already fully fulfilled.", "Move to the next item or use Undo if the prior scan was incorrect."));
                 return BuildScanResponse(FulfillmentResult.AlreadyFulfilled, orderId, plant, lockedOrderLine);
             }
@@ -219,7 +213,7 @@ public class FulfillmentService : IFulfillmentService
             if (lockedInventory.OnHandQty <= 0)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                await CreateEvent(orderId, plant.Id, barcode, FulfillmentResult.OutOfStock,
+                await CreateEvent(FulfillmentEventSource.PickupScan, orderId, plant.Id, barcode, FulfillmentResult.OutOfStock,
                     BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
                 return BuildScanResponse(FulfillmentResult.OutOfStock, orderId, plant, lockedOrderLine);
             }
@@ -256,6 +250,8 @@ public class FulfillmentService : IFulfillmentService
             // Quantity preserves the audit count without N rows of noise.
             var evt = new FulfillmentEvent
             {
+                UserId = _currentUser?.UserId,
+                Source = FulfillmentEventSource.PickupScan,
                 OrderId = orderId,
                 PlantCatalogId = plant.Id,
                 Barcode = barcode,
@@ -310,7 +306,7 @@ public class FulfillmentService : IFulfillmentService
 
         if (await _adminService.IsSaleClosedAsync())
         {
-            await CreateEvent(orderId, null, "MANUAL", FulfillmentResult.SaleClosedBlocked,
+            await CreateEvent(FulfillmentEventSource.ManualFulfill, orderId, null, "MANUAL", FulfillmentResult.SaleClosedBlocked,
                 BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
             return new ScanResponse
             {
@@ -327,12 +323,18 @@ public class FulfillmentService : IFulfillmentService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    request.OrderLineId);
-            }
+            // Canonical order (WalkUpRowLocks): plant and inventory before the line. The
+            // plant is only known from the line, so read it unlocked, lock, then re-read
+            // under the lock and make sure it did not move to another plant meanwhile.
+            var plantCatalogId = await _db.OrderLines
+                .AsNoTracking()
+                .Where(l => l.Id == request.OrderLineId && l.DeletedAt == null)
+                .Select(l => (Guid?)l.PlantCatalogId)
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            await WalkUpRowLocks.LockPlantAsync(_db, plantCatalogId);
+            await WalkUpRowLocks.LockOrderLinesAsync(_db, new[] { request.OrderLineId });
 
             var line = await _db.OrderLines
                 .Include(l => l.PlantCatalog)
@@ -342,12 +344,8 @@ public class FulfillmentService : IFulfillmentService
             if (line.OrderId != orderId)
                 throw new ValidationException("Order line does not belong to this order.");
 
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    line.PlantCatalogId);
-            }
+            if (line.PlantCatalogId != plantCatalogId)
+                throw new ValidationException("This order line was changed while it was being fulfilled. Refresh the order and try again.");
 
             var inventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null)
@@ -359,7 +357,7 @@ public class FulfillmentService : IFulfillmentService
             if (inventory.OnHandQty <= 0)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
-                await CreateEvent(orderId, line.PlantCatalogId, "MANUAL", FulfillmentResult.OutOfStock,
+                await CreateEvent(FulfillmentEventSource.ManualFulfill, orderId, line.PlantCatalogId, "MANUAL", FulfillmentResult.OutOfStock,
                     BuildActionMessage("This item is out of stock.", "Set it aside and ask an admin to adjust inventory or choose a substitute."));
                 return new ScanResponse
                 {
@@ -385,6 +383,8 @@ public class FulfillmentService : IFulfillmentService
 
             var evt = new FulfillmentEvent
             {
+                UserId = _currentUser?.UserId,
+                Source = FulfillmentEventSource.ManualFulfill,
                 OrderId = orderId,
                 PlantCatalogId = line.PlantCatalogId,
                 Barcode = "MANUAL",
@@ -429,7 +429,7 @@ public class FulfillmentService : IFulfillmentService
         // Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
-            await CreateEvent(orderId, null, string.Empty, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
+            await CreateEvent(FulfillmentEventSource.Undo, orderId, null, string.Empty, FulfillmentResult.SaleClosedBlocked, BuildActionMessage("Sales are currently closed.", "Ask an admin to reopen sales or try again when sales are open."));
             return new ScanResponse
             {
                 Result = FulfillmentResult.SaleClosedBlocked,
@@ -457,15 +457,9 @@ public class FulfillmentService : IFulfillmentService
         {
             if (isRelationalUndo)
             {
-                // Acquire lock on inventory row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} FOR UPDATE",
-                    lastAccepted.PlantCatalogId);
-
-                // Acquire lock on order line row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, lastAccepted.PlantCatalogId);
+                // Plant, inventory, order line, then the event: the canonical order in
+                // WalkUpRowLocks. The undo event's insert takes FOR KEY SHARE on the plant.
+                await WalkUpRowLocks.AcquireAsync(_db, lastAccepted.PlantCatalogId.Value, orderId);
 
                 // Acquire lock on the fulfillment event row
                 await _db.Database.ExecuteSqlRawAsync(
@@ -504,6 +498,8 @@ public class FulfillmentService : IFulfillmentService
             var plant = await _db.PlantCatalogs.FindAsync(lastAccepted.PlantCatalogId);
             var undoEvent = new FulfillmentEvent
             {
+                UserId = _currentUser?.UserId,
+                Source = FulfillmentEventSource.Undo,
                 OrderId = orderId,
                 PlantCatalogId = lastAccepted.PlantCatalogId,
                 Barcode = lastAccepted.Barcode,
@@ -610,6 +606,8 @@ public class FulfillmentService : IFulfillmentService
                 Barcode = e.Barcode,
                 Result = e.Result,
                 Message = e.Message,
+                UserId = e.UserId,
+                Source = e.Source,
                 CreatedAt = e.CreatedAt
             })
             .ToListAsync();
@@ -636,11 +634,13 @@ public class FulfillmentService : IFulfillmentService
             throw new ValidationException($"Order is {status} and cannot be fulfilled.");
     }
 
-    private async Task<FulfillmentEvent> CreateEvent(Guid orderId, Guid? plantCatalogId, string barcode,
+    private async Task<FulfillmentEvent> CreateEvent(FulfillmentEventSource source, Guid orderId, Guid? plantCatalogId, string barcode,
         FulfillmentResult result, string? message)
     {
         var evt = new FulfillmentEvent
         {
+            UserId = _currentUser?.UserId,
+            Source = source,
             OrderId = orderId,
             PlantCatalogId = plantCatalogId,
             Barcode = barcode,

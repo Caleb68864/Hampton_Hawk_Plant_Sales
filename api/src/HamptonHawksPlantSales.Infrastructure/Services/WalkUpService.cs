@@ -178,7 +178,8 @@ public class WalkUpService : IWalkUpService
 
         try
         {
-            await WalkUpRowLocks.AcquireAsync(_db, request.PlantCatalogId, orderId);
+            // Moving a line touches two plants: lock both, in canonical order.
+            await WalkUpRowLocks.AcquireAsync(_db, new[] { line.PlantCatalogId, request.PlantCatalogId }, orderId);
 
             if (!isOverride)
             {

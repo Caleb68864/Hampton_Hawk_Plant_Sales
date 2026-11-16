@@ -84,12 +84,10 @@ public class InventoryService : IInventoryService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plantId);
-            }
+            // Plant before inventory, the canonical order in WalkUpRowLocks: the
+            // adjustment row inserted below takes FOR KEY SHARE on the plant, so locking
+            // only the inventory row here was really Inventories -> PlantCatalogs.
+            await WalkUpRowLocks.LockPlantAsync(_db, plantId);
 
             var inventory = await _db.Inventories
                 .Include(i => i.PlantCatalog)

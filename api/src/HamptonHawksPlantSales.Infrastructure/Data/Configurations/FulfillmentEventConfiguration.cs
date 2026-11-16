@@ -24,7 +24,12 @@ public class FulfillmentEventConfiguration : IEntityTypeConfiguration<Fulfillmen
 
         builder.Property(e => e.IdempotencyKey).HasColumnType("text");
 
+        builder.Property(e => e.Source)
+            .HasConversion<string>()
+            .HasColumnType("text");
+
         builder.HasIndex(e => e.OrderId);
+        builder.HasIndex(e => e.UserId);
         builder.HasIndex(e => e.PlantCatalogId);
 
         // Scoped per order so two stations may reuse an id without colliding, and

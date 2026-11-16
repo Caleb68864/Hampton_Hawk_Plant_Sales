@@ -110,23 +110,8 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 throw new ValidationException($"No plant found for barcode '{barcode}'.");
             }
 
-            if (isRelational)
-            {
-                // Lock the plant catalog row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"PlantCatalogs\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Lock inventory row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Lock the existing order line if any
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // Plant, inventory, then the existing line if any (canonical order, WalkUpRowLocks).
+            await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
 
             // Idempotency: any scan id already applied to this draft is a replay, not a
             // second sale -- including a delayed retry of an older scan that arrives
@@ -268,16 +253,10 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    lineId);
-
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    request.PlantCatalogId);
-            }
+            // Plant and inventory before the line (canonical order, WalkUpRowLocks). The
+            // line's plant is checked against the request below, under the locks.
+            await WalkUpRowLocks.LockPlantAsync(_db, request.PlantCatalogId);
+            await WalkUpRowLocks.LockOrderLinesAsync(_db, new[] { lineId });
 
             var line = await _db.OrderLines
                 .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
@@ -404,23 +383,25 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    lineId);
-            }
+            // Plant and inventory before the line (canonical order, WalkUpRowLocks). The
+            // plant is only known from the line: read it unlocked, lock, re-read, and
+            // check it did not move.
+            var plantCatalogId = await _db.OrderLines
+                .AsNoTracking()
+                .Where(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
+                .Select(l => (Guid?)l.PlantCatalogId)
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            await WalkUpRowLocks.LockPlantAsync(_db, plantCatalogId);
+            await WalkUpRowLocks.LockOrderLinesAsync(_db, new[] { lineId });
 
             var line = await _db.OrderLines
                 .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
                 ?? throw new KeyNotFoundException("Order line not found.");
 
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    line.PlantCatalogId);
-            }
+            if (line.PlantCatalogId != plantCatalogId)
+                throw new ValidationException("This line was changed while it was being voided. Refresh and try again.");
 
             var inventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null);
@@ -494,16 +475,19 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
         try
         {
-            var lines = draft.OrderLines.Where(l => l.DeletedAt == null).ToList();
+            // One plant at a time in ascending plant id, plant -> inventory -> line: the
+            // canonical order in WalkUpRowLocks. Iterating in load order let two cancels
+            // sharing two plants lock their inventory rows in opposite orders.
+            var lines = draft.OrderLines
+                .Where(l => l.DeletedAt == null)
+                .OrderBy(l => l.PlantCatalogId)
+                .ThenBy(l => l.Id)
+                .ToList();
 
             foreach (var line in lines)
             {
-                if (isRelational)
-                {
-                    await _db.Database.ExecuteSqlRawAsync(
-                        "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                        line.PlantCatalogId);
-                }
+                await WalkUpRowLocks.LockPlantAsync(_db, line.PlantCatalogId);
+                await WalkUpRowLocks.LockOrderLinesAsync(_db, new[] { line.Id });
 
                 var inventory = await _db.Inventories
                     .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null);

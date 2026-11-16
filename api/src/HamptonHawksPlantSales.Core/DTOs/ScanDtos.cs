@@ -60,5 +60,7 @@ public class FulfillmentEventResponse
     public string Barcode { get; set; } = string.Empty;
     public FulfillmentResult Result { get; set; }
     public string? Message { get; set; }
+    public Guid? UserId { get; set; }
+    public FulfillmentEventSource? Source { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

@@ -5,18 +5,13 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-16 (branch `fix/sale-day-register`).
+Last updated: 2026-11-16 (branch `fix/canonical-lock-order`).
 
 ## Open
 
 ### Sale-day impact: high
 
-- **Lock order is inconsistent across services** (scan: Inventories->OrderLines; manual
-  fulfil / register adjust: OrderLines->Inventories; session scan:
-  ScanSessions->OrderLines->Inventories; `WalkUpRowLocks`: Plant->Inventory->OrderLine).
-  Retry wrappers turn the resulting 40P01 into a retry, not a 500. The proper fix is one
-  canonical order across all seven paths, with an `Interleave.RunAsync` race test in
-  `api/tests/HamptonHawksPlantSales.PostgresTests`.
+- None open. (Lock order: done, see below.)
 
 ### Sale-day impact: medium
 
@@ -34,11 +29,19 @@ Last updated: 2026-11-16 (branch `fix/sale-day-register`).
   `Filters/AdminPinActionFilter.cs`). Since PR #77 the IP is the real client behind the
   proxy. Confirm before sale day that venue devices do not share one IP (e.g. a
   hotspot NAT between them and the server).
-- **Fulfillment events carry no `UserId` / `Source`** (hardening-checklist BACKLOG:P1,
-  `docs/mobile-sale-day-readiness/07-audit-troubleshooting.md`). Post-sale audit has to
-  cross-reference the paper volunteer sheet.
 
 ### Product / policy calls
+
+- Fulfillment event attribution: open questions left after `UserId`/`Source` landed.
+  (1) Input method (camera vs. keyboard-wedge vs. typed SKU) would have to come from
+  the client, and every scan page would need to send it; worth it only if the audit
+  needs it, and it is client-asserted, not proof. (2) Sale-day accounts are per
+  station, so `UserId` names the station login, not the volunteer; per-person
+  attribution needs per-person logins or a "who is scanning" prompt. (3) Walk-up
+  register sales (`WalkUpRegisterScans`), `InventoryAdjustments` and `AdminActions`
+  carry no user either; extend the same `ICurrentUser` to them? (4) Show user/source
+  in the order history UI (`FulfillmentEventResponse` already returns them; the web
+  type does not declare them yet).
 
 - Customer/seller mutation is open to every LookupCapable role; single deletes need no
   PIN while bulk deletes do.
@@ -62,7 +65,7 @@ Last updated: 2026-11-16 (branch `fix/sale-day-register`).
 
 - This machine has only .NET 10 runtimes; the net9.0 test hosts need
   `DOTNET_ROLL_FORWARD=Major dotnet test ...` to run here.
-- Postgres tests run locally as of 2026-11-16 (`HH_POSTGRES_TESTS=1`, Docker reachable): 16 passed, 0 skipped.
+- Postgres tests run locally as of 2026-11-16 (`HH_POSTGRES_TESTS=1`, Docker reachable): 23 passed, 0 skipped.
   CI's `api-postgres` job still runs them on every push.
 - No stale git worktrees for this repo were found on 2026-11-09 (`git worktree list`
   shows only the main checkout).
@@ -71,6 +74,8 @@ Last updated: 2026-11-16 (branch `fix/sale-day-register`).
 
 | item | where | commit |
 |---|---|---|
+| Fulfillment events carry `UserId` (signed-in account, from the cookie's NameIdentifier via new `ICurrentUser`/`HttpCurrentUser`) and `Source` (`PickupScan`/`SessionScan`/`ManualFulfill`/`Undo`, set by the server). Nullable columns, migration `AddFulfillmentEventAttribution`, no FK so the row outlives the account. Returned on `GET .../events`. Unit tests fail with the stamping removed (4 of 5; the fifth tests `HttpCurrentUser` alone). Audit guide SQL corrected to the real PascalCase table names. Open questions under "Product / policy calls" | `Core/Models/FulfillmentEvent.cs`, `Core/Interfaces/ICurrentUser.cs`, `Api/Configuration/HttpCurrentUser.cs`, `FulfillmentService`, `ScanSessionService`, `Tests/Services/FulfillmentEventAttributionTests.cs`, `docs/mobile-sale-day-readiness/07-audit-troubleshooting.md` | `fix/canonical-lock-order` |
+| One canonical lock order across the stock write paths (pickup scan, manual fulfil, undo, session scan, register scan/adjust/void/cancel, `WalkUpRowLocks` callers in `WalkUpService`/`OrderService`, inventory adjust/set, bulk order status). Order and rationale on `WalkUpRowLocks`: ScanSessions, then per plant (ascending id) PlantCatalogs -> Inventories -> OrderLines, then Orders, then FulfillmentEvents. The plant lock comes first even where the plant is not written, because event/adjustment/line inserts take `FOR KEY SHARE` on it. Seven `Interleave.RunAsync` tests (`LockOrderRaceTests`), one per formerly inverted pair (manual fulfil/scan, scan/register, session scan/scan, register adjust/scan, stock adjust/register, undo/walk-up add, bulk status/bulk status); all seven saw 40P01 on the old code (on the bulk pair it reached the caller as a raw `PostgresException`, there is no retry) and none on the new. 40001 still occurs under SERIALIZABLE and is retried. Not covered by a race test: moving a walk-up line between plants now locks both plants, and register cancel-draft locks per plant in ascending id; both are ordering-only changes with no staged race | `Data/WalkUpRowLocks.cs`, `FulfillmentService`, `ScanSessionService`, `WalkUpRegisterService`, `InventoryService`, `OrderService`, `WalkUpService`, `PostgresTests/LockOrderRaceTests.cs` | `fix/canonical-lock-order` |
 | Register "Manager Override" could never succeed: it matched the barcode against `plantSku`/`plantName` and fell back to a plain scan the server refused again. The register scan now takes an optional `X-Admin-Pin`/`X-Admin-Reason` (same `TryAdminOverride` as AdjustLine), skips only the availability check, still stops at on-hand, and logs `WalkUpRegisterScanOverride`. The page re-sends the refused scan at the requested quantity with a fresh scan id. Unit, page and Postgres tests; the service and page tests fail on the old code | `WalkUpRegisterService.ScanIntoDraftAsync`, `WalkUpRegisterController.Scan`, `web/src/pages/walkup/WalkUpRegisterPage.tsx`, `web/src/api/walkupRegister.ts` | `fix/sale-day-register` |
 | Register scan idempotency kept only the last scanId per line, so a late retry of an older scan re-applied. New `WalkUpRegisterScans` table, unique `(OrderId, ScanId)`, migration `AddWalkUpRegisterScans`; the line's key is still checked for drafts opened before the migration. `DeleteAllOrdersAsync` clears the new table (its Restrict FK would otherwise 23503 the wipe; proved by mutation against Postgres) | `WalkUpRegisterService`, `Core/Models/WalkUpRegisterScan.cs`, `OrderService.DeleteAllOrdersAsync` | `fix/sale-day-register` |
 | `ScanInput` silently dropped the second of two identical plants scanned within 2 s. Window narrowed to 400 ms (hardware double-read only) and a status line now says when a read is dropped; optional `onDuplicateIgnored` prop | `web/src/components/pickup/ScanInput.tsx`, `__tests__/ScanInput.test.tsx` | b73e61c |
