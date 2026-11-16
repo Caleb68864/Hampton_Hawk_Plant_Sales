@@ -250,6 +250,11 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
+            // Canonical lock order (WalkUpRowLocks): session, then plant and inventory,
+            // then the plant's lines. Taking the plant here, before choosing lines, also
+            // means the candidate set below cannot be changed by another station.
+            await WalkUpRowLocks.LockPlantAsync(_db, plant.Id);
+
             // Multi-line aggregation: find ALL candidate OrderLines (oldest order
             // first, then oldest line), then distribute the requested quantity
             // greedily. e.g., qty=4 against [line A: remaining=3, line B: remaining=2]
@@ -298,20 +303,8 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
-            // Lock all candidate lines + the inventory row.
-            if (isRelational)
-            {
-                foreach (var lineId in candidateLineIds)
-                {
-                    await _db.Database.ExecuteSqlRawAsync(
-                        "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                        lineId);
-                }
-
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-            }
+            // Lock the candidate lines (ascending id; they are still applied oldest first).
+            await WalkUpRowLocks.LockOrderLinesAsync(_db, candidateLineIds);
 
             var lockedInventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == plant.Id && i.DeletedAt == null);

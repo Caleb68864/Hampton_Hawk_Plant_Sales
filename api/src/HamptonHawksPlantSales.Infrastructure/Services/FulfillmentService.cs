@@ -164,18 +164,10 @@ public class FulfillmentService : IFulfillmentService
 
         try
         {
-            if (isRelational)
-            {
-                // Acquire exclusive lock on the inventory row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    plant.Id);
-
-                // Acquire exclusive lock on the order line row before loading it as a tracked entity.
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, plant.Id);
-            }
+            // Plant, inventory, then the order line: the canonical order in WalkUpRowLocks.
+            // The plant lock matters even though the plant row is rarely written here: the
+            // event insert below takes FOR KEY SHARE on it, and a register holds it.
+            await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
 
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
@@ -327,12 +319,18 @@ public class FulfillmentService : IFulfillmentService
 
         try
         {
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    request.OrderLineId);
-            }
+            // Canonical order (WalkUpRowLocks): plant and inventory before the line. The
+            // plant is only known from the line, so read it unlocked, lock, then re-read
+            // under the lock and make sure it did not move to another plant meanwhile.
+            var plantCatalogId = await _db.OrderLines
+                .AsNoTracking()
+                .Where(l => l.Id == request.OrderLineId && l.DeletedAt == null)
+                .Select(l => (Guid?)l.PlantCatalogId)
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException("Order line not found.");
+
+            await WalkUpRowLocks.LockPlantAsync(_db, plantCatalogId);
+            await WalkUpRowLocks.LockOrderLinesAsync(_db, new[] { request.OrderLineId });
 
             var line = await _db.OrderLines
                 .Include(l => l.PlantCatalog)
@@ -342,12 +340,8 @@ public class FulfillmentService : IFulfillmentService
             if (line.OrderId != orderId)
                 throw new ValidationException("Order line does not belong to this order.");
 
-            if (isRelational)
-            {
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    line.PlantCatalogId);
-            }
+            if (line.PlantCatalogId != plantCatalogId)
+                throw new ValidationException("This order line was changed while it was being fulfilled. Refresh the order and try again.");
 
             var inventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null)
@@ -457,15 +451,9 @@ public class FulfillmentService : IFulfillmentService
         {
             if (isRelationalUndo)
             {
-                // Acquire lock on inventory row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"Inventories\" WHERE \"PlantCatalogId\" = {0} FOR UPDATE",
-                    lastAccepted.PlantCatalogId);
-
-                // Acquire lock on order line row
-                await _db.Database.ExecuteSqlRawAsync(
-                    "SELECT 1 FROM \"OrderLines\" WHERE \"OrderId\" = {0} AND \"PlantCatalogId\" = {1} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                    orderId, lastAccepted.PlantCatalogId);
+                // Plant, inventory, order line, then the event: the canonical order in
+                // WalkUpRowLocks. The undo event's insert takes FOR KEY SHARE on the plant.
+                await WalkUpRowLocks.AcquireAsync(_db, lastAccepted.PlantCatalogId.Value, orderId);
 
                 // Acquire lock on the fulfillment event row
                 await _db.Database.ExecuteSqlRawAsync(

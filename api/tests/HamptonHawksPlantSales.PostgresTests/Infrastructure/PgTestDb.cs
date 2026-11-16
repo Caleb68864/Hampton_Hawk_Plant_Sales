@@ -83,6 +83,9 @@ public sealed class Station : IAsyncDisposable
         new(Db, new InventoryProtectionService(Db), new AdminService(Db), Configuration);
     public OrderService Orders =>
         new(Db, new InventoryProtectionService(Db), new AdminService(Db), Configuration);
+    public WalkUpService WalkUp =>
+        new(Db, new InventoryProtectionService(Db), new AdminService(Db), Configuration);
+    public ScanSessionService Sessions => new(Db, new AdminService(Db), Configuration);
 
     public ValueTask DisposeAsync() => Db.DisposeAsync();
 }

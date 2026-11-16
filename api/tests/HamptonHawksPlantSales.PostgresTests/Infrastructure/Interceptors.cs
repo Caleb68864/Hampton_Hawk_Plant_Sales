@@ -16,19 +16,41 @@ public sealed class PauseBeforeCommand : DbCommandInterceptor
     private static readonly TimeSpan MaxPause = TimeSpan.FromSeconds(60);
 
     private readonly Func<string, bool> _matches;
+    private readonly int _occurrence;
+    private int _seen;
     private readonly TaskCompletionSource _reached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _used;
 
-    public PauseBeforeCommand(string description, Func<string, bool> matches)
+    /// <param name="occurrence">Which matching command to hold (1 = the first). Later
+    /// occurrences hold a path part-way through a run of locks of the same kind.</param>
+    public PauseBeforeCommand(string description, Func<string, bool> matches, int occurrence = 1)
     {
         Description = description;
         _matches = matches;
+        _occurrence = occurrence;
     }
 
     /// <summary>Pause before the first write-back of an inventory row.</summary>
     public static PauseBeforeCommand BeforeInventoryWrite() =>
         new("before UPDATE \"Inventories\"", sql => sql.Contains("UPDATE \"Inventories\"", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Pause before the explicit <c>SELECT ... FOR UPDATE</c> on an inventory row, i.e.
+    /// with whatever locks the path takes before the inventory row already held. This is
+    /// where a path that locks order lines before inventory is caught mid-acquisition.
+    /// </summary>
+    public static PauseBeforeCommand BeforeInventoryLock() =>
+        new("before SELECT ... FROM \"Inventories\" ... FOR UPDATE",
+            sql => sql.Contains("SELECT 1 FROM \"Inventories\"", StringComparison.Ordinal)
+                   && sql.Contains("FOR UPDATE", StringComparison.Ordinal));
+
+    /// <summary>Pause before the <paramref name="occurrence"/>th explicit lock of an order row.</summary>
+    public static PauseBeforeCommand BeforeOrderLock(int occurrence) =>
+        new($"before order row lock #{occurrence}",
+            sql => sql.Contains("SELECT 1 FROM \"Orders\"", StringComparison.Ordinal)
+                   && sql.Contains("FOR UPDATE", StringComparison.Ordinal),
+            occurrence);
 
     /// <summary>Pause before the first insert of an order row.</summary>
     public static PauseBeforeCommand BeforeOrderInsert() =>
@@ -41,7 +63,8 @@ public sealed class PauseBeforeCommand : DbCommandInterceptor
     private async ValueTask PauseIfMatchAsync(DbCommand command, CancellationToken cancellationToken)
     {
         if (!_matches(command.CommandText)) return;
-        if (Interlocked.Exchange(ref _used, 1) == 1) return; // only ever the first match; retries run free
+        if (Interlocked.Increment(ref _seen) < _occurrence) return;
+        if (Interlocked.Exchange(ref _used, 1) == 1) return; // only ever one hold; retries run free
 
         _reached.TrySetResult();
         await _release.Task.WaitAsync(MaxPause, cancellationToken);

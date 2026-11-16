@@ -355,7 +355,8 @@ public class OrderService : IOrderService
 
             try
             {
-                await WalkUpRowLocks.AcquireAsync(_db, newPlantCatalogId, orderId);
+                // Moving a line touches two plants: lock both, in canonical order.
+                await WalkUpRowLocks.AcquireAsync(_db, new[] { target.PlantCatalogId, newPlantCatalogId }, orderId);
 
                 var line = await _db.OrderLines
                     .Include(l => l.PlantCatalog)
@@ -588,17 +589,14 @@ public class OrderService : IOrderService
 
         try
         {
+            // Lock every selected order up front in ascending id (WalkUpRowLocks), not in
+            // request order: two bulk requests naming the same orders in different
+            // orders would otherwise deadlock.
+            await WalkUpRowLocks.LockOrdersAsync(_db, request.OrderIds);
+
             foreach (var orderId in request.OrderIds)
             {
                 Order? order;
-
-                if (isRelational)
-                {
-                    // Acquire row lock with FOR UPDATE
-                    await _db.Database.ExecuteSqlRawAsync(
-                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                        orderId);
-                }
 
                 order = await _db.Orders
                     .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
@@ -667,16 +665,13 @@ public class OrderService : IOrderService
 
         try
         {
+            // Lock every selected order up front in ascending id (WalkUpRowLocks), not in
+            // request order: two bulk requests naming the same orders in different
+            // orders would otherwise deadlock.
+            await WalkUpRowLocks.LockOrdersAsync(_db, request.OrderIds);
+
             foreach (var orderId in request.OrderIds)
             {
-                if (isRelational)
-                {
-                    // Acquire row lock with FOR UPDATE
-                    await _db.Database.ExecuteSqlRawAsync(
-                        "SELECT 1 FROM \"Orders\" WHERE \"Id\" = {0} AND \"DeletedAt\" IS NULL FOR UPDATE",
-                        orderId);
-                }
-
                 var order = await _db.Orders
                     .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null);
 
