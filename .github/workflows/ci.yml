@@ -228,6 +228,10 @@ jobs:
 
       - name: Install Playwright and Chromium
         working-directory: .e2e
+        # ubuntu-latest is 26.04, which Playwright 1.59 does not list yet; its
+        # documented override installs the 24.04 build of Chromium and deps.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: |
           npm ci
           npx playwright install --with-deps chromium
@@ -236,6 +240,7 @@ jobs:
         working-directory: .e2e
         env:
           E2E_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
         run: npx playwright test -c playwright.config.ts
 
       - name: Upload E2E screenshots and trace
