@@ -194,6 +194,10 @@ prop.
 
 ### 19. Fulfillment events record the user / station
 
+`[RESOLVED 2026-11-16]` -- `FulfillmentEvent` now has nullable `UserId` and
+`Source` (migration `AddFulfillmentEventAttribution`); see `docs/ROADMAP.md`. The
+original finding follows.
+
 `[BACKLOG: P1]` -- `api/src/HamptonHawksPlantSales.Core/Models/FulfillmentEvent.cs`
 has `OrderId`, `PlantCatalogId`, `Barcode`, `Result`, `Quantity`,
 `Message`, `CreatedAt` -- no `UserId`, no `Source`, no `StationId`. The

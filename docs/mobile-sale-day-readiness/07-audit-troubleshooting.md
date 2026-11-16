@@ -19,9 +19,11 @@ Every barcode scan — accepted or rejected — is recorded as a `FulfillmentEve
 | `result` | enum | Outcome — see Result Categories below |
 | `quantity` | int | Units affected (default 1; multi-qty scans record one row) |
 | `message` | text (nullable) | Human-readable detail for non-accepted outcomes |
+| `UserId` | UUID (nullable) | Signed-in account (`AppUsers.Id`) that made the request. Sale-day accounts are per station (`Pickup1`, `POS2`, ...), so this names the station login, not the person holding the phone. Not a foreign key, so it survives the account being deleted. Null on rows from before migration `AddFulfillmentEventAttribution` (2026-11-16) |
+| `Source` | text (nullable) | Server write path: `PickupScan`, `SessionScan`, `ManualFulfill` or `Undo`. Null on older rows |
 | `created_at` | timestamptz | Timestamp of the scan (UTC) |
 
-> **Note on actor/source:** The current model records the order and barcode but does not store a per-event `UserId` or `ScanSource` (camera vs. manual-entry) column. A device-level volunteer assignment is recorded through account/role setup ([04-account-role-setup.md](./04-account-role-setup.md)). If per-scan user attribution is needed in the future, add a `VolunteerId` FK and `ScanSource` enum column to `FulfillmentEvent` in a follow-up migration. A backlog item for this is referenced in [08-hardening-verification.md](./08-hardening-verification.md).
+> **Note on actor/source:** Since 2026-11-16 each event records the station account (`UserId`) and the write path (`Source`). It still does not record the *input method* (camera vs. keyboard-wedge scanner vs. typed SKU) or the person behind a shared account; see "Fulfillment event attribution: open questions" in `docs/ROADMAP.md`. Walk-up register sales write `WalkUpRegisterScans`, not fulfillment events, and are not attributed by this change.
 
 #### Result Categories (REQ-008)
 
@@ -58,20 +60,23 @@ Use this read-only query to retrieve all scan events for a specific order, order
 
 ```sql
 SELECT
-    fe.id,
-    fe.order_id,
-    fe.barcode,
-    fe.plant_catalog_id,
-    pc.name         AS plant_name,
-    fe.result,
-    fe.quantity,
-    fe.message,
-    fe.created_at
-FROM fulfillment_events fe
-LEFT JOIN plant_catalog pc ON pc.id = fe.plant_catalog_id
-WHERE fe.order_id = '<ORDER_UUID>'
-  AND fe.deleted_at IS NULL
-ORDER BY fe.created_at ASC;
+    fe."Id",
+    fe."OrderId",
+    fe."Barcode",
+    fe."PlantCatalogId",
+    pc."Name"       AS plant_name,
+    fe."Result",
+    fe."Quantity",
+    fe."Message",
+    fe."Source",
+    u."Username"    AS station_account,
+    fe."CreatedAt"
+FROM "FulfillmentEvents" fe
+LEFT JOIN "PlantCatalogs" pc ON pc."Id" = fe."PlantCatalogId"
+LEFT JOIN "AppUsers" u ON u."Id" = fe."UserId"
+WHERE fe."OrderId" = '<ORDER_UUID>'
+  AND fe."DeletedAt" IS NULL
+ORDER BY fe."CreatedAt" ASC;
 ```
 
 Replace `<ORDER_UUID>` with the order ID from the customer's receipt or the admin UI.
@@ -80,11 +85,14 @@ To view **all** events for a time window (e.g., the last hour):
 
 ```sql
 SELECT *
-FROM fulfillment_events
-WHERE created_at >= NOW() - INTERVAL '1 hour'
-  AND deleted_at IS NULL
-ORDER BY created_at DESC;
+FROM "FulfillmentEvents"
+WHERE "CreatedAt" >= NOW() - INTERVAL '1 hour'
+  AND "DeletedAt" IS NULL
+ORDER BY "CreatedAt" DESC;
 ```
+
+(The real tables and columns are PascalCase and must be double-quoted. Before
+2026-11-16 this guide used snake_case names, which do not exist.)
 
 ---
 

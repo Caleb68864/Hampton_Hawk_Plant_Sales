@@ -16,11 +16,13 @@ public class ScanSessionService : IScanSessionService
     private readonly AppDbContext _db;
     private readonly IAdminService _adminService;
     private readonly IConfiguration _configuration;
+    private readonly ICurrentUser? _currentUser;
     private readonly TimeSpan _sessionTtl;
 
-    public ScanSessionService(AppDbContext db, IAdminService adminService, IConfiguration configuration)
+    public ScanSessionService(AppDbContext db, IAdminService adminService, IConfiguration configuration, ICurrentUser? currentUser = null)
     {
         _db = db;
+        _currentUser = currentUser;
         _adminService = adminService;
         _configuration = configuration;
 
@@ -373,6 +375,8 @@ public class ScanSessionService : IScanSessionService
                 // batched application count (cleaner than N events per line).
                 var evt = new FulfillmentEvent
                 {
+                    UserId = _currentUser?.UserId,
+                    Source = FulfillmentEventSource.SessionScan,
                     OrderId = lockedLine.OrderId,
                     PlantCatalogId = plant.Id,
                     Barcode = plantBarcode,

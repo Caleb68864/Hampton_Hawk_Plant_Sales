@@ -28,6 +28,17 @@ public class FulfillmentEvent : EventEntity
     /// </summary>
     public string? IdempotencyKey { get; set; }
 
+    /// <summary>
+    /// The signed-in account that caused this event (an <c>AppUser.Id</c>; sale-day
+    /// accounts are per station). Null for rows written before this column existed or
+    /// outside an authenticated request. Deliberately not a foreign key: the audit row
+    /// must outlive the account, and an insert should not lock the user row.
+    /// </summary>
+    public Guid? UserId { get; set; }
+
+    /// <summary>Which server write path recorded the event. Null on older rows.</summary>
+    public FulfillmentEventSource? Source { get; set; }
+
     public Order Order { get; set; } = null!;
     public PlantCatalog? PlantCatalog { get; set; }
 }

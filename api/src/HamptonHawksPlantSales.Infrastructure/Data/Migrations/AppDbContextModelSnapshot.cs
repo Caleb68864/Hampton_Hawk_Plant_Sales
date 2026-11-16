@@ -263,11 +263,19 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
 
                     b.HasIndex("PlantCatalogId");
+
+                    b.HasIndex("UserId");
 
                     b.HasIndex("OrderId", "IdempotencyKey")
                         .IsUnique()

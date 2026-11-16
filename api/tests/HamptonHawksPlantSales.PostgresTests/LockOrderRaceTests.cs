@@ -63,6 +63,10 @@ public sealed class LockOrderRaceTests
 
         (await SaleData.TotalFulfilledAsync(db, sale.PlantId)).Should().Be(2);
         (await SaleData.OnHandAsync(db, sale.PlantId)).Should().Be(3);
+
+        // Attribution columns round-trip through the real migration.
+        (await SaleData.EventsAsync(db, sale.PlantId)).Select(e => e.Source).Should()
+            .BeEquivalentTo(new FulfillmentEventSource?[] { FulfillmentEventSource.ManualFulfill, FulfillmentEventSource.PickupScan });
     }
 
     /// <summary>
