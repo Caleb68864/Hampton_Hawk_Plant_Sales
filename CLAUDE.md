@@ -75,7 +75,10 @@ run one after the other prove nothing about locking.
 
 `docker compose up --build` (Compose v2.24+, for the `!override` tag in
 `docker-compose.override.yml`) is exercised by CI's `compose` job. It probes
-the API, the web proxy, a real login, and container health.
+the API, the web proxy, a real login, and container health, then runs the
+sale-day Playwright spec (`.e2e/sale-day.spec.ts`, its own `package.json`) in
+Chromium against that stack. The spec logs in 5 times and the login limiter
+allows 10/min per IP, so count logins before adding any to that job.
 `docs/improve/2026-08-29-sweep-report.md` describes the browser E2E harness
 (Postgres in Docker + `dotnet run` + `vite preview` + Playwright); run it before
 a sale-day release.

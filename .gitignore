@@ -30,3 +30,8 @@ web/node_modules/
 /docs/tests/
 /docs/dark-factory-postmortem-2026-04-26.md
 /docs/lan-access-setup.md
+
+# Playwright E2E (.e2e/)
+/.e2e/node_modules/
+/.e2e/test-results/
+/.e2e/playwright-report/

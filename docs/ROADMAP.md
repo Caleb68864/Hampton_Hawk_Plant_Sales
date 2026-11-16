@@ -5,7 +5,7 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-16 (branch `test/lock-order-gaps`).
+Last updated: 2026-11-16 (branch `ci/sale-day-e2e`).
 
 ## Open
 
@@ -22,12 +22,15 @@ Last updated: 2026-11-16 (branch `test/lock-order-gaps`).
   most 4 per-customer requests run at once. The remaining fix is one
   `ordersApi.list({search})` grouped client-side, which needs a product check on the
   phone/name/pickup-code matching rules first.
-- **Wire `.e2e/` into CI.** The 08-29 spec never reached the repo; a smaller
-  sale-day spec is now tracked at `.e2e/sale-day.spec.ts` (login, pickup lookup
-  and scan, register scan / Manager Override / close, void + cancel, walk-up
-  line move; 5/5 green 2026-11-16). Still to do: a package for
-  `@playwright/test`, a CI job that brings up Postgres + API + `vite preview`.
-  The 08-29 crawl of all 44 routes, imports and reports was not rebuilt.
+- **Wire `.e2e/` into CI.** In progress on `ci/sale-day-e2e` (not yet run in Actions):
+  `.e2e/package.json` + lockfile pin `@playwright/test` 1.59.1, and the `compose` job
+  runs `.e2e/sale-day.spec.ts` in Chromium against `docker compose up` at
+  http://localhost:3000, credentials read from the api service's compose env,
+  `.e2e/test-results/` (screenshots, trace) uploaded on failure. 5/5 green locally
+  2026-11-16 against the compose images (api/web/postgres:16, run with `docker run`
+  since this machine has no Compose plugin), flag `Session__AllowInsecureCookieOverHttp`
+  off. Done once the first Actions run is green. The 08-29 crawl of all 44 routes,
+  imports and reports was not rebuilt.
 - **Login limiter 10/min and PIN lockout 30 failures/min, per client IP**
   (`api/src/HamptonHawksPlantSales.Api/Configuration/RateLimitPolicies.cs`,
   `Filters/AdminPinActionFilter.cs`). Since PR #77 the IP is the real client behind the
