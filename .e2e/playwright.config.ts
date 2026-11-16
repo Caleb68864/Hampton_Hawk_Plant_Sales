@@ -1,6 +1,7 @@
-// Playwright config for the sale-day E2E spec. Not wired into CI yet (see
-// docs/ROADMAP.md). Point E2E_CHROMIUM at a system Chromium when Playwright's
-// own browser is not installed.
+// Playwright config for the sale-day E2E spec. CI's `compose` job runs it
+// against `docker compose up` (E2E_BASE_URL=http://localhost:3000). Locally:
+// `cd .e2e && npm ci`, then `npx playwright test -c playwright.config.ts`. Point
+// E2E_CHROMIUM at a system Chromium when Playwright's own browser is not installed.
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({

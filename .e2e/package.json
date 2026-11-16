@@ -1,0 +1,11 @@
+{
+  "name": "hampton-hawks-e2e",
+  "private": true,
+  "description": "Sale-day browser E2E (Playwright). See sale-day.spec.ts and CI's compose job.",
+  "scripts": {
+    "test": "playwright test -c playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1"
+  }
+}

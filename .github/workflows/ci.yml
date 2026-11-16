@@ -186,6 +186,72 @@ jobs:
             fi
           done
 
+      # The sale-day browser spec (.e2e/sale-day.spec.ts): login, pickup lookup
+      # and scan, register scan / Manager Override / close, void + cancel, walk-up
+      # line move, driven in Chromium against this same stack through the web
+      # container on :3000.
+      #
+      # Credentials are not written here. They are read from the api service's
+      # own environment in the resolved compose config (Bootstrap__Admin* and
+      # APP_ADMIN_PIN), so the spec logs in with whatever the stack was started
+      # with and no second copy of them exists to drift or be flagged by a
+      # secret scanner. Not masked: they are docker-compose.yml's public
+      # defaults, and masking "admin" or "1234" would blank them out of every
+      # log line.
+      #
+      # The browser is on http://localhost, the one http origin allowed to keep a
+      # Secure cookie, so Session__AllowInsecureCookieOverHttp is not needed.
+      #
+      # Login limiter: 10/min per client IP (RateLimitPolicies.LoginPermitLimit).
+      # The spec logs in 5 times; with the bootstrap-login step above and the
+      # flag-off step below that is 7 before the next step recreates the api
+      # (which resets the limiter). Keep the total under 10 if logins are added.
+      - name: E2E credentials from the compose stack
+        run: |
+          docker compose config --format json > "$RUNNER_TEMP/compose.e2e.json"
+          python3 - "$RUNNER_TEMP/compose.e2e.json" >> "$GITHUB_ENV" <<'PY'
+          import json, sys
+          env = json.load(open(sys.argv[1]))["services"]["api"]["environment"]
+          for name, key in (("E2E_ADMIN_USER", "Bootstrap__AdminUsername"),
+                            ("E2E_ADMIN_PASSWORD", "Bootstrap__AdminPassword"),
+                            ("E2E_ADMIN_PIN", "APP_ADMIN_PIN")):
+              value = env[key]
+              assert value, key
+              print(f"{name}={value}")
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: .e2e/package-lock.json
+
+      - name: Install Playwright and Chromium
+        working-directory: .e2e
+        # ubuntu-latest is 26.04, which Playwright 1.59 does not list yet; its
+        # documented override installs the 24.04 build of Chromium and deps.
+        env:
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Sale-day E2E (Playwright)
+        working-directory: .e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
+        run: npx playwright test -c playwright.config.ts
+
+      - name: Upload E2E screenshots and trace
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sale-day-e2e
+          path: .e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
       # The login step above replays the cookie with an explicit `Cookie:` header,
       # which bypasses every rule a browser applies to a cookie. That is exactly how
       # a Secure-only session cookie shipped while the laptop kept working: the
