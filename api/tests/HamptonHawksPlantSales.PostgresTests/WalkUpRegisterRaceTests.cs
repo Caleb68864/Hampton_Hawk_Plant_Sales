@@ -60,6 +60,65 @@ public sealed class WalkUpRegisterRaceTests
     }
 
     /// <summary>
+    /// Stock that is all committed to preorders is refused at the register; a manager
+    /// override on the scan sells it anyway, through the real availability formula and a
+    /// serializable transaction, and leaves an audit row. It still stops at on-hand.
+    /// </summary>
+    [PostgresFact]
+    public async Task A_manager_override_sells_committed_stock_and_stops_at_on_hand()
+    {
+        var db = await _pg.CreateDatabaseAsync();
+        // 2 on hand, both promised to a preorder: walk-up availability is 0.
+        var sale = await SaleData.PlantWithOrdersAsync(db, onHand: 2, 2);
+
+        await using var register = db.NewStation("register");
+        var draft = await register.Register.CreateDraftAsync(new CreateDraftRequest { WorkstationName = "POS1" });
+
+        var refused = () => register.Register.ScanIntoDraftAsync(draft.Id,
+            new ScanIntoDraftRequest { PlantBarcode = sale.Barcode, ScanId = "plain" });
+        await refused.Should().ThrowAsync<ValidationException>();
+
+        var result = await register.Register.ScanIntoDraftAsync(draft.Id,
+            new ScanIntoDraftRequest { PlantBarcode = sale.Barcode, ScanId = "override-1", Quantity = 5 },
+            Station.AdminPin, "preorder customer called to cancel");
+
+        // Asked for 5, on hand was 2: the override never drives stock negative.
+        result.Lines.Should().ContainSingle().Which.QtyFulfilled.Should().Be(2);
+        (await SaleData.OnHandAsync(db, sale.PlantId)).Should().Be(0);
+
+        var audit = await db.QueryAsync(ctx => ctx.AdminActions.AsNoTracking()
+            .Where(a => a.ActionType == "WalkUpRegisterScanOverride").ToListAsync());
+        audit.Should().ContainSingle().Which.Reason.Should().Be("preorder customer called to cancel");
+    }
+
+    /// <summary>
+    /// A delayed retry of an older scan, arriving after a newer one, is a replay. The line
+    /// keeps only the last scan id, so this needs the per-draft scan table from the real
+    /// migration, and the admin "delete all orders" wipe must still clear it.
+    /// </summary>
+    [PostgresFact]
+    public async Task A_late_retry_of_an_older_scan_does_not_sell_twice_and_the_order_wipe_still_runs()
+    {
+        var db = await _pg.CreateDatabaseAsync();
+        var sale = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
+
+        await using var register = db.NewStation("register");
+        var draft = await register.Register.CreateDraftAsync(new CreateDraftRequest { WorkstationName = "POS1" });
+
+        await register.Register.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = sale.Barcode, ScanId = "scan-1" });
+        await register.Register.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = sale.Barcode, ScanId = "scan-2" });
+        var result = await register.Register.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = sale.Barcode, ScanId = "scan-1" });
+
+        result.Lines.Should().ContainSingle().Which.QtyFulfilled.Should().Be(2);
+        (await SaleData.OnHandAsync(db, sale.PlantId)).Should().Be(3);
+
+        // The scan rows hold a Restrict FK to Orders; a wipe that forgot them would 23503.
+        await using var admin = db.NewStation("admin");
+        await admin.Orders.DeleteAllOrdersAsync();
+        (await db.QueryAsync(ctx => ctx.Orders.IgnoreQueryFilters().CountAsync())).Should().Be(0);
+    }
+
+    /// <summary>
     /// <c>WalkUpOrderNumbers.NextAsync</c> probes for the lowest free WLK number, so two
     /// registers opening a draft together compute the same one. The unique index on
     /// <c>Orders.OrderNumber</c> rejects the loser with 23505, and the service must

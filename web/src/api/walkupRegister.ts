@@ -39,13 +39,28 @@ export const walkupRegisterApi = {
    * (crypto.randomUUID()) so the backend can dedupe retries. Optional
    * `quantity` drives multi-quantity scanning (set N, scan once); the backend
    * caps at walk-up availability + on-hand inventory and returns the actual
-   * applied amount in the resulting line. Defaults to 1.
+   * applied amount in the resulting line. Defaults to 1. An admin pin/reason
+   * is the manager override: the scan may then sell past walk-up availability
+   * (never past on-hand inventory).
    */
-  scan: (draftId: string, data: ScanIntoDraftRequest) =>
-    post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, {
+  scan: (
+    draftId: string,
+    data: ScanIntoDraftRequest,
+    adminPin?: string,
+    adminReason?: string,
+  ) => {
+    const body = {
       ...data,
       quantity: data.quantity && data.quantity > 0 ? data.quantity : 1,
-    }),
+    };
+    if (adminPin) {
+      return postWithHeaders<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, body, {
+        'X-Admin-Pin': adminPin,
+        'X-Admin-Reason': adminReason ?? '',
+      });
+    }
+    return post<DraftOrder>(`${BASE_PATH}/draft/${draftId}/scan`, body);
+  },
 
   /**
    * Adjust a line. The backend may require admin pin/reason if increasing past

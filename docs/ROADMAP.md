@@ -5,29 +5,18 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
+Last updated: 2026-11-16 (branch `fix/sale-day-register`).
 
 ## Open
 
 ### Sale-day impact: high
 
-- **Register "Manager Override" cannot succeed.** Still true on `main`.
-  `web/src/pages/walkup/WalkUpRegisterPage.tsx` `handleManagerOverride` matches the
-  scanned barcode against `plantSku`/`plantName` (lines carry no barcode) and falls back
-  to a plain `walkupRegisterApi.scan` that the server rejects again. Fix needs a
-  PIN-gated override path on the register scan (API) or `PlantBarcode` on the line
-  response + `adjustLine`. It touches the register write path, so it is only verified
-  once CI's `api-postgres` job has run. Until then, use the paper fallback in
-  `docs/sale-day/fallback-playbook.md` for sales past preorder commitments.
 - **Lock order is inconsistent across services** (scan: Inventories->OrderLines; manual
   fulfil / register adjust: OrderLines->Inventories; session scan:
   ScanSessions->OrderLines->Inventories; `WalkUpRowLocks`: Plant->Inventory->OrderLine).
   Retry wrappers turn the resulting 40P01 into a retry, not a 500. The proper fix is one
   canonical order across all seven paths, with an `Interleave.RunAsync` race test in
   `api/tests/HamptonHawksPlantSales.PostgresTests`.
-- **Register scan idempotency keeps only the last scanId per line.** A delayed retry of
-  an older id after a newer scan re-applies. Needs a per-draft scan-id table (pickup
-  already has a unique `(OrderId, IdempotencyKey)`).
 
 ### Sale-day impact: medium
 
@@ -73,7 +62,8 @@ Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
 
 - This machine has only .NET 10 runtimes; the net9.0 test hosts need
   `DOTNET_ROLL_FORWARD=Major dotnet test ...` to run here.
-- Postgres tests (14) skip locally (no Docker socket); CI's `api-postgres` job runs them.
+- Postgres tests run locally as of 2026-11-16 (`HH_POSTGRES_TESTS=1`, Docker reachable): 16 passed, 0 skipped.
+  CI's `api-postgres` job still runs them on every push.
 - No stale git worktrees for this repo were found on 2026-11-09 (`git worktree list`
   shows only the main checkout).
 
@@ -81,6 +71,8 @@ Last updated: 2026-11-09 (branch `wip/2026-11-09-sweep-followups`).
 
 | item | where | commit |
 |---|---|---|
+| Register "Manager Override" could never succeed: it matched the barcode against `plantSku`/`plantName` and fell back to a plain scan the server refused again. The register scan now takes an optional `X-Admin-Pin`/`X-Admin-Reason` (same `TryAdminOverride` as AdjustLine), skips only the availability check, still stops at on-hand, and logs `WalkUpRegisterScanOverride`. The page re-sends the refused scan at the requested quantity with a fresh scan id. Unit, page and Postgres tests; the service and page tests fail on the old code | `WalkUpRegisterService.ScanIntoDraftAsync`, `WalkUpRegisterController.Scan`, `web/src/pages/walkup/WalkUpRegisterPage.tsx`, `web/src/api/walkupRegister.ts` | `fix/sale-day-register` |
+| Register scan idempotency kept only the last scanId per line, so a late retry of an older scan re-applied. New `WalkUpRegisterScans` table, unique `(OrderId, ScanId)`, migration `AddWalkUpRegisterScans`; the line's key is still checked for drafts opened before the migration. `DeleteAllOrdersAsync` clears the new table (its Restrict FK would otherwise 23503 the wipe; proved by mutation against Postgres) | `WalkUpRegisterService`, `Core/Models/WalkUpRegisterScan.cs`, `OrderService.DeleteAllOrdersAsync` | `fix/sale-day-register` |
 | `ScanInput` silently dropped the second of two identical plants scanned within 2 s. Window narrowed to 400 ms (hardware double-read only) and a status line now says when a read is dropped; optional `onDuplicateIgnored` prop | `web/src/components/pickup/ScanInput.tsx`, `__tests__/ScanInput.test.tsx` | b73e61c |
 | Mobile order lookup logged the customer's pickup code to `console.debug` despite its comment (hardening-checklist item 8, REGRESSION:LOW). Now logs `codeLength`; the test that pinned the leak now pins the redaction | `web/src/pages/mobile/MobileOrderLookupPage.tsx`, `__tests__/MobileOrderLookupPage.test.tsx` | f16edc9, a7b58f3 |
 | A superseded pickup lookup kept firing its per-customer order requests (up to 50 at once). It now stops once superseded and caps concurrency at 4. Two new tests, both failing on the old page | `web/src/pages/pickup/PickupLookupPage.tsx`, `__tests__/PickupLookupPage.test.tsx` | dc2e9f6 |

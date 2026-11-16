@@ -175,6 +175,160 @@ public class WalkUpRegisterServiceTests
     }
 
     [Fact]
+    public async Task Scan_DelayedRetryOfAnOlderScanId_IsAReplay()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-OLD", sku: "OLD-1");
+        var inv = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(inv);
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateService(db);
+        var draft = await service.CreateDraftAsync(new CreateDraftRequest());
+
+        await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-OLD", ScanId = "a" });
+        await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-OLD", ScanId = "b" });
+        // The LAN delivers a late retry of "a" after "b" was applied.
+        var result = await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-OLD", ScanId = "a" });
+
+        result.Lines.Single().QtyFulfilled.Should().Be(2);
+        (await db.Inventories.FindAsync(inv.Id))!.OnHandQty.Should().Be(8);
+    }
+
+    [Fact]
+    public async Task Scan_RetryAfterTheLineWasVoided_IsAReplay()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-VOID", sku: "VOID-1");
+        var inv = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(inv);
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateService(db);
+        var draft = await service.CreateDraftAsync(new CreateDraftRequest());
+
+        var scanned = await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-VOID", ScanId = "a" });
+        await service.VoidLineAsync(draft.Id, scanned.Lines.Single().Id, "customer changed mind");
+        var result = await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-VOID", ScanId = "a" });
+
+        result.Lines.Should().BeEmpty();
+        (await db.Inventories.FindAsync(inv.Id))!.OnHandQty.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task Scan_SameScanIdOnAnotherDraft_IsNotAReplay()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-TWO", sku: "TWO-1");
+        var inv = TestDataBuilder.CreateInventory(plant.Id, onHandQty: 10);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(inv);
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateService(db);
+        var first = await service.CreateDraftAsync(new CreateDraftRequest());
+        var second = await service.CreateDraftAsync(new CreateDraftRequest());
+
+        await service.ScanIntoDraftAsync(first.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-TWO", ScanId = "a" });
+        var result = await service.ScanIntoDraftAsync(second.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-TWO", ScanId = "a" });
+
+        result.Lines.Single().QtyFulfilled.Should().Be(1);
+        (await db.Inventories.FindAsync(inv.Id))!.OnHandQty.Should().Be(8);
+    }
+
+    private static async Task<(WalkUpRegisterService Service, Mock<IAdminService> AdminMock, Guid DraftId, Guid InventoryId)>
+        SeedRefusedScan(AppDbContext db, int onHand)
+    {
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-SOVR", sku: "SOVR-1");
+        var inv = TestDataBuilder.CreateInventory(plant.Id, onHandQty: onHand);
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(inv);
+        await db.SaveChangesAsync();
+
+        var (service, _, adminMock) = CreateService(db, defaultAllowed: false);
+        var draft = await service.CreateDraftAsync(new CreateDraftRequest());
+        return (service, adminMock, draft.Id, inv.Id);
+    }
+
+    [Fact]
+    public async Task Scan_CorrectPinAndReason_OverridesAvailability_AndLogs()
+    {
+        using var db = CreateDb();
+        var (service, adminMock, draftId, invId) = await SeedRefusedScan(db, onHand: 5);
+
+        var result = await service.ScanIntoDraftAsync(draftId,
+            new ScanIntoDraftRequest { PlantBarcode = "BC-SOVR", ScanId = "s1", Quantity = 2 },
+            adminPin: "1234", adminReason: "preorder customer is a no-show");
+
+        result.Lines.Single().QtyFulfilled.Should().Be(2);
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(3);
+        adminMock.Verify(a => a.LogActionAsync(
+            "WalkUpRegisterScanOverride", "OrderLine", result.Lines.Single().Id,
+            "preorder customer is a no-show", It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Scan_ReasonWithoutPin_DoesNotOverrideAvailability()
+    {
+        using var db = CreateDb();
+        var (service, _, draftId, invId) = await SeedRefusedScan(db, onHand: 5);
+
+        var act = () => service.ScanIntoDraftAsync(draftId,
+            new ScanIntoDraftRequest { PlantBarcode = "BC-SOVR", ScanId = "s1" },
+            adminPin: null, adminReason: "just a reason");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*availability*");
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Scan_WrongPin_IsRejected()
+    {
+        using var db = CreateDb();
+        var (service, _, draftId, invId) = await SeedRefusedScan(db, onHand: 5);
+
+        var act = () => service.ScanIntoDraftAsync(draftId,
+            new ScanIntoDraftRequest { PlantBarcode = "BC-SOVR", ScanId = "s1" },
+            adminPin: "0000", adminReason: "reason");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("Invalid admin PIN.");
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Scan_Override_CannotDriveOnHandNegative()
+    {
+        using var db = CreateDb();
+        var (service, _, draftId, invId) = await SeedRefusedScan(db, onHand: 0);
+
+        var act = () => service.ScanIntoDraftAsync(draftId,
+            new ScanIntoDraftRequest { PlantBarcode = "BC-SOVR", ScanId = "s1" },
+            adminPin: "1234", adminReason: "reason");
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*out of stock*");
+        (await db.Inventories.FindAsync(invId))!.OnHandQty.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Scan_PinWhenAvailabilityAllows_DoesNotLogOverride()
+    {
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-NOOVR", sku: "NOOVR-1");
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, onHandQty: 5));
+        await db.SaveChangesAsync();
+        var (service, _, adminMock) = CreateService(db, defaultAllowed: true);
+        var draft = await service.CreateDraftAsync(new CreateDraftRequest());
+
+        await service.ScanIntoDraftAsync(draft.Id,
+            new ScanIntoDraftRequest { PlantBarcode = "BC-NOOVR", ScanId = "s1" },
+            adminPin: "1234", adminReason: "reason");
+
+        adminMock.Verify(a => a.LogActionAsync(
+            "WalkUpRegisterScanOverride", It.IsAny<string>(), It.IsAny<Guid>(),
+            It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Scan_UnknownBarcode_ThrowsValidation()
     {
         using var db = CreateDb();

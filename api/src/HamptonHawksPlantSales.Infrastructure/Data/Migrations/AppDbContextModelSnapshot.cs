@@ -702,6 +702,41 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.ToTable("Sellers");
                 });
 
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.WalkUpRegisterScan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlantCatalogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScanId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlantCatalogId");
+
+                    b.HasIndex("OrderId", "ScanId")
+                        .IsUnique();
+
+                    b.ToTable("WalkUpRegisterScans");
+                });
+
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUserRole", b =>
                 {
                     b.HasOne("HamptonHawksPlantSales.Core.Models.AppUser", "User")
@@ -817,6 +852,25 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.WalkUpRegisterScan", b =>
+                {
+                    b.HasOne("HamptonHawksPlantSales.Core.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HamptonHawksPlantSales.Core.Models.PlantCatalog", "PlantCatalog")
+                        .WithMany()
+                        .HasForeignKey("PlantCatalogId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("PlantCatalog");
                 });
 
             modelBuilder.Entity("HamptonHawksPlantSales.Core.Models.AppUser", b =>

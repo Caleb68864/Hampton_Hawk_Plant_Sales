@@ -66,7 +66,7 @@ export function WalkUpRegisterPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [overrideTarget, setOverrideTarget] = useState<{ plantBarcode: string; lineId?: string } | null>(null);
+  const [overrideTarget, setOverrideTarget] = useState<{ plantBarcode: string; quantity: number } | null>(null);
   const [closeModal, setCloseModal] = useState<CloseModalState>(DEFAULT_CLOSE_MODAL);
   const [closing, setClosing] = useState(false);
   const [prices, setPrices] = useState<PlantPriceMap>({});
@@ -258,7 +258,7 @@ export function WalkUpRegisterPage() {
         setError(message);
         // Surface override option for "out of stock" / availability failures.
         if (/availab|stock|exceed|walk[-\s]?up/i.test(message)) {
-          setOverrideTarget({ plantBarcode: trimmed });
+          setOverrideTarget({ plantBarcode: trimmed, quantity: requestedQty });
         }
       } finally {
         // Reset multi-qty back to 1 so the next scan defaults to single,
@@ -276,7 +276,7 @@ export function WalkUpRegisterPage() {
     setScanFlashData(null);
   }, []);
 
-  // ---------- Manager override (re-enter via adjustLine) ----------
+  // ---------- Manager override (re-send the refused scan with the PIN) ----------
   const handleManagerOverride = useCallback(async () => {
     if (!draft || !overrideTarget) return;
     const auth = await openPinModal({
@@ -287,35 +287,21 @@ export function WalkUpRegisterPage() {
     if (!auth) return;
     setError(null);
     try {
-      // Use a scan to attempt to match the plant via barcode, but the backend
-      // will reject for availability. Instead, look up the plant and use
-      // adjustLine on an existing line if present, else create-and-adjust.
-      const scanId = crypto.randomUUID();
-      // Try a scan first under override headers via adjustLine on an existing
-      // line for this plant; if no line yet, perform a normal scan call (the
-      // backend may accept since the override action is a separate flow).
-      const existing = draft.lines.find(
-        (l) => l.plantSku === overrideTarget.plantBarcode || l.plantName === overrideTarget.plantBarcode,
-      );
-      if (existing) {
-        const next = await walkupRegisterApi.adjustLine(
-          draft.id,
-          existing.id,
-          { plantCatalogId: existing.plantCatalogId, newQty: existing.qtyOrdered + 1 },
-          auth.pin,
-          auth.reason,
-        );
-        await updateDraftAndPersist(next);
-      } else {
-        // Fallback: try the scan again. Some backends allow a single retry under
-        // admin reason (the override flow is server-side gated). If the server
-        // still rejects, we surface the error to the operator.
-        const next = await walkupRegisterApi.scan(draft.id, {
+      // Lines carry no barcode, so the client cannot find the line to adjust.
+      // The server applies the override on the scan itself, under the same
+      // locks, and still never sells past on-hand inventory. The refused scan
+      // was settled by the server, so this one takes a fresh id.
+      const next = await walkupRegisterApi.scan(
+        draft.id,
+        {
           plantBarcode: overrideTarget.plantBarcode,
-          scanId,
-        });
-        await updateDraftAndPersist(next);
-      }
+          scanId: crypto.randomUUID(),
+          quantity: overrideTarget.quantity,
+        },
+        auth.pin,
+        auth.reason,
+      );
+      await updateDraftAndPersist(next);
       setOverrideTarget(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Override failed');
