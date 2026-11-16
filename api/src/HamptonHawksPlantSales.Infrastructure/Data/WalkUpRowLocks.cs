@@ -137,22 +137,21 @@ public static class WalkUpRowLocks
     }
 
     /// <summary>
-    /// Runs a walk-up write, retrying when Postgres aborts the transaction with a
-    /// serialization failure or deadlock. Under serializable isolation these are
-    /// expected whenever two registers touch the same plant, and they are safe to
-    /// retry because the aborted transaction committed nothing. Without this the
-    /// volunteer sees "a transient failure has been raised" and has no idea whether
-    /// the sale went through.
-    /// </summary>
-    /// <summary>
     /// Rolls back without letting a rollback failure mask the original error. Once
     /// Postgres aborts a transaction the rollback itself can throw, and that
     /// secondary exception carries none of the cause -- losing it turns a
     /// retryable serialization conflict into an opaque failure.
+    ///
+    /// A transaction that is already complete is left alone. Refusal branches roll
+    /// back before throwing their ValidationException, and the catch-all then calls
+    /// this again; rolling back a completed Npgsql transaction throws, and EF logs
+    /// that at Error ("An error occurred using a transaction") before the catch
+    /// below can swallow it -- one spurious Error per refused scan. A rollback that
+    /// genuinely fails is still attempted, and still logged by EF.
     /// </summary>
     public static async Task RollbackQuietlyAsync(IDbContextTransaction? transaction)
     {
-        if (transaction == null) return;
+        if (transaction == null || IsCompleted(transaction)) return;
 
         try
         {
@@ -164,6 +163,31 @@ public static class WalkUpRowLocks
         }
     }
 
+    /// <summary>
+    /// True once the transaction has been committed or rolled back. ADO.NET providers
+    /// (Npgsql and Microsoft.Data.Sqlite alike) clear <c>DbTransaction.Connection</c>
+    /// when the transaction completes; a disposed one is complete too.
+    /// </summary>
+    private static bool IsCompleted(IDbContextTransaction transaction)
+    {
+        try
+        {
+            return transaction.GetDbTransaction().Connection == null;
+        }
+        catch (ObjectDisposedException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Runs a walk-up write, retrying when Postgres aborts the transaction with a
+    /// serialization failure or deadlock. Under serializable isolation these are
+    /// expected whenever two registers touch the same plant, and they are safe to
+    /// retry because the aborted transaction committed nothing. Without this the
+    /// volunteer sees "a transient failure has been raised" and has no idea whether
+    /// the sale went through.
+    /// </summary>
     public static async Task<T> ExecuteWithRetryAsync<T>(AppDbContext db, Func<Task<T>> action, int maxAttempts = 6)
     {
         for (var attempt = 1; attempt < maxAttempts; attempt++)
