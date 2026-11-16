@@ -262,6 +262,100 @@ public sealed class LockOrderRaceTests
         statuses.Should().AllBeEquivalentTo(OrderStatus.Complete);
     }
 
+    /// <summary>
+    /// Was "lock the new plant only" (which, through <c>AcquireAsync</c>, also locked the
+    /// order's lines on the new plant but not the line being moved). Two moves on one
+    /// walk-up order, X from plant A to B and Y from B to A, each held the other's line
+    /// and waited for its own. Both moves now lock both plants in ascending id.
+    /// Covered through both routes that move a walk-up line.
+    /// </summary>
+    [PostgresTheory]
+    [InlineData("walkup")]
+    [InlineData("orders")]
+    public async Task Two_walk_up_line_moves_swapping_plants_queue_instead_of_deadlocking(string route)
+    {
+        var db = await _pg.CreateDatabaseAsync();
+        var plantA = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
+        var plantB = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
+
+        Guid orderId, lineX, lineY;
+        await using (var setup = db.NewStation("setup"))
+        {
+            var order = await setup.WalkUp.CreateWalkUpOrderAsync(new CreateWalkUpOrderRequest { DisplayName = "Walk-in" });
+            orderId = order.Id;
+            lineX = (await setup.WalkUp.AddWalkUpLineAsync(orderId,
+                new AddWalkUpLineRequest { PlantCatalogId = plantA.PlantId, QtyOrdered = 1 })).Id;
+            lineY = (await setup.WalkUp.AddWalkUpLineAsync(orderId,
+                new AddWalkUpLineRequest { PlantCatalogId = plantB.PlantId, QtyOrdered = 1 })).Id;
+        }
+
+        var failures = new FailureLog();
+        var gate = PauseBeforeCommand.BeforeOrderLineWrite();
+        await using var first = db.NewStation("move-x", gate, failures);
+        await using var second = db.NewStation("move-y", failures: failures);
+
+        Func<Station, Guid, Guid, Task<OrderLineResponse>> move = route == "walkup"
+            ? (station, line, plant) => station.WalkUp.UpdateWalkUpLineAsync(orderId, line,
+                new UpdateWalkUpLineRequest { PlantCatalogId = plant, QtyOrdered = 1 })
+            : (station, line, plant) => station.Orders.UpdateLineAsync(orderId, line,
+                new UpdateOrderLineRequest { PlantCatalogId = plant, QtyOrdered = 1 });
+
+        var result = await Interleave.RunAsync(db, gate,
+            () => move(first, lineX, plantB.PlantId),
+            () => move(second, lineY, plantA.PlantId));
+
+        Report(result, failures);
+        AssertQueuedWithoutDeadlock(result, failures);
+
+        var lines = await db.QueryAsync(ctx => ctx.OrderLines.AsNoTracking()
+            .Where(l => l.OrderId == orderId).ToDictionaryAsync(l => l.Id, l => l.PlantCatalogId));
+        lines[lineX].Should().Be(plantB.PlantId);
+        lines[lineY].Should().Be(plantA.PlantId);
+    }
+
+    /// <summary>
+    /// Was load order: each cancel locked plant -> inventory -> line per line in the order
+    /// the lines came back. Two drafts that rang up the same two plants in opposite
+    /// orders locked them in opposite orders. Held before its second plant lock, the
+    /// first cancel owns the second cancel's second plant.
+    /// </summary>
+    [PostgresFact]
+    public async Task Two_register_cancel_drafts_sharing_two_plants_queue_instead_of_deadlocking()
+    {
+        var db = await _pg.CreateDatabaseAsync();
+        var plantA = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
+        var plantB = await SaleData.PlantWithOrdersAsync(db, onHand: 5);
+
+        Guid draft1, draft2;
+        await using (var setup = db.NewStation("setup"))
+        {
+            draft1 = (await setup.Register.CreateDraftAsync(new CreateDraftRequest { WorkstationName = "POS1" })).Id;
+            draft2 = (await setup.Register.CreateDraftAsync(new CreateDraftRequest { WorkstationName = "POS2" })).Id;
+            await setup.Register.ScanIntoDraftAsync(draft1, new ScanIntoDraftRequest { PlantBarcode = plantA.Barcode, ScanId = "d1-a" });
+            await setup.Register.ScanIntoDraftAsync(draft1, new ScanIntoDraftRequest { PlantBarcode = plantB.Barcode, ScanId = "d1-b" });
+            await setup.Register.ScanIntoDraftAsync(draft2, new ScanIntoDraftRequest { PlantBarcode = plantB.Barcode, ScanId = "d2-b" });
+            await setup.Register.ScanIntoDraftAsync(draft2, new ScanIntoDraftRequest { PlantBarcode = plantA.Barcode, ScanId = "d2-a" });
+        }
+
+        (await SaleData.OnHandAsync(db, plantA.PlantId)).Should().Be(3);
+        (await SaleData.OnHandAsync(db, plantB.PlantId)).Should().Be(3);
+
+        var failures = new FailureLog();
+        var gate = PauseBeforeCommand.BeforePlantLock(occurrence: 2);
+        await using var first = db.NewStation("cancel-1", gate, failures);
+        await using var second = db.NewStation("cancel-2", failures: failures);
+
+        var result = await Interleave.RunAsync(db, gate,
+            () => first.Register.CancelDraftAsync(draft1, "customer left"),
+            () => second.Register.CancelDraftAsync(draft2, "customer left"));
+
+        Report(result, failures);
+        AssertQueuedWithoutDeadlock(result, failures);
+
+        (await SaleData.OnHandAsync(db, plantA.PlantId)).Should().Be(5, "both cancels put their unit of A back");
+        (await SaleData.OnHandAsync(db, plantB.PlantId)).Should().Be(5, "both cancels put their unit of B back");
+    }
+
     private void AssertQueuedWithoutDeadlock<TA, TB>(InterleaveResult<TA, TB> result, FailureLog failures)
     {
         result.SecondWaitedOnLock.Should().BeTrue(

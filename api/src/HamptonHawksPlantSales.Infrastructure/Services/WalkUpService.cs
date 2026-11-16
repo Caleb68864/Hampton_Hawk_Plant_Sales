@@ -223,7 +223,8 @@ public class WalkUpService : IWalkUpService
             if (transaction != null) await transaction.DisposeAsync();
         }
 
-        if (line.PlantCatalog.Id != request.PlantCatalogId)
+        // After a move EF nulls the navigation unless the new plant happens to be tracked.
+        if (line.PlantCatalog?.Id != line.PlantCatalogId)
             await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
 
         return MapLineToResponse(line);
