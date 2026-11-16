@@ -230,6 +230,10 @@ using (var scope = app.Services.CreateScope())
 if (forwardedHeadersOptions is not null)
     app.UseForwardedHeaders(forwardedHeadersOptions);
 
+// Request logging wraps the exception handler, so it logs the status the client
+// actually got. Inside it, every exception mapped to a 4xx passed through first and
+// was logged as an Error "responded 500" with a stack trace.
+app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -238,7 +242,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();

@@ -319,7 +319,12 @@ export function PickupLookupPage() {
 
   const showOrderLookupState = Boolean(search.trim()) && orderLookupActive;
   const showDuplicateResults = showOrderLookupState && exactOrderMatches.length > 1;
-  const showNoExactMatch = showOrderLookupState && !loading && exactOrderMatches.length === 0 && !error;
+  // Pickup codes (6 chars of A-Z/2-9) and names with digits also look like order
+  // numbers. With no exact order-number match, fall back to whatever the search
+  // found (customer by pickup code, partial order number) instead of claiming
+  // "No order found" over rows the volunteer is looking for.
+  const showSearchFallback = showOrderLookupState && !loading && exactOrderMatches.length === 0 && results.length > 0;
+  const showNoExactMatch = showOrderLookupState && !loading && exactOrderMatches.length === 0 && results.length === 0 && !error;
 
   return (
     <div className="space-y-4">
@@ -389,7 +394,7 @@ export function PickupLookupPage() {
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      {showOrderLookupState && (
+      {showOrderLookupState && !showSearchFallback && (
         <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Scanned / submitted order number</p>
           <p className="mt-2 font-mono text-2xl font-bold tracking-[0.2em] text-gray-900">{normalizedSearch}</p>
