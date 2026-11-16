@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
     public DbSet<FulfillmentEvent> FulfillmentEvents => Set<FulfillmentEvent>();
+    public DbSet<WalkUpRegisterScan> WalkUpRegisterScans => Set<WalkUpRegisterScan>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportIssue> ImportIssues => Set<ImportIssue>();
     public DbSet<AdminAction> AdminActions => Set<AdminAction>();

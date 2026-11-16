@@ -60,8 +60,9 @@ Postgres in `api/tests/HamptonHawksPlantSales.PostgresTests` (Testcontainers,
 `postgres:16`, schema from the real migrations, fresh database per test). Those
 tests are `[PostgresFact]`s that skip unless `HH_POSTGRES_TESTS=1`, so a plain
 `dotnet test` works without Docker. CI's `api-postgres` job sets the variable
-and fails if any of them is skipped. They cannot run on this machine: the
-Docker socket is not accessible to this user. A change to the scan, register
+and fails if any of them is skipped. Since 2026-11-16 Docker is reachable here,
+so run them locally with `HH_POSTGRES_TESTS=1` (plus `DOTNET_ROLL_FORWARD=Major`
+on a .NET-10-only machine). A change to the scan, register
 or inventory write paths, or to `WalkUpRowLocks`/`WalkUpOrderNumbers`, is only
 checked once that job has run.
 

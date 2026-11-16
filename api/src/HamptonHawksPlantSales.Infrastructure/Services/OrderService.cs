@@ -505,11 +505,12 @@ public class OrderService : IOrderService
     {
         // Hard delete all orders and their dependents. Used only from the admin danger-zone action.
         // Every table with a FK to Orders must be cleared first: FulfillmentEvents, OrderLines,
-        // and ScanSessionMembers (Restrict FK -- once any scan session has run, leaving it out
-        // aborts the whole wipe with a 23503).
+        // WalkUpRegisterScans and ScanSessionMembers (Restrict FKs -- once any scan session or
+        // register sale has run, leaving one out aborts the whole wipe with a 23503).
         using var tx = await _db.Database.BeginTransactionAsync();
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"ScanSessionMembers\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"FulfillmentEvents\"");
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"WalkUpRegisterScans\"");
         await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"OrderLines\"");
         var count = await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Orders\"");
         await tx.CommitAsync();

@@ -34,12 +34,15 @@ public class WalkUpRegisterController : ControllerBase
 
     /// <summary>
     /// Scans a plant into a draft (decrements inventory, upserts the line, idempotent on scanId).
+    /// An admin pin/reason lets the scan sell past walk-up availability (manager override).
     /// </summary>
     [HttpPost("draft/{id:guid}/scan")]
     [ProducesResponseType(typeof(ApiResponse<OrderResponse>), 200)]
     public async Task<IActionResult> Scan(Guid id, [FromBody] ScanIntoDraftRequest request)
     {
-        var result = await _service.ScanIntoDraftAsync(id, request);
+        var pin = Request.Headers["X-Admin-Pin"].FirstOrDefault();
+        var reason = Request.Headers["X-Admin-Reason"].FirstOrDefault();
+        var result = await _service.ScanIntoDraftAsync(id, request, pin, reason);
         return Ok(ApiResponse<OrderResponse>.Ok(result));
     }
 

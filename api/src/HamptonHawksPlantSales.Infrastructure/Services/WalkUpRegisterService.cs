@@ -58,7 +58,11 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
     }
 
-    public async Task<OrderResponse> ScanIntoDraftAsync(Guid orderId, ScanIntoDraftRequest request)
+    public async Task<OrderResponse> ScanIntoDraftAsync(
+        Guid orderId,
+        ScanIntoDraftRequest request,
+        string? adminPin = null,
+        string? adminReason = null)
     {
         if (string.IsNullOrWhiteSpace(request.PlantBarcode))
             throw new ValidationException("PlantBarcode is required.");
@@ -68,6 +72,11 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         var barcode = request.PlantBarcode.Trim();
         var scanId = request.ScanId.Trim();
 
+        // Manager override: the register line carries no barcode, so the client
+        // cannot find the line to adjust. It re-sends the refused scan with the
+        // PIN instead, and the override applies here, under the same locks.
+        var isOverride = TryAdminOverride(adminPin, adminReason);
+
         var draft = await _db.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
             ?? throw new KeyNotFoundException("Draft order not found.");
@@ -76,11 +85,11 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         // serialization conflicts are routine. Retry them: the scanId keeps a retry
         // from double-selling, and a volunteer must never be shown a database abort.
         return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
-            ScanIntoDraftInternalAsync(orderId, barcode, scanId, request.Quantity));
+            ScanIntoDraftInternalAsync(orderId, barcode, scanId, request.Quantity, isOverride, adminReason));
     }
 
     private async Task<OrderResponse> ScanIntoDraftInternalAsync(
-        Guid orderId, string barcode, string scanId, int requestedQuantity)
+        Guid orderId, string barcode, string scanId, int requestedQuantity, bool isOverride, string? adminReason)
     {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
@@ -119,13 +128,18 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                     orderId, plant.Id);
             }
 
+            // Idempotency: any scan id already applied to this draft is a replay, not a
+            // second sale -- including a delayed retry of an older scan that arrives
+            // after newer ones, or one whose line has since been voided. Checked under
+            // the plant lock, so two retries of one scan cannot both pass.
             var existingLine = await _db.OrderLines
                 .FirstOrDefaultAsync(l => l.OrderId == orderId && l.PlantCatalogId == plant.Id && l.DeletedAt == null);
 
-            // Idempotency: if the existing line was last updated with the same scanId, no-op.
-            if (existingLine != null
-                && !string.IsNullOrEmpty(existingLine.LastScanIdempotencyKey)
-                && existingLine.LastScanIdempotencyKey == scanId)
+            // The line's last-scan key is checked too: it is the only record a draft
+            // opened before WalkUpRegisterScans existed has of its scans.
+            var isReplay = existingLine?.LastScanIdempotencyKey == scanId
+                || await _db.WalkUpRegisterScans.AnyAsync(s => s.OrderId == orderId && s.ScanId == scanId);
+            if (isReplay)
             {
                 if (transaction != null) await transaction.CommitAsync();
                 return await GetOrderResponseAsync(orderId);
@@ -140,7 +154,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             // reflects them; checking the cumulative total would count them twice
             // and refuse the sale once the line reached half the stock.
             var (allowed, available, errorMessage) = await _protection.ValidateWalkupLineAsync(plant.Id, requestedAdd, orderId);
-            if (!allowed)
+            if (!allowed && !isOverride)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
                 throw new ValidationException(errorMessage ?? "Walk-up availability exceeded.");
@@ -156,8 +170,9 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             }
 
             // Cap the additive amount at remaining on-hand inventory. Walk-up
-            // availability has already been validated above for the units being
-            // added, so on-hand is the remaining ceiling.
+            // availability has already been validated (or overridden) above for
+            // the units being added, so on-hand is the remaining ceiling. An
+            // override never lets OnHandQty go negative.
             var appliedAdd = Math.Min(requestedAdd, inventory.OnHandQty);
             if (appliedAdd <= 0)
             {
@@ -186,8 +201,29 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 existingLine.LastScanIdempotencyKey = scanId;
             }
 
+            _db.WalkUpRegisterScans.Add(new WalkUpRegisterScan
+            {
+                OrderId = orderId,
+                ScanId = scanId,
+                PlantCatalogId = plant.Id,
+                Quantity = appliedAdd
+            });
+
             await _db.SaveChangesAsync();
             if (transaction != null) await transaction.CommitAsync();
+
+            // Logged only when the override was what let the scan through.
+            if (isOverride && !allowed)
+            {
+                var lineId = existingLine?.Id
+                    ?? (await _db.OrderLines.FirstAsync(l => l.OrderId == orderId && l.PlantCatalogId == plant.Id && l.DeletedAt == null)).Id;
+                await _adminService.LogActionAsync(
+                    "WalkUpRegisterScanOverride",
+                    "OrderLine",
+                    lineId,
+                    adminReason!,
+                    $"Added {appliedAdd} of plant {plant.Id} past walk-up availability (override).");
+            }
 
             return await GetOrderResponseAsync(orderId);
         }

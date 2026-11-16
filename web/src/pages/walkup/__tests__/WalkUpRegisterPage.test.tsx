@@ -220,4 +220,48 @@ describe('WalkUpRegisterPage scanning', () => {
     const second = mockScan.mock.calls[1][1] as { scanId: string };
     expect(second.scanId).not.toBe(first.scanId);
   });
+
+  it('manager override re-sends the refused scan with the PIN and reason', async () => {
+    const rejected = Object.assign(new Error('Plant is over walk-up availability'), { status: 400 });
+    mockScan.mockRejectedValueOnce(rejected).mockResolvedValue(makeDraft());
+    mockOpenPinModal.mockResolvedValue({ pin: '1234', reason: 'preorder no-show' });
+
+    renderPage();
+    const input = await scanInput();
+    submitScan(input, '000000000047');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Manager Override' }));
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(2));
+
+    const [draftId, body, pin, reason] = mockScan.mock.calls[1] as [
+      string,
+      { plantBarcode: string; scanId: string; quantity: number },
+      string,
+      string,
+    ];
+    expect(draftId).toBe('d-1');
+    expect(body).toMatchObject({ plantBarcode: '47', quantity: 1 });
+    expect(body.scanId).not.toBe((mockScan.mock.calls[0][1] as { scanId: string }).scanId);
+    expect(pin).toBe('1234');
+    expect(reason).toBe('preorder no-show');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Manager Override' })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('manager override does nothing when the PIN prompt is cancelled', async () => {
+    const rejected = Object.assign(new Error('Plant is over walk-up availability'), { status: 400 });
+    mockScan.mockRejectedValueOnce(rejected);
+    mockOpenPinModal.mockResolvedValue(null);
+
+    renderPage();
+    const input = await scanInput();
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Manager Override' }));
+    await waitFor(() => expect(mockOpenPinModal).toHaveBeenCalledTimes(1));
+    expect(mockScan).toHaveBeenCalledTimes(1);
+  });
 });

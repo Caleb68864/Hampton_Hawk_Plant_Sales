@@ -6,7 +6,11 @@ public interface IWalkUpRegisterService
 {
     Task<OrderResponse> CreateDraftAsync(CreateDraftRequest request);
 
-    Task<OrderResponse> ScanIntoDraftAsync(Guid orderId, ScanIntoDraftRequest request);
+    Task<OrderResponse> ScanIntoDraftAsync(
+        Guid orderId,
+        ScanIntoDraftRequest request,
+        string? adminPin = null,
+        string? adminReason = null);
 
     Task<OrderResponse> AdjustLineAsync(
         Guid orderId,

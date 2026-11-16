@@ -59,7 +59,12 @@ public sealed class PgTestDb
 
 public sealed class Station : IAsyncDisposable
 {
-    private static readonly IConfiguration EmptyConfiguration = new ConfigurationBuilder().Build();
+    /// <summary>The admin PIN every station's services accept.</summary>
+    public const string AdminPin = "1234";
+
+    private static readonly IConfiguration Configuration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?> { ["AdminPin"] = AdminPin })
+        .Build();
 
     public Station(string name, AppDbContext db, FailureLog failures)
     {
@@ -75,7 +80,9 @@ public sealed class Station : IAsyncDisposable
     public FulfillmentService Fulfillment => new(Db, new AdminService(Db));
     public InventoryService Inventory => new(Db);
     public WalkUpRegisterService Register =>
-        new(Db, new InventoryProtectionService(Db), new AdminService(Db), EmptyConfiguration);
+        new(Db, new InventoryProtectionService(Db), new AdminService(Db), Configuration);
+    public OrderService Orders =>
+        new(Db, new InventoryProtectionService(Db), new AdminService(Db), Configuration);
 
     public ValueTask DisposeAsync() => Db.DisposeAsync();
 }
