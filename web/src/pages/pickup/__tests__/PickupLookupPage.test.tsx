@@ -223,4 +223,22 @@ describe('PickupLookupPage search fan-out', () => {
     expect(perCustomerCalls()).toHaveLength(12);
     expect(peak).toBeLessThanOrEqual(4);
   });
+  it('typing a pickup code that contains a digit lists the customer instead of "No order found"', async () => {
+    // Generated pickup codes are 6 chars of A-Z/2-9, so most contain a digit and
+    // trip the order-number heuristic. With no exact order-number match, the
+    // customer the server matched by pickup code must still be listed.
+    const customer = { id: 'c-1', displayName: 'Jane Doe', firstName: 'Jane', lastName: 'Doe', pickupCode: 'K7QX2M' };
+    const order = { id: 'o-1', orderNumber: '1001', customerId: 'c-1', customerDisplayName: 'Jane Doe', status: 'Open', hasIssue: false, lines: [] };
+    mockCustomersList.mockResolvedValue({ items: [customer], totalCount: 1, page: 1, pageSize: 50, totalPages: 1 });
+    mockOrdersList.mockResolvedValue({ items: [order], totalCount: 1, page: 1, pageSize: 50, totalPages: 1 });
+
+    renderPage();
+    const input = screen.getByPlaceholderText(/Scan order sheet barcode/) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'K7QX2M' } });
+
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+    expect(screen.queryByText(/No order found/)).not.toBeInTheDocument();
+    expect(screen.queryByText('No exact order match')).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });
