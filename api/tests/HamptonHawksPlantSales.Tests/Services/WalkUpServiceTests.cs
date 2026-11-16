@@ -340,6 +340,35 @@ public class WalkUpServiceTests
     }
 
     [Fact]
+    public async Task UpdateWalkUpLine_MoveToPlantNotYetLoaded_ReturnsTheNewPlant()
+    {
+        // In the API each request has a fresh context, so the target plant is not
+        // tracked when the line moves. EF then nulls the line's PlantCatalog navigation
+        // on save, and the response mapping used to dereference it (500 after commit).
+        using var db = CreateDb();
+        var from = TestDataBuilder.CreatePlant(barcode: "BC-EP14-FROM", sku: "EP14-FROM", name: "EP14 From");
+        var to = TestDataBuilder.CreatePlant(barcode: "BC-EP14-TO", sku: "EP14-TO", name: "EP14 To");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: true);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, from.Id, qtyOrdered: 1, qtyFulfilled: 0);
+
+        db.PlantCatalogs.AddRange(from, to);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var (service, _, _) = CreateService(db);
+
+        var result = await service.UpdateWalkUpLineAsync(order.Id, line.Id,
+            new UpdateWalkUpLineRequest { PlantCatalogId = to.Id, QtyOrdered = 1 });
+
+        result.PlantCatalogId.Should().Be(to.Id);
+        result.PlantName.Should().Be("EP14 To");
+    }
+
+    [Fact]
     public async Task UpdateWalkUpLine_ReduceQuantity_Succeeds()
     {
         // Arrange

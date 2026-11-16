@@ -24,3 +24,16 @@ public sealed class PostgresFactAttribute : FactAttribute
     public static bool IsEnabled =>
         Environment.GetEnvironmentVariable(EnableVariable) is "1" or "true" or "TRUE";
 }
+
+/// <summary><see cref="PostgresFactAttribute"/> for a theory: same skip rule.</summary>
+public sealed class PostgresTheoryAttribute : TheoryAttribute
+{
+    public PostgresTheoryAttribute()
+    {
+        if (!PostgresFactAttribute.IsEnabled)
+        {
+            Skip = $"Needs Docker. Set {PostgresFactAttribute.EnableVariable}=1 to run against a PostgreSQL container " +
+                   "(CI does this in the 'API against real Postgres' job).";
+        }
+    }
+}

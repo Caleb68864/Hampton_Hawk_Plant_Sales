@@ -52,6 +52,20 @@ public sealed class PauseBeforeCommand : DbCommandInterceptor
                    && sql.Contains("FOR UPDATE", StringComparison.Ordinal),
             occurrence);
 
+    /// <summary>
+    /// Pause before the <paramref name="occurrence"/>th explicit lock of a plant row, i.e.
+    /// with the locks for the plants before it already held.
+    /// </summary>
+    public static PauseBeforeCommand BeforePlantLock(int occurrence) =>
+        new($"before plant row lock #{occurrence}",
+            sql => sql.Contains("SELECT 1 FROM \"PlantCatalogs\"", StringComparison.Ordinal)
+                   && sql.Contains("FOR UPDATE", StringComparison.Ordinal),
+            occurrence);
+
+    /// <summary>Pause before the first write-back of an order line.</summary>
+    public static PauseBeforeCommand BeforeOrderLineWrite() =>
+        new("before UPDATE \"OrderLines\"", sql => sql.Contains("UPDATE \"OrderLines\"", StringComparison.Ordinal));
+
     /// <summary>Pause before the first insert of an order row.</summary>
     public static PauseBeforeCommand BeforeOrderInsert() =>
         new("before INSERT INTO \"Orders\"", sql => sql.Contains("INSERT INTO \"Orders\"", StringComparison.Ordinal));

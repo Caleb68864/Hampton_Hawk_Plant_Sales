@@ -46,6 +46,9 @@ export interface FulfillmentResult {
   message: string;
 }
 
+/** Mirrors the API's FulfillmentEventSource (serialized as its name). */
+export type FulfillmentEventSource = 'PickupScan' | 'SessionScan' | 'ManualFulfill' | 'Undo';
+
 export interface FulfillmentEvent {
   id: string;
   orderId: string;
@@ -53,6 +56,14 @@ export interface FulfillmentEvent {
   barcode: string;
   result: FulfillmentResultType;
   message: string | null;
+  /**
+   * Signed-in account that wrote the event (sale-day accounts are per station, so
+   * this names the station login, not the volunteer). Null for rows written before
+   * attribution landed or without a signed-in user.
+   */
+  userId: string | null;
+  /** Write path that produced the event, set by the server. Null on older rows. */
+  source: FulfillmentEventSource | null;
   createdAt: string;
 }
 
