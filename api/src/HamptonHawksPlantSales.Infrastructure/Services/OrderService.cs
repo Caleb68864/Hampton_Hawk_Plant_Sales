@@ -56,11 +56,18 @@ public class OrderService : IOrderService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
+            // The pickup lookup's one search. It matches everything the customer
+            // search matches (display name, last name, phone, pickup code; same
+            // case-insensitive substring rule) plus the order's own number and
+            // barcode, so one request replaces "customers, then each customer's
+            // orders". See docs/ROADMAP.md, "Pickup lookup".
             var term = search.Trim().ToLower();
             query = query.Where(o =>
                 o.OrderNumber.ToLower().Contains(term) ||
                 (o.Barcode != null && o.Barcode.ToLower().Contains(term)) ||
                 (o.Customer != null && o.Customer.DisplayName.ToLower().Contains(term)) ||
+                (o.Customer != null && o.Customer.LastName != null && o.Customer.LastName.ToLower().Contains(term)) ||
+                (o.Customer != null && o.Customer.Phone != null && o.Customer.Phone.Contains(term)) ||
                 (o.Customer != null && o.Customer.PickupCode.ToLower().Contains(term)));
         }
 

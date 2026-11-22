@@ -135,16 +135,8 @@ describe('PickupLookupPage pick-list barcode', () => {
   });
 });
 
-function customer(id: string) {
-  return { id, firstName: 'C', lastName: id, displayName: id } as unknown;
-}
 function page(items: unknown[]) {
   return { items, totalCount: items.length, page: 1, pageSize: 50, totalPages: 1 };
-}
-function perCustomerCalls() {
-  return mockOrdersList.mock.calls.filter(
-    (args) => (args[0] as { customerId?: string } | undefined)?.customerId !== undefined,
-  );
 }
 
 describe('PickupLookupPage search fan-out', () => {
@@ -159,76 +151,35 @@ describe('PickupLookupPage search fan-out', () => {
 
   afterEach(() => cleanup());
 
-  it('a superseded search does not fire its per-customer order requests', async () => {
-    const pending: Array<(v: unknown) => void> = [];
-    mockCustomersList.mockImplementation(
-      () => new Promise((resolve) => pending.push(resolve)),
-    );
+  it('one settled search is one orders request, grouped by customer', async () => {
+    // It used to be a customer search plus one orders request per customer.
+    const smith = { id: 'c-1', displayName: 'Ann Smith', lastName: 'Smith', pickupCode: 'AAA222' };
+    mockOrdersList.mockImplementation(async (params: { search?: string }) =>
+      params.search
+        ? page([
+            { id: 'o-1', orderNumber: '1001', customerId: 'c-1', customer: smith, customerDisplayName: 'Ann Smith', status: 'Open', hasIssue: false, lines: [] },
+            { id: 'o-2', orderNumber: '1002', customerId: 'c-1', customer: smith, customerDisplayName: 'Ann Smith', status: 'Open', hasIssue: false, lines: [] },
+          ])
+        : page([]));
 
     renderPage();
-    await waitFor(() => expect(pending.length).toBe(1)); // initial empty search
+    await waitFor(() => expect(mockOrdersList).toHaveBeenCalledTimes(1)); // initial listing
     const input = screen.getByPlaceholderText(/Scan order sheet barcode/) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'sm' } });
-    await waitFor(() => expect(pending.length).toBe(2));
     fireEvent.change(input, { target: { value: 'smith' } });
-    await waitFor(() => expect(pending.length).toBe(3));
 
-    // The two stale searches answer late with many customers each.
-    const stale = Array.from({ length: 20 }, (_, i) => customer(`stale-${i}`));
-    await act(async () => {
-      pending[0](page(stale));
-      pending[1](page(stale));
-    });
-    expect(perCustomerCalls()).toHaveLength(0);
-
-    // The live search still fans out for its own customers.
-    await act(async () => {
-      pending[2](page([customer('live-1')]));
-    });
-    await waitFor(() => expect(perCustomerCalls()).toHaveLength(1));
-    expect((perCustomerCalls()[0][0] as { customerId: string }).customerId).toBe('live-1');
+    await waitFor(() => expect(screen.getAllByText('Ann Smith')).toHaveLength(2));
+    const searches = mockOrdersList.mock.calls.filter((c) => (c[0] as { search?: string }).search === 'smith');
+    expect(searches).toHaveLength(1);
+    expect(mockOrdersList.mock.calls.some((c) => (c[0] as { customerId?: string }).customerId)).toBe(false);
+    expect(mockCustomersList).not.toHaveBeenCalled();
   });
 
-  it('caps concurrent per-customer order requests at 4', async () => {
-    mockCustomersList.mockResolvedValue(
-      page(Array.from({ length: 12 }, (_, i) => customer(`c-${i}`))),
-    );
-    let inFlight = 0;
-    let peak = 0;
-    const release: Array<() => void> = [];
-    mockOrdersList.mockImplementation((params: { customerId?: string }) => {
-      if (params?.customerId === undefined) return Promise.resolve(page([]));
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      return new Promise((resolve) => {
-        release.push(() => {
-          inFlight -= 1;
-          resolve(page([]));
-        });
-      });
-    });
-
-    renderPage();
-    await waitFor(() => expect(release.length).toBeGreaterThan(0));
-    // Drain: release whatever is queued until all 12 customers were asked.
-    for (let guard = 0; guard < 50 && perCustomerCalls().length < 12; guard++) {
-      await act(async () => {
-        release.splice(0).forEach((r) => r());
-      });
-    }
-    await act(async () => {
-      release.splice(0).forEach((r) => r());
-    });
-
-    expect(perCustomerCalls()).toHaveLength(12);
-    expect(peak).toBeLessThanOrEqual(4);
-  });
   it('typing a pickup code that contains a digit lists the customer instead of "No order found"', async () => {
     // Generated pickup codes are 6 chars of A-Z/2-9, so most contain a digit and
     // trip the order-number heuristic. With no exact order-number match, the
     // customer the server matched by pickup code must still be listed.
     const customer = { id: 'c-1', displayName: 'Jane Doe', firstName: 'Jane', lastName: 'Doe', pickupCode: 'K7QX2M' };
-    const order = { id: 'o-1', orderNumber: '1001', customerId: 'c-1', customerDisplayName: 'Jane Doe', status: 'Open', hasIssue: false, lines: [] };
+    const order = { id: 'o-1', orderNumber: '1001', customerId: 'c-1', customer, customerDisplayName: 'Jane Doe', status: 'Open', hasIssue: false, lines: [] };
     mockCustomersList.mockResolvedValue({ items: [customer], totalCount: 1, page: 1, pageSize: 50, totalPages: 1 });
     mockOrdersList.mockResolvedValue({ items: [order], totalCount: 1, page: 1, pageSize: 50, totalPages: 1 });
 

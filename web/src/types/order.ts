@@ -15,11 +15,21 @@ export interface OrderLine {
   updatedAt: string;
 }
 
+/** The fields of the embedded customer the web relies on. */
+export interface OrderCustomerSummary {
+  id?: string;
+  displayName: string;
+  lastName?: string | null;
+  pickupCode?: string;
+}
+
 export interface Order {
   id: string;
   /** Null for walk-up register sales, which carry no customer record. */
   customerId: string | null;
   customerDisplayName: string;
+  /** The API embeds the customer on list and detail responses. */
+  customer?: OrderCustomerSummary | null;
   sellerId: string | null;
   sellerDisplayName: string | null;
   orderNumber: string;
