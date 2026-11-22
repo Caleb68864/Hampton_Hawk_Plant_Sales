@@ -303,3 +303,21 @@ describe('PickupScanPage scanning', () => {
     expect(second.scanId).toBe(first.scanId);
   });
 });
+
+describe('PickupScanPage when the order cannot be loaded', () => {
+  afterEach(() => cleanup());
+
+  it('says the load failed and retries, instead of "Order not found"', async () => {
+    mockGetById.mockReset();
+    mockGetById
+      .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+      .mockResolvedValue(makeOrder());
+
+    renderPage();
+    expect(await screen.findByText(/Could not load this order: The request timed out/)).toBeInTheDocument();
+    expect(screen.queryByText('Order not found')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Order 100123')).toBeInTheDocument();
+  });
+});

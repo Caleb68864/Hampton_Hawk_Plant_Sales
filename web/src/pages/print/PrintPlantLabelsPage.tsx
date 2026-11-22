@@ -77,6 +77,9 @@ export function PrintPlantLabelsPage() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Requested plants that could not be loaded. The sheet used to print short
+  // with no word about it.
+  const [missingCount, setMissingCount] = useState(0);
 
   const densityParam = searchParams.get('density');
   const countParam = searchParams.get('count');
@@ -97,6 +100,7 @@ export function PrintPlantLabelsPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      setMissingCount(0);
 
       try {
         if (plantId) {
@@ -115,7 +119,9 @@ export function PrintPlantLabelsPage() {
               }
             }),
           );
-          setPlants(requestedPlants.filter((plant): plant is Plant => Boolean(plant)));
+          const found = requestedPlants.filter((plant): plant is Plant => Boolean(plant));
+          setMissingCount(requestedIds.length - found.length);
+          setPlants(found);
           return;
         }
 
@@ -133,6 +139,7 @@ export function PrintPlantLabelsPage() {
           ...requestedSkus.map((sku) => bySku.get(sku)).filter((plant): plant is Plant => Boolean(plant)),
           ...requestedBarcodes.map((barcode) => byBarcode.get(barcode)).filter((plant): plant is Plant => Boolean(plant)),
         ];
+        setMissingCount(requestedSkus.length + requestedBarcodes.length - matched.length);
 
         const deduped = Array.from(new Map(matched.map((plant) => [plant.id, plant])).values());
         setPlants(deduped);
@@ -299,6 +306,12 @@ export function PrintPlantLabelsPage() {
     <PrintLayout backTo={backTo} className="plant-label-print-layout">
       <style>{printCss}</style>
 
+      {missingCount > 0 && (
+        <div role="alert" className="no-print mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          {missingCount} requested plant{missingCount === 1 ? '' : 's'} could not be loaded, so{' '}
+          {missingCount === 1 ? 'its labels are' : 'their labels are'} missing from this sheet. Reload before printing.
+        </div>
+      )}
       <div className="no-print mb-4 rounded-md border border-gray-300 bg-gray-50 p-3">
         <h1 className="text-lg font-semibold text-gray-800">Plant Labels (1&quot; x 2&quot;)</h1>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">

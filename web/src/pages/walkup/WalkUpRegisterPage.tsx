@@ -511,7 +511,7 @@ export function WalkUpRegisterPage() {
               {/* Off while the Close Sale dialog is open or closing: a barcode read
                   there was added to the sale behind the dialog, after the total
                   and change had been shown. */}
-              <ScanInput onScan={handleScan} disabled={scanning || !draft || closeModal.open || closing} ref={scanRef} />
+              <ScanInput onScan={handleScan} busy={scanning} disabled={!draft || closeModal.open || closing} ref={scanRef} />
               <p className="text-xs text-gray-500">
                 Set qty then scan once to add multiple. Idempotent on retry. Use the right-rail buttons to close or cancel.
               </p>

@@ -96,6 +96,7 @@ export function PickupScanSessionPage() {
 
   const {
     currentSession,
+    loadSession,
     scanHistory,
     lastSessionScanResult,
     isScanning,
@@ -220,7 +221,17 @@ export function PickupScanSessionPage() {
     return (
       <div className="space-y-4">
         {!isPickupKiosk && <BackToStationHomeButton to="/pickup" label="Back to Pickup Lookup" />}
-        <ErrorBanner message="Pick-list session not found." />
+        {networkError ? (
+          // A failed load is not "not found": say what happened and offer Retry.
+          <>
+            <ErrorBanner message={`Could not load this pick-list session: ${networkError}`} />
+            <TouchButton variant="primary" onClick={() => void loadSession()}>
+              Retry
+            </TouchButton>
+          </>
+        ) : (
+          <ErrorBanner message="Pick-list session not found." />
+        )}
         <button
           type="button"
           className="text-sm text-hawk-600 hover:text-hawk-800"
@@ -322,7 +333,7 @@ export function PickupScanSessionPage() {
             onChange={handleScanQuantityChange}
             disabled={isScanning}
           />
-          <ScanInput ref={scanInputRef} onScan={handleScan} disabled={isScanning} />
+          <ScanInput ref={scanInputRef} onScan={handleScan} busy={isScanning} />
 
           <div className="flex flex-wrap items-center gap-3">
             <TouchButton variant="primary" onClick={handleEndSession} disabled={isScanning || ending}>

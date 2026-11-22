@@ -90,6 +90,7 @@ export function PickupScanPage() {
 
   const {
     currentOrder,
+    loadOrder,
     scanHistory,
     lastScanResult,
     isScanning,
@@ -339,7 +340,17 @@ export function PickupScanPage() {
     return (
       <div className="space-y-4">
         {!isPickupKiosk && <BackToStationHomeButton to="/pickup" label="Back to Pickup Lookup" />}
-        <ErrorBanner message="Order not found" />
+        {networkError ? (
+          // A failed load is not "not found": say what happened and offer Retry.
+          <>
+            <ErrorBanner message={`Could not load this order: ${networkError}`} />
+            <TouchButton variant="primary" onClick={() => void loadOrder()}>
+              Retry
+            </TouchButton>
+          </>
+        ) : (
+          <ErrorBanner message="Order not found" />
+        )}
         <button
           type="button"
           className="text-sm text-hawk-600 hover:text-hawk-800"
@@ -445,7 +456,7 @@ export function PickupScanPage() {
           <ScanInput
             ref={scanInputRef}
             onScan={handleScan}
-            disabled={isScanning}
+            busy={isScanning}
           />
 
           {/* SS-09: Primary action bar hoisted directly under the scan input,

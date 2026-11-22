@@ -182,3 +182,43 @@ describe('ScanInput duplicate-read window', () => {
     expect(onScan).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('ScanInput while a scan is in flight', () => {
+  afterEach(() => cleanup());
+
+  function scan(value: string) {
+    const input = screen.getByPlaceholderText('Scan barcode or type SKU...');
+    fireEvent.change(input, { target: { value } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  }
+
+  it('queues reads that arrive while busy and hands them over one at a time', () => {
+    // Pages used to disable the input while a scan was in flight, so the
+    // second of two quick scans went nowhere.
+    const onScan = vi.fn();
+    const { rerender } = render(<ScanInput onScan={onScan} busy />);
+    const input = screen.getByPlaceholderText('Scan barcode or type SKU...');
+    expect(input).not.toBeDisabled();
+
+    scan('PLANT-B');
+    scan('PLANT-C');
+    expect(onScan).not.toHaveBeenCalled();
+    expect(screen.getByText('2 more scans waiting...')).toBeInTheDocument();
+
+    rerender(<ScanInput onScan={onScan} busy={false} />);
+    expect(onScan).toHaveBeenCalledTimes(1);
+    expect(onScan).toHaveBeenLastCalledWith('PLANT-B');
+
+    rerender(<ScanInput onScan={onScan} busy />);
+    rerender(<ScanInput onScan={onScan} busy={false} />);
+    expect(onScan).toHaveBeenCalledTimes(2);
+    expect(onScan).toHaveBeenLastCalledWith('PLANT-C');
+  });
+
+  it('scans straight through when not busy', () => {
+    const onScan = vi.fn();
+    render(<ScanInput onScan={onScan} busy={false} />);
+    scan('PLANT-A');
+    expect(onScan).toHaveBeenCalledWith('PLANT-A');
+  });
+});

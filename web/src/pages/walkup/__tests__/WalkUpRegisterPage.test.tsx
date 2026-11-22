@@ -359,4 +359,23 @@ describe('WalkUpRegisterPage scanning', () => {
       expect(second.scanId).toBe(first.scanId);
     });
   });
+
+  it('does not drop a second scan that arrives while the first is still in flight', async () => {
+    let release!: (d: DraftOrder) => void;
+    mockScan
+      .mockImplementationOnce(() => new Promise<DraftOrder>((r) => { release = r; }))
+      .mockResolvedValue(makeDraft());
+
+    renderPage();
+    const input = await scanInput();
+    submitScan(input, '47');
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+    clock.now += 50;
+    submitScan(screen.getByPlaceholderText('Scan barcode or type SKU...') as HTMLInputElement, '48');
+    expect(mockScan).toHaveBeenCalledTimes(1);
+
+    release(makeDraft());
+    await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(2));
+    expect((mockScan.mock.calls[1][1] as { plantBarcode: string }).plantBarcode).toBe('48');
+  });
 });
