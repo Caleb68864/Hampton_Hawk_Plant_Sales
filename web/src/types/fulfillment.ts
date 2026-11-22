@@ -72,4 +72,6 @@ export interface ManualFulfillRequest {
   orderLineId: string;
   reason: string;
   operatorName: string;
+  /** Retry-stable id; a repeat of an applied request fulfils nothing more. */
+  requestId?: string;
 }

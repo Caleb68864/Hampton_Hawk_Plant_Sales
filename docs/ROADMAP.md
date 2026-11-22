@@ -5,7 +5,7 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-21 (branch `test/e2e-imports-audit-followups`).
+Last updated: 2026-11-21 (branch `fix/audit-tail-and-sale-price`).
 
 ## Open
 
@@ -41,7 +41,6 @@ instruction file.
 - Retry budget exhausted on session/register scans surfaces the raw Postgres error
   (500); `ExpandAsync` throws `NotImplementedException` (500) when its setting is on;
   check-constraint violations (23514) are not mapped to 400.
-- Manual fulfil has no idempotency key.
 - Revenue everywhere is quantity x the current catalog price, so changing a price
   after the sale rewrites past revenue (needs a price-at-sale column; product call).
 
@@ -90,6 +89,7 @@ instruction file.
 
 | item | where | commit |
 |---|---|---|
+| Manual fulfil had no idempotency key: a request resent after a timeout fulfilled one more unit. `ManualFulfillRequest.RequestId`, checked before and again under the line lock, stored as the event's `IdempotencyKey` (same replay path as pickup scans); the pickup page reuses the id while the volunteer retries the same line. Service and page tests fail on the old code | `FulfillmentService.ManualFulfillAsync`, `ScanDtos`, `PickupScanPage` | `fix/audit-tail-and-sale-price` |
 | Web retry/timeout gaps. (1) Every scan page disabled its scan input while a scan was in flight, so the second of two quick scans (and its keystrokes) went nowhere. `ScanInput` takes `busy`: reads keep being taken, queue ("2 more scans waiting..."), and go to the server one at a time; register, pickup and pick-list pages use it. (2) The backend health check was a bare `fetch` with no timeout: a request lost when the Wi-Fi dropped never settled, no next check was scheduled, and the page never showed the backend as down; now aborted after 10 s like the axios client. (3) A pickup order or pick-list session that failed to load (network) said "Order not found" / "session not found" with no way back; it now says the load failed and offers Retry. (4) The label sheet printed short with no word when a requested plant failed to load; it now warns above the sheet (not printed). Tests fail on the old component/pages (the health-check one by mutation, the function was not exported before) | `ScanInput`, `WalkUpRegisterPage`, `PickupScanPage`, `PickupScanSessionPage`, `useBackendAvailability`, `PrintPlantLabelsPage` | `test/e2e-imports-audit-followups` |
 | Register and pickup on a flaky network. (1) When the register could not reach the server to look up its open draft (reload during a Wi-Fi blip) it treated that as "the sale is gone" and opened a fresh draft, abandoning the one being rung up, whose units it had already taken off the shelf. Now it keeps the draft id, says so, and offers Retry. (2) After a multi-quantity scan got no answer the quantity snapped back to 1, so the rescan got a new scan id (keyed on barcode + quantity) and the server applied both; register and pickup now keep the quantity until the server answers. (3) A pickup scan that got no answer made no sound. (4) The pickup success flash subtracted the requested quantity from the pre-scan total; it now shows the server's `orderRemainingItems`. (5) A Close Sale retried after a timeout got 404 although the sale had closed; it now returns the closed sale, payment as first recorded. Page tests fail on the old pages, the close test on the old service | `WalkUpRegisterPage`, `PickupScanPage`, `WalkUpRegisterService.CloseDraftAsync` | `test/e2e-imports-audit-followups` |
 | Preorder line edit/delete ran without locks while the line could be scanned. Lowering the ordered quantity read QtyFulfilled, a scan then raised it, and the save hit the fulfilled <= ordered check constraint (500). Deleting a line read "nothing fulfilled", a scan then fulfilled it, and the delete hid the line holding that stock (Undo could not find it). Both now run under the plant and line locks a scan takes (the walk-up path already did; the unlocked method is gone). `PreorderLineEditRaceTests` stages each with `Interleave`: on the old code the edit throws `DbUpdateException` (23514) and the delete leaves 9 on hand with the unit on a deleted line; on the new code the scan queues, then gets AlreadyFulfilled / WrongOrder | `OrderService.UpdateLineAsync`, `OrderService.DeleteLineAsync`, `PostgresTests/PreorderLineEditRaceTests.cs` | `test/e2e-imports-audit-followups` |

@@ -47,6 +47,7 @@ export function PickupScanPage() {
   const isPickupKiosk = useKioskStore((s) => s.session?.profile === 'pickup');
 
   const scanInputRef = useRef<ScanInputHandle>(null);
+  const manualAttemptRef = useRef<{ lineId: string; requestId: string } | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -255,12 +256,19 @@ export function PickupScanPage() {
   async function handleManualFulfill(lineId: string, reason: string): Promise<boolean> {
     if (!orderId) return false;
     let fulfilled = false;
+    // Same request id while the volunteer retries this line after a failure, so a
+    // request that timed out but was applied is not applied twice.
+    const attempt = manualAttemptRef.current;
+    const requestId = attempt?.lineId === lineId ? attempt.requestId : crypto.randomUUID();
+    manualAttemptRef.current = { lineId, requestId };
     await runOrderAction('Manual fulfill failed', async () => {
       const result = await fulfillmentApi.manualFulfill(orderId, {
         orderLineId: lineId,
         reason,
         operatorName: OPERATOR_NAME,
+        requestId,
       });
+      manualAttemptRef.current = null;
       if (result.result !== 'Accepted') {
         throw new Error(getScanResultMessage(result));
       }

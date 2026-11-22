@@ -304,6 +304,14 @@ public class FulfillmentService : IFulfillmentService
 
         await EnsureOrderAcceptsFulfillmentAsync(orderId);
 
+        // Replay: a manual fulfil resent after a timeout fulfilled one more unit.
+        var requestId = string.IsNullOrWhiteSpace(request.RequestId) ? null : request.RequestId.Trim();
+        if (requestId != null)
+        {
+            var replay = await TryReplayScanAsync(orderId, requestId);
+            if (replay != null) return replay;
+        }
+
         if (await _adminService.IsSaleClosedAsync())
         {
             await CreateEvent(FulfillmentEventSource.ManualFulfill, orderId, null, "MANUAL", FulfillmentResult.SaleClosedBlocked,
@@ -347,6 +355,15 @@ public class FulfillmentService : IFulfillmentService
             if (line.PlantCatalogId != plantCatalogId)
                 throw new ValidationException("This order line was changed while it was being fulfilled. Refresh the order and try again.");
 
+            // Again under the line lock: two copies of one request can both pass the
+            // check above, and only one may apply.
+            if (requestId != null && await _db.FulfillmentEvents.AsNoTracking()
+                    .AnyAsync(e => e.OrderId == orderId && e.IdempotencyKey == requestId && e.DeletedAt == null))
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                return (await TryReplayScanAsync(orderId, requestId))!;
+            }
+
             var inventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null)
                 ?? throw new KeyNotFoundException("Inventory record not found.");
@@ -389,6 +406,7 @@ public class FulfillmentService : IFulfillmentService
                 PlantCatalogId = line.PlantCatalogId,
                 Barcode = "MANUAL",
                 Result = FulfillmentResult.Accepted,
+                IdempotencyKey = requestId,
                 Message = $"MANUAL FULFILL: {request.OperatorName} fulfilled 1x '{line.PlantCatalog.Name}'. Reason: {request.Reason}. Fulfilled {line.QtyFulfilled}/{line.QtyOrdered}."
             };
             _db.FulfillmentEvents.Add(evt);
