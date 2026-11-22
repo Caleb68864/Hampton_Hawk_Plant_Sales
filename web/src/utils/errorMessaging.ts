@@ -22,7 +22,7 @@ const topErrorPatterns: ErrorPattern[] = [
   { pattern: /out of stock/i, whatHappened: 'This item is out of stock.', whatToDoNext: 'Set aside the item and ask an admin to adjust inventory or substitute another item.' },
   { pattern: /barcode not found/i, whatHappened: 'The scanned barcode is not in the plant catalog.', whatToDoNext: 'Rescan the label carefully, or ask an admin to add/fix the catalog entry.' },
   { pattern: /already fulfilled/i, whatHappened: 'This line is already fully fulfilled.', whatToDoNext: 'Move to the next item, or use Undo if the previous scan was a mistake.' },
-  { pattern: /concurrent scan conflict|deadlock|serialize access|concurrent update/i, whatHappened: 'Another station updated this order at the same time.', whatToDoNext: 'Wait a moment and scan again.' },
+  { pattern: /concurrent scan conflict|deadlock|serialize access|concurrent update|another station changed this/i, whatHappened: 'Another station updated this order at the same time.', whatToDoNext: 'Wait a moment and scan again.' },
   { pattern: /order not found/i, whatHappened: 'We could not find that order.', whatToDoNext: 'Verify the order number, then search again.' },
   { pattern: /no accepted scan found to undo/i, whatHappened: 'There is no recent accepted scan to undo.', whatToDoNext: 'Scan an item first, or confirm you are on the correct order.' },
   { pattern: /cannot undo event without a plant reference/i, whatHappened: 'The last scan cannot be safely undone.', whatToDoNext: 'Ask an admin to review fulfillment history before retrying.' },
@@ -35,6 +35,7 @@ const topErrorPatterns: ErrorPattern[] = [
   { pattern: /validation/i, whatHappened: 'Some fields are invalid or missing.', whatToDoNext: 'Review required fields and correct any highlighted values.' },
   { pattern: /failed to load/i, whatHappened: 'The page data could not be loaded.', whatToDoNext: 'Refresh the page. If it still fails, check network status and try again.' },
   { pattern: /failed to save|failed to update|failed to create|failed to delete/i, whatHappened: 'Your change was not saved.', whatToDoNext: 'Retry the action. If it keeps failing, ask an admin to review technical details.' },
+  { pattern: /unexpected server error \(reference/i, whatHappened: 'The server hit an unexpected error.', whatToDoNext: 'Try again. If it keeps happening, give the reference below to an admin.' },
   { pattern: /network error|network/i, whatHappened: 'The app could not reach the server.', whatToDoNext: 'Check the network connection and retry.' },
   { pattern: /timeout|timed out/i, whatHappened: 'The request took too long and timed out.', whatToDoNext: 'Try again in a few seconds.' },
 ];
