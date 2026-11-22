@@ -630,7 +630,7 @@ public class FulfillmentService : IFulfillmentService
 
     public async Task<List<FulfillmentEventResponse>> GetEventsAsync(Guid orderId)
     {
-        return await _db.FulfillmentEvents
+        var events = await _db.FulfillmentEvents
             .Where(e => e.OrderId == orderId && e.DeletedAt == null)
             .OrderByDescending(e => e.CreatedAt)
             .Select(e => new FulfillmentEventResponse
@@ -646,6 +646,18 @@ public class FulfillmentService : IFulfillmentService
                 CreatedAt = e.CreatedAt
             })
             .ToListAsync();
+
+        // Name the account for the order history. Deleted accounts still resolve.
+        var userIds = events.Where(e => e.UserId != null).Select(e => e.UserId!.Value).Distinct().ToList();
+        if (userIds.Count > 0)
+        {
+            var names = await _db.AppUsers.IgnoreQueryFilters().AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Username);
+            foreach (var e in events)
+                if (e.UserId != null && names.TryGetValue(e.UserId.Value, out var name)) e.UserName = name;
+        }
+        return events;
     }
 
     /// <summary>

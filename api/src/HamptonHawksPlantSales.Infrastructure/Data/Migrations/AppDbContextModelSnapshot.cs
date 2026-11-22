@@ -52,6 +52,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.ToTable("AdminActions");
@@ -317,6 +320,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.ToTable("ImportBatches");
@@ -417,6 +423,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -737,6 +746,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<string>("ScanId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 

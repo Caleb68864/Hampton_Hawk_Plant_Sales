@@ -33,18 +33,8 @@ instruction file.
 
 ### Product / policy calls
 
-- Fulfillment event attribution: open questions left after `UserId`/`Source` landed.
-  (1) Input method (camera vs. keyboard-wedge vs. typed SKU) would have to come from
-  the client, and every scan page would need to send it; worth it only if the audit
-  needs it, and it is client-asserted, not proof. (2) Sale-day accounts are per
-  station, so `UserId` names the station login, not the volunteer; per-person
-  attribution needs per-person logins or a "who is scanning" prompt. (3) Walk-up
-  register sales (`WalkUpRegisterScans`), `InventoryAdjustments` and `AdminActions`
-  carry no user either; extend the same `ICurrentUser` to them? (4) Show user/source
-  in the order history UI (`FulfillmentEventResponse` returns them and the web
-  `FulfillmentEvent` type declares them since `test/lock-order-gaps`; nothing renders
-  them yet).
-
+- None open: each call above has been taken under the agent decision rule and is
+  recorded in the Done table as "Decided by agent".
 
 ### Environment notes (not code)
 
@@ -59,6 +49,7 @@ instruction file.
 
 | item | where | commit |
 |---|---|---|
+| Fulfillment attribution follow-ups. **Decided by agent 2026-11-22 (owner may revisit):** (1) input method (camera / wedge / typed) is not recorded: it would be client-asserted, not proof, and nothing in the audit needs it. (2) Attribution stays per station login; no per-person logins or "who is scanning" prompt (sale-day friction). (3) Register scans, inventory adjustments, admin actions and import batches now carry `UserId` too: new `IUserAttributed`, stamped by `AppDbContext` on insert from `ICurrentUser` when the caller has not set it (nullable, no FK, migration `AddEventUserAttribution`, existing rows untouched). (4) The order page now shows a scan history (when, result, how, station login), with `GET .../events` returning the account's username. Unit tests: stamping (fails with it disabled), explicit/null user, the API's DI picking the context constructor that takes the user, username resolution; a component test for the history | `Core/Models/IUserAttributed.cs`, `AppDbContext`, `FulfillmentService.GetEventsAsync`, `components/orders/OrderScanHistory.tsx`, `OrderDetailPage` | `feat/pickup-search-and-policy` |
 | Soft-deleting a customer, seller or plant dropped its orders from the per-entity reports while the totals kept them. **Decided by agent 2026-11-22 (owner may revisit):** sales by customer and by seller now also list soft-deleted customers/sellers that have counted sales, marked "(deleted)", so the rows add up to the totals; ones with no sales stay hidden. Plants are different: a deleted plant cannot be scanned (open orders for it would be stuck), and the line's fallback price comes through the soft-delete filter, so its older lines read $0 in every report, totals included. So a plant on any non-cancelled order can no longer be deleted ("mark it inactive instead"); unused plants still delete. Not changed: plants already deleted before this keep reading $0 for lines from before `UnitPrice` was recorded (fixing that means a data change, left to the owner). Unit tests fail on the old code; a Postgres test reads a deleted customer's row | `ReportService.GetSalesByCustomerAsync` / `GetSalesBySellerAsync`, `PlantService.DeleteAsync`, `PostgresTests/SalePriceTests.cs` | `feat/pickup-search-and-policy` |
 | Import history and issue lists stopped at 100 batches / 200 issues with no way to see the rest; uploads had no server-side cap but Kestrel's 30 MB. **Decided by agent 2026-11-22 (owner may revisit):** history shows 50 at a time with "Load older imports"; an issue list loads every page (bounded by the file); the three import endpoints take at most 10 MB (`[RequestSizeLimit]`), the cap the Imports page already enforced, so a bigger request is a 413 before it is read. Imports still read the whole (capped) file, which the parsers need. Vitest for the page and the issue helper (fail on the old code), attribute test for the cap | `ImportsPage`, `web/src/api/imports.ts`, `ImportController` | `feat/pickup-search-and-policy` |
 | `live-sale-kpi` is anonymous (projector) and publishes sale totals. **Decided by agent 2026-11-22 (owner may revisit):** keep it anonymous by default, so the projector works as it does today, and add `Reports__LiveSaleKpiAnonymous` (README, API environment variables): `false` makes it require a signed-in browser. Controller tests: default and `true` allow anonymous, `false` refuses anonymous (401) and still serves a signed-in user; the refusal test fails with the setting ignored | `ReportsController.GetLiveSaleKpi`, `README.md` | `feat/pickup-search-and-policy` |

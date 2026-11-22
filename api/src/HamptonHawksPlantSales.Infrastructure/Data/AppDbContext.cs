@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Core.Interfaces;
 using HamptonHawksPlantSales.Core.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,7 +6,16 @@ namespace HamptonHawksPlantSales.Infrastructure.Data;
 
 public class AppDbContext : DbContext
 {
+    private readonly ICurrentUser? _currentUser;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    /// <summary>Used by DI in the API: inserts of <see cref="IUserAttributed"/> rows
+    /// are stamped with the signed-in account.</summary>
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser currentUser) : base(options)
+    {
+        _currentUser = currentUser;
+    }
 
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<AppUserRole> AppUserRoles => Set<AppUserRole>();
@@ -89,6 +99,16 @@ public class AppDbContext : DbContext
         }
 
         await StampLinePricesAsync(cancellationToken);
+
+        var userId = _currentUser?.UserId;
+        if (userId != null)
+        {
+            foreach (var entry in ChangeTracker.Entries<IUserAttributed>())
+            {
+                if (entry.State == EntityState.Added && entry.Entity.UserId == null)
+                    entry.Entity.UserId = userId;
+            }
+        }
 
         return await base.SaveChangesAsync(cancellationToken);
     }
