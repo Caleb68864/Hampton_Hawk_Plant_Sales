@@ -74,7 +74,8 @@ export function PickupScanPage() {
   });
 
   // Multi-quantity scanning: volunteer "set N, scan, set N, scan" workflow.
-  // Sticky between scans -- never auto-resets so the volunteer keeps control.
+  // Resets to 1 after a scan the server answered; kept after one it did not, so
+  // the retry reuses the same scan id.
   const [scanQuantity, setScanQuantity] = useState(1);
 
   // Joy Pass: scan flash and celebration states
@@ -154,35 +155,33 @@ export function PickupScanPage() {
   }
 
   async function handleScan(barcode: string) {
-    // Multi-quantity scanning: forward the current scanQuantity, then reset
-    // back to 1 so the next scan defaults to single. The backend caps qty at
-    // the line's remaining; result.line.qtyFulfilled reflects the actual
-    // count applied (not the requested count).
     const requestedQty = scanQuantity;
     const result = await scan(barcode, requestedQty);
-    if (result) {
-      playAudioForResult(result.result);
-
-      // Show scan success flash for accepted scans
-      if (result.result === 'Accepted' && currentOrder) {
-        const display = getScanDisplayFields(result);
-        const totalRemaining = currentOrder.lines.reduce(
-          (sum, line) => sum + Math.max(0, line.qtyOrdered - line.qtyFulfilled),
-          0
-        );
-        // Remaining drops by the actual applied count from the response
-        // (line.qtyFulfilled delta), with a defensive fallback to requestedQty
-        // if the response does not carry a line.
-        const appliedCount = result.line ? requestedQty : 1;
-        setScanFlashData({
-          plantName: display.plantName ?? 'Unknown Plant',
-          sku: result.plant?.sku,
-          barcode,
-          remainingForOrder: Math.max(0, totalRemaining - appliedCount),
-        });
-        setShowScanFlash(true);
-      }
+    if (!result) {
+      // No answer from the server (timeout, dropped Wi-Fi). It may still have
+      // been applied, so the quantity stays as set: the retry must send the same
+      // barcode and quantity to reuse its scan id. And sound it, or a volunteer
+      // looking at the plants takes silence for success.
+      audio.playError();
+      refocusScanInput();
+      return;
     }
+    playAudioForResult(result.result);
+
+    // Show scan success flash for accepted scans
+    if (result.result === 'Accepted' && currentOrder) {
+      const display = getScanDisplayFields(result);
+      setScanFlashData({
+        plantName: display.plantName ?? 'Unknown Plant',
+        sku: result.plant?.sku,
+        barcode,
+        // The server's count after this scan. Subtracting the requested quantity
+        // understated it whenever the line capped the scan (qty 5, 2 left).
+        remainingForOrder: Math.max(0, result.orderRemainingItems),
+      });
+      setShowScanFlash(true);
+    }
+    // Answered: the next scan defaults back to a single unit.
     setScanQuantity(1);
     refocusScanInput();
   }

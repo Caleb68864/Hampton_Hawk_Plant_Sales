@@ -41,15 +41,11 @@ instruction file.
 - Retry budget exhausted on session/register scans surfaces the raw Postgres error
   (500); `ExpandAsync` throws `NotImplementedException` (500) when its setting is on;
   check-constraint violations (23514) are not mapped to 400.
-- Manual fulfil has no idempotency key; a retried Close Sale after a timeout returns
-  404 instead of the closed sale.
-- Web: register opens a fresh draft when the open-drafts lookup fails on a flaky
-  network; scans typed while the previous scan is in flight are dropped; quantity
-  resets to 1 after a failed multi-qty scan, so a retry gets a new scan id; the
-  backend health check has no timeout; a pickup page that cannot load reads "Order
-  not found" with no retry; no error sound on a network-failed pickup scan; the
-  success flash's "remaining" uses the requested, not applied, quantity; labels print
-  short with no warning when one plant lookup fails.
+- Manual fulfil has no idempotency key.
+- Web: scans typed while the previous scan is in flight are dropped; the backend
+  health check has no timeout; a pickup page that cannot load reads "Order not
+  found" with no retry; labels print short with no warning when one plant lookup
+  fails.
 - Revenue everywhere is quantity x the current catalog price, so changing a price
   after the sale rewrites past revenue (needs a price-at-sale column; product call).
 
@@ -98,6 +94,7 @@ instruction file.
 
 | item | where | commit |
 |---|---|---|
+| Register and pickup on a flaky network. (1) When the register could not reach the server to look up its open draft (reload during a Wi-Fi blip) it treated that as "the sale is gone" and opened a fresh draft, abandoning the one being rung up, whose units it had already taken off the shelf. Now it keeps the draft id, says so, and offers Retry. (2) After a multi-quantity scan got no answer the quantity snapped back to 1, so the rescan got a new scan id (keyed on barcode + quantity) and the server applied both; register and pickup now keep the quantity until the server answers. (3) A pickup scan that got no answer made no sound. (4) The pickup success flash subtracted the requested quantity from the pre-scan total; it now shows the server's `orderRemainingItems`. (5) A Close Sale retried after a timeout got 404 although the sale had closed; it now returns the closed sale, payment as first recorded. Page tests fail on the old pages, the close test on the old service | `WalkUpRegisterPage`, `PickupScanPage`, `WalkUpRegisterService.CloseDraftAsync` | `test/e2e-imports-audit-followups` |
 | Preorder line edit/delete ran without locks while the line could be scanned. Lowering the ordered quantity read QtyFulfilled, a scan then raised it, and the save hit the fulfilled <= ordered check constraint (500). Deleting a line read "nothing fulfilled", a scan then fulfilled it, and the delete hid the line holding that stock (Undo could not find it). Both now run under the plant and line locks a scan takes (the walk-up path already did; the unlocked method is gone). `PreorderLineEditRaceTests` stages each with `Interleave`: on the old code the edit throws `DbUpdateException` (23514) and the delete leaves 9 on hand with the unit on a deleted line; on the new code the scan queues, then gets AlreadyFulfilled / WrongOrder | `OrderService.UpdateLineAsync`, `OrderService.DeleteLineAsync`, `PostgresTests/PreorderLineEditRaceTests.cs` | `test/e2e-imports-audit-followups` |
 | Imports and report read-back in the browser E2E (left out of the route crawl). `.e2e/imports-reports.spec.ts` uploads plants (a quoted name with a comma, a `$4.50` price, one bad price), inventory and orders through the Imports page, checks the summaries, what was written, the history tab and its issue list, then sells some (a pickup scan, a cash register sale) and reads sales by plant/customer/seller, payment breakdown and daily sales back from the API and the pages. The browser runs in America/Chicago, so Daily Sales must list today's local date with today's sales. Against the web image from `21ea281` (before the report date fix) it fails there; against this branch, 8/8 green with the other two specs. CI's compose job now logs in 9 times of the limiter's 10/min | `.e2e/imports-reports.spec.ts`, `.github/workflows/ci.yml` | `test/e2e-imports-audit-followups` |
 | Input validation that reached the database as 500s or bad rows. Line quantities were validated only on `POST /orders`: the walk-up add/update and single-line add routes saved 0 (an empty line) and let a negative through the availability check to the `QtyFulfilled <= QtyOrdered` check constraint (500). One rule now (`LineQuantity`, 1..10,000) on every route that sets a quantity, the ceiling also keeping quantity sums clear of `int` overflow (two lines of 1.5 billion summed negative and passed the walk-up check). Plant prices are held to the column, numeric(10,2): 100,000,000 overflowed (500) and 2.675 was rounded on save while the response echoed 2.675. Validator and service tests fail on the old code. The 10,000 ceiling is a sanity bound chosen by the agent, not a sale rule | `Core/Validators/LineQuantity.cs`, `CreateOrderValidator`, `Create/UpdatePlantValidator`, `WalkUpService`, `OrderService` | `test/e2e-imports-reports-bughunt` |

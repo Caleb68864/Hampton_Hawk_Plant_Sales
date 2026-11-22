@@ -315,4 +315,48 @@ describe('WalkUpRegisterPage scanning', () => {
       expect(screen.getByRole('button', { name: 'Confirm Close' })).not.toBeDisabled();
     });
   });
+
+  describe('flaky network', () => {
+    it('keeps the open sale when the open-drafts lookup fails, and resumes on Retry', async () => {
+      // The register used to treat "could not ask" as "the sale is gone" and open
+      // a fresh draft, abandoning the one being rung up (its stock already taken).
+      mockGetOpenDrafts.mockReset();
+      mockGetOpenDrafts
+        .mockRejectedValueOnce(new Error('Network Error'))
+        .mockResolvedValue([makeDraft()]);
+
+      renderPage();
+      const retry = await screen.findByRole('button', { name: 'Retry' });
+      expect(screen.getByText(/Could not reach the server to reopen this sale/)).toBeInTheDocument();
+      expect(mockCreateDraft).not.toHaveBeenCalled();
+      expect(appState.clearWalkUpDraftId).not.toHaveBeenCalled();
+
+      fireEvent.click(retry);
+      await scanInput();
+      expect(mockGetOpenDrafts).toHaveBeenCalledTimes(2);
+      expect(mockCreateDraft).not.toHaveBeenCalled();
+    });
+
+    it('keeps the quantity after a scan that got no answer, so the retry reuses its scan id', async () => {
+      mockScan
+        .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+        .mockResolvedValue(makeDraft());
+
+      renderPage();
+      let input = await scanInput();
+      fireEvent.click(screen.getByRole('button', { name: 'Set scan quantity to 3' }));
+      submitScan(input, '47');
+      await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(1));
+      await screen.findByText(/timed out/);
+
+      input = await scanInput();
+      clock.now += 5000;
+      submitScan(input, '47');
+      await waitFor(() => expect(mockScan).toHaveBeenCalledTimes(2));
+
+      const [first, second] = mockScan.mock.calls.map((c) => c[1] as { scanId: string; quantity: number });
+      expect(second.quantity).toBe(3);
+      expect(second.scanId).toBe(first.scanId);
+    });
+  });
 });

@@ -502,6 +502,20 @@ public class WalkUpRegisterServiceTests
     }
 
     [Fact]
+    public async Task CloseDraft_RetriedAfterItCommitted_ReturnsTheClosedSale()
+    {
+        using var db = CreateDb();
+        var (service, draftId) = await DraftWithThreeAtFourFiftyAsync(db);
+        await service.CloseDraftAsync(draftId, new CloseDraftRequest { PaymentMethod = "Cash", AmountTendered = 20m });
+
+        var retry = await service.CloseDraftAsync(draftId, new CloseDraftRequest { PaymentMethod = "Card", AmountTendered = 0m });
+
+        retry.Status.Should().Be(OrderStatus.Complete);
+        retry.PaymentMethod.Should().Be("Cash", "the retry does not rewrite the recorded payment");
+        retry.AmountTendered.Should().Be(20m);
+    }
+
+    [Fact]
     public async Task CloseDraft_NoLines_ThrowsValidation()
     {
         using var db = CreateDb();

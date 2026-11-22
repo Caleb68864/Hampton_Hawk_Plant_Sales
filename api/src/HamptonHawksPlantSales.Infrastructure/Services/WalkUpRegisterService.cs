@@ -488,6 +488,13 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             if (draft == null)
             {
                 await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                // A Close retried after a timeout (the first one committed) is
+                // answered with the closed sale, not a 404 that reads as a failure
+                // while the money is already in the drawer. Its payment stays as
+                // first recorded.
+                var alreadyClosed = await _db.Orders.AsNoTracking().AnyAsync(o =>
+                    o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Complete);
+                if (alreadyClosed) return await GetOrderResponseAsync(orderId);
                 throw new KeyNotFoundException("Draft order not found.");
             }
 
