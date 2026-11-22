@@ -506,14 +506,14 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             }
 
             // Cash short of the total used to close as paid. Total is priced the
-            // way the reports price it (quantity x catalog price).
+            // way the reports price it (quantity x the line's sale price).
             if (request.AmountTendered.HasValue && request.PaymentMethod == "Cash")
             {
                 var plantIds = liveLines.Select(l => l.PlantCatalogId).Distinct().ToList();
                 var prices = await _db.PlantCatalogs.AsNoTracking()
                     .Where(p => plantIds.Contains(p.Id))
                     .ToDictionaryAsync(p => p.Id, p => p.Price ?? 0m);
-                var total = liveLines.Sum(l => l.QtyOrdered * prices.GetValueOrDefault(l.PlantCatalogId));
+                var total = liveLines.Sum(l => l.QtyOrdered * (l.UnitPrice ?? prices.GetValueOrDefault(l.PlantCatalogId)));
                 if (request.AmountTendered.Value < total)
                 {
                     await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
@@ -710,6 +710,7 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 QtyFulfilled = l.QtyFulfilled,
                 Notes = l.Notes,
                 LastScanIdempotencyKey = l.LastScanIdempotencyKey,
+        UnitPrice = l.UnitPrice,
                 CreatedAt = l.CreatedAt,
                 UpdatedAt = l.UpdatedAt
             })

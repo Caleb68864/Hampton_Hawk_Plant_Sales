@@ -93,4 +93,39 @@ public class ExceptionHandlerMiddlewareTests
     {
         public override bool HasStarted => true;
     }
+
+    [Theory]
+    [InlineData("40001", 409)]
+    [InlineData("40P01", 409)]
+    [InlineData("23514", 400)]
+    [InlineData("23505", 409)]
+    [InlineData("23503", 409)]
+    [InlineData("22003", 400)]
+    public async Task DatabaseRefusals_AreNot500s_AndDoNotEchoPostgresText(string sqlState, int expected)
+    {
+        // Wrapped the way EF surfaces a failed save.
+        var pg = new Npgsql.PostgresException("raw postgres detail", "ERROR", "ERROR", sqlState);
+        var thrown = new Microsoft.EntityFrameworkCore.DbUpdateException("An error occurred while saving the entity changes.", pg);
+        var middleware = new ExceptionHandlerMiddleware(_ => throw thrown, new Mock<ILogger<ExceptionHandlerMiddleware>>().Object);
+        var (context, body) = NewContext();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(expected);
+        body.Position = 0;
+        var text = await new StreamReader(body).ReadToEndAsync();
+        text.Should().NotContain("raw postgres detail");
+    }
+
+    [Fact]
+    public async Task AnUnrecognisedDatabaseError_IsStillA500()
+    {
+        var pg = new Npgsql.PostgresException("relation does not exist", "ERROR", "ERROR", "42P01");
+        var middleware = new ExceptionHandlerMiddleware(_ => throw pg, new Mock<ILogger<ExceptionHandlerMiddleware>>().Object);
+        var (context, _) = NewContext();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(500);
+    }
 }

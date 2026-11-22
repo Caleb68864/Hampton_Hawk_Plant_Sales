@@ -88,7 +88,45 @@ public class AppDbContext : DbContext
             }
         }
 
+        await StampLinePricesAsync(cancellationToken);
+
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Records the price a line was sold at: on insert (unless a caller set one), and
+    /// again when a line is moved to another plant. Done here so every path that
+    /// creates lines (orders, walk-up, register, imports) is covered.
+    /// </summary>
+    private async Task StampLinePricesAsync(CancellationToken cancellationToken)
+    {
+        var pending = ChangeTracker.Entries<OrderLine>()
+            .Where(e =>
+                (e.State == EntityState.Added && e.Entity.UnitPrice == null)
+                || (e.State == EntityState.Modified
+                    && e.Property(l => l.PlantCatalogId).IsModified
+                    && !Equals(e.Property(l => l.PlantCatalogId).OriginalValue, e.Entity.PlantCatalogId)))
+            .ToList();
+        if (pending.Count == 0) return;
+
+        // A plant tracked by this context (added or edited in the same save) has the
+        // price being saved; the rest come from the database.
+        var prices = ChangeTracker.Entries<PlantCatalog>()
+            .GroupBy(e => e.Entity.Id)
+            .ToDictionary(g => g.Key, g => g.First().Entity.Price);
+        var plantIds = pending.Select(e => e.Entity.PlantCatalogId).Distinct()
+            .Where(id => !prices.ContainsKey(id)).ToList();
+        if (plantIds.Count > 0)
+        {
+            var stored = await PlantCatalogs.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => plantIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.Price })
+                .ToListAsync(cancellationToken);
+            foreach (var p in stored) prices[p.Id] = p.Price;
+        }
+
+        foreach (var entry in pending)
+            entry.Entity.UnitPrice = prices.GetValueOrDefault(entry.Entity.PlantCatalogId);
     }
 
     /// <summary>

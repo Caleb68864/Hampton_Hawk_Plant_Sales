@@ -171,6 +171,12 @@ public class FulfillmentService : IFulfillmentService
             // event insert below takes FOR KEY SHARE on it, and a register holds it.
             await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
 
+            // The order row last (canonical order), then its status again: it was
+            // checked before the transaction, and a bulk cancel that committed since
+            // must win over this scan.
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
+            await EnsureOrderAcceptsFulfillmentAsync(orderId);
+
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == plant.Id && i.DeletedAt == null);
@@ -304,6 +310,14 @@ public class FulfillmentService : IFulfillmentService
 
         await EnsureOrderAcceptsFulfillmentAsync(orderId);
 
+        // Replay: a manual fulfil resent after a timeout fulfilled one more unit.
+        var requestId = string.IsNullOrWhiteSpace(request.RequestId) ? null : request.RequestId.Trim();
+        if (requestId != null)
+        {
+            var replay = await TryReplayScanAsync(orderId, requestId);
+            if (replay != null) return replay;
+        }
+
         if (await _adminService.IsSaleClosedAsync())
         {
             await CreateEvent(FulfillmentEventSource.ManualFulfill, orderId, null, "MANUAL", FulfillmentResult.SaleClosedBlocked,
@@ -316,6 +330,13 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
+        // Serializable conflicts with a scan or a bulk status change are routine;
+        // retry them instead of surfacing the abort (it used to reach the desk as a 500).
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () => ManualFulfillLockedAsync(orderId, request, requestId));
+    }
+
+    private async Task<ScanResponse> ManualFulfillLockedAsync(Guid orderId, ManualFulfillRequest request, string? requestId)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -346,6 +367,19 @@ public class FulfillmentService : IFulfillmentService
 
             if (line.PlantCatalogId != plantCatalogId)
                 throw new ValidationException("This order line was changed while it was being fulfilled. Refresh the order and try again.");
+
+            // Order row last, then its status again (checked before the transaction).
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
+            await EnsureOrderAcceptsFulfillmentAsync(orderId);
+
+            // Again under the line lock: two copies of one request can both pass the
+            // check above, and only one may apply.
+            if (requestId != null && await _db.FulfillmentEvents.AsNoTracking()
+                    .AnyAsync(e => e.OrderId == orderId && e.IdempotencyKey == requestId && e.DeletedAt == null))
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                return (await TryReplayScanAsync(orderId, requestId))!;
+            }
 
             var inventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == line.PlantCatalogId && i.DeletedAt == null)
@@ -389,6 +423,7 @@ public class FulfillmentService : IFulfillmentService
                 PlantCatalogId = line.PlantCatalogId,
                 Barcode = "MANUAL",
                 Result = FulfillmentResult.Accepted,
+                IdempotencyKey = requestId,
                 Message = $"MANUAL FULFILL: {request.OperatorName} fulfilled 1x '{line.PlantCatalog.Name}'. Reason: {request.Reason}. Fulfilled {line.QtyFulfilled}/{line.QtyOrdered}."
             };
             _db.FulfillmentEvents.Add(evt);

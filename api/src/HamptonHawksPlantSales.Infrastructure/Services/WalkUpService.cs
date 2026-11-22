@@ -324,6 +324,7 @@ public class WalkUpService : IWalkUpService
         QtyFulfilled = l.QtyFulfilled,
         Notes = l.Notes,
         LastScanIdempotencyKey = l.LastScanIdempotencyKey,
+        UnitPrice = l.UnitPrice,
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };

@@ -28,6 +28,12 @@ public class ManualFulfillRequest
     public Guid OrderLineId { get; set; }
     public string Reason { get; set; } = string.Empty;
     public string OperatorName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Client id for this fulfil, reused on retry. A request whose id was already
+    /// applied to this order is answered without fulfilling another unit.
+    /// </summary>
+    public string? RequestId { get; set; }
 }
 
 public class ScanResponse

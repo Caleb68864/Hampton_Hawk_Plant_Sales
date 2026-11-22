@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cashShortfall } from './walkupRegister.ts';
+import { cashShortfall, grandTotal, type DraftOrder } from './walkupRegister.ts';
 
 test('cash below the total is short by the difference', () => {
   assert.equal(cashShortfall('Cash', '5', 17.35), 12.35);
@@ -16,4 +16,12 @@ test('non-cash methods and a blank amount are never short', () => {
   assert.equal(cashShortfall('Card', '0', 17.35), 0);
   assert.equal(cashShortfall('Cash', '', 17.35), 0);
   assert.equal(cashShortfall('Cash', 'abc', 17.35), 0);
+});
+
+test('the total uses the price each line was sold at, falling back to the catalog', () => {
+  const line = (plantCatalogId: string, qtyOrdered: number, unitPrice?: number | null) =>
+    ({ plantCatalogId, qtyOrdered, unitPrice }) as DraftOrder['lines'][number];
+  const draft = { lines: [line('a', 2, 5), line('b', 1, null)] } as DraftOrder;
+  // Catalog says a is now $6; the line was rung up at $5.
+  assert.equal(grandTotal(draft, { a: 6, b: 4 }), 14);
 });

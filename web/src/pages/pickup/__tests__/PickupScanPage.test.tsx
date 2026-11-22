@@ -213,12 +213,30 @@ describe('PickupScanPage manual fulfill', () => {
       orderLineId: 'l1',
       reason: 'Tag unreadable',
       operatorName: 'Station Operator',
+      requestId: expect.any(String),
     });
     expect(await screen.findByRole('alert')).toHaveTextContent(/timed out/);
     expect(screen.getByLabelText('Unfulfilled Line')).toBeInTheDocument();
     expect(line.value).toBe('l1');
     expect(reason.value).toBe('Tag unreadable');
     expect(screen.getByRole('button', { name: 'Fulfill' })).not.toBeDisabled();
+  });
+
+  it('resends a failed manual fulfil with the same request id', async () => {
+    mockManualFulfill
+      .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+      .mockResolvedValue(ACCEPTED);
+
+    renderPage();
+    await openManualModal();
+    fireEvent.click(screen.getByRole('button', { name: 'Fulfill' }));
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: 'Fulfill' }));
+    await waitFor(() => expect(mockManualFulfill).toHaveBeenCalledTimes(2));
+
+    const [first, second] = mockManualFulfill.mock.calls.map((c) => (c[1] as { requestId?: string }).requestId);
+    expect(first).toEqual(expect.any(String));
+    expect(second).toBe(first);
   });
 
   it('disables submit while pending and closes only after success', async () => {

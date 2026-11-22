@@ -26,6 +26,34 @@ public class FulfillmentServiceTests
     }
 
     [Fact]
+    public async Task ManualFulfill_ARepeatedRequestId_FulfilsOnce()
+    {
+        using var db = CreateDb();
+        var (service, _) = CreateService(db);
+        var customer = TestDataBuilder.CreateCustomer("Manual Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "MAN-1", barcode: "BC-MAN-1");
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 3);
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        db.Orders.Add(order);
+        db.OrderLines.Add(line);
+        db.Inventories.Add(new Inventory { PlantCatalogId = plant.Id, OnHandQty = 5 });
+        await db.SaveChangesAsync();
+        var request = new HamptonHawksPlantSales.Core.DTOs.ManualFulfillRequest
+        {
+            OrderLineId = line.Id, Reason = "Tag unreadable", OperatorName = "Desk", RequestId = "manual-1"
+        };
+
+        await service.ManualFulfillAsync(order.Id, request);
+        var retry = await service.ManualFulfillAsync(order.Id, request);
+
+        retry.Result.Should().Be(FulfillmentResult.Accepted);
+        (await db.OrderLines.SingleAsync()).QtyFulfilled.Should().Be(1);
+        (await db.Inventories.SingleAsync()).OnHandQty.Should().Be(4);
+    }
+
+    [Fact]
     public async Task Scan_UnknownOrder_ThrowsNotFoundAndWritesNoEvent()
     {
         using var db = CreateDb();

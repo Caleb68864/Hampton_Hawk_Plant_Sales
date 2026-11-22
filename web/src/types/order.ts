@@ -9,6 +9,8 @@ export interface OrderLine {
   qtyOrdered: number;
   qtyFulfilled: number;
   notes: string | null;
+  /** Price this line was sold at; absent on lines from before it was recorded. */
+  unitPrice?: number | null;
   createdAt: string;
   updatedAt: string;
 }
