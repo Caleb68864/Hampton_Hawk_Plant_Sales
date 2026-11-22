@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -733,6 +734,36 @@ public class OrderServiceTests
     }
 
     // ===== EP-20: Soft-delete an order =====
+
+    [Fact]
+    public async Task DeleteAsync_ARegisterDraftHoldingStock_IsRefused()
+    {
+        // The register takes stock at scan time; deleting the draft here used to
+        // leave those units gone with no line, event or log to find them by.
+        using var db = MockDbContextFactory.Create();
+        var plant = TestDataBuilder.CreatePlant(sku: "DRAFT-DEL", barcode: "BC-DRAFT-DEL");
+        var draft = new Order { OrderNumber = "W-DEL", IsWalkUp = true, Status = OrderStatus.Draft };
+        db.PlantCatalogs.Add(plant);
+        db.Orders.Add(draft);
+        db.OrderLines.Add(TestDataBuilder.CreateOrderLine(draft.Id, plant.Id, qtyOrdered: 3, qtyFulfilled: 3));
+        await db.SaveChangesAsync();
+
+        var act = () => CreateService(db).DeleteAsync(draft.Id);
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>().WithMessage("*Cancel Sale*");
+        (await db.Orders.IgnoreQueryFilters().SingleAsync(o => o.Id == draft.Id)).DeletedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AnEmptyRegisterDraft_IsStillDeleted()
+    {
+        using var db = MockDbContextFactory.Create();
+        var draft = new Order { OrderNumber = "W-EMPTY", IsWalkUp = true, Status = OrderStatus.Draft };
+        db.Orders.Add(draft);
+        await db.SaveChangesAsync();
+
+        (await CreateService(db).DeleteAsync(draft.Id)).Should().BeTrue();
+    }
 
     [Fact]
     public async Task DeleteAsync_SoftDeletesOrder_ExcludedFromDefaultListing()

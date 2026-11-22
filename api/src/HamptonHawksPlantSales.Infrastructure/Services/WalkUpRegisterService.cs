@@ -110,8 +110,11 @@ public class WalkUpRegisterService : IWalkUpRegisterService
                 throw new ValidationException($"No plant found for barcode '{barcode}'.");
             }
 
-            // Plant, inventory, then the existing line if any (canonical order, WalkUpRowLocks).
+            // Plant, inventory, then the existing line if any, then the draft's order
+            // row (canonical order, WalkUpRowLocks). Cancel and close lock the same
+            // order row, so a scan cannot commit into a draft they have finished.
             await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
 
             // Idempotency: any scan id already applied to this draft is a replay, not a
             // second sale -- including a delayed retry of an older scan that arrives
@@ -128,6 +131,16 @@ public class WalkUpRegisterService : IWalkUpRegisterService
             {
                 if (transaction != null) await transaction.CommitAsync();
                 return await GetOrderResponseAsync(orderId);
+            }
+
+            // The draft was checked before the transaction; check it again under the
+            // order lock. A cancel or close that committed meanwhile wins.
+            var stillDraft = await _db.Orders.AsNoTracking().AnyAsync(o =>
+                o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft);
+            if (!stillDraft)
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw new KeyNotFoundException("Draft order not found. It was closed or cancelled at another station.");
             }
 
             // Multi-quantity scanning: coerce non-positive to 1 so the API stays
@@ -432,22 +445,88 @@ public class WalkUpRegisterService : IWalkUpRegisterService
         }
     }
 
+    private static readonly string[] KnownPaymentMethods = { "Cash", "Card", "Check", "Other" };
+
+    // Orders.AmountTendered is numeric(12,2): anything at or above 10^10 overflowed
+    // in Postgres (22003) and came back as a 500.
+    private const decimal MaxAmountTendered = 99_999_999.99m;
+
     public async Task<OrderResponse> CloseDraftAsync(Guid orderId, CloseDraftRequest request)
     {
-        var draft = await _db.Orders
-            .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
-            ?? throw new KeyNotFoundException("Draft order not found.");
+        if (request.AmountTendered is < 0m)
+            throw new ValidationException("Amount tendered must be zero or greater.");
+        if (request.AmountTendered is > MaxAmountTendered)
+            throw new ValidationException("Amount tendered is too large.");
 
-        var liveLines = draft.OrderLines.Where(l => l.DeletedAt == null).ToList();
-        if (liveLines.Count == 0)
-            throw new ValidationException("Cannot close a draft with zero lines.");
+        // "cash" and "Cash" were stored as given and split the payment report.
+        var method = string.IsNullOrWhiteSpace(request.PaymentMethod) ? null : request.PaymentMethod.Trim();
+        if (method != null)
+            method = KnownPaymentMethods.FirstOrDefault(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase)) ?? method;
+        var normalized = new CloseDraftRequest { PaymentMethod = method, AmountTendered = request.AmountTendered };
 
-        draft.Status = OrderStatus.Complete;
-        draft.PaymentMethod = request.PaymentMethod;
-        draft.AmountTendered = request.AmountTendered;
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () => CloseDraftInternalAsync(orderId, normalized));
+    }
 
-        await _db.SaveChangesAsync();
+    private async Task<OrderResponse> CloseDraftInternalAsync(Guid orderId, CloseDraftRequest request)
+    {
+        // Under the draft's order lock, the lock every register scan takes before it
+        // writes: a scan in flight either commits before the close reads the lines
+        // (and is paid for) or is refused after it. Unlocked, a scan could land on
+        // the Complete order after payment was taken.
+        var isRelational = _db.Database.IsRelational();
+        var transaction = isRelational
+            ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
+            : null;
+
+        try
+        {
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
+
+            var draft = await _db.Orders
+                .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft);
+            if (draft == null)
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw new KeyNotFoundException("Draft order not found.");
+            }
+
+            var liveLines = draft.OrderLines.Where(l => l.DeletedAt == null).ToList();
+            if (liveLines.Count == 0)
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw new ValidationException("Cannot close a draft with zero lines.");
+            }
+
+            // Cash short of the total used to close as paid. Total is priced the
+            // way the reports price it (quantity x catalog price).
+            if (request.AmountTendered.HasValue && request.PaymentMethod == "Cash")
+            {
+                var plantIds = liveLines.Select(l => l.PlantCatalogId).Distinct().ToList();
+                var prices = await _db.PlantCatalogs.AsNoTracking()
+                    .Where(p => plantIds.Contains(p.Id))
+                    .ToDictionaryAsync(p => p.Id, p => p.Price ?? 0m);
+                var total = liveLines.Sum(l => l.QtyOrdered * prices.GetValueOrDefault(l.PlantCatalogId));
+                if (request.AmountTendered.Value < total)
+                {
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    throw new ValidationException(
+                        $"Cash tendered (${request.AmountTendered.Value:0.00}) is less than the total (${total:0.00}).");
+                }
+            }
+
+            draft.Status = OrderStatus.Complete;
+            draft.PaymentMethod = request.PaymentMethod;
+            draft.AmountTendered = request.AmountTendered;
+
+            await _db.SaveChangesAsync();
+            if (transaction != null) await transaction.CommitAsync();
+        }
+        catch
+        {
+            await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+            throw;
+        }
 
         return await GetOrderResponseAsync(orderId);
     }
@@ -463,11 +542,6 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
     private async Task<OrderResponse> CancelDraftInternalAsync(Guid orderId, string adminReason)
     {
-        var draft = await _db.Orders
-            .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft)
-            ?? throw new KeyNotFoundException("Draft order not found.");
-
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -475,6 +549,20 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
         try
         {
+            // Lines are read inside the transaction (they were read before it), and
+            // the order row is locked after the plants below, the lock a register
+            // scan takes before writing. A scan that commits a line this read missed
+            // makes the commit fail with 40001 and the retry restores that line too;
+            // one still in flight is refused once the draft is cancelled.
+            var draft = await _db.Orders
+                .Include(o => o.OrderLines.Where(l => l.DeletedAt == null))
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null && o.IsWalkUp && o.Status == OrderStatus.Draft);
+            if (draft == null)
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw new KeyNotFoundException("Draft order not found.");
+            }
+
             // One plant at a time in ascending plant id, plant -> inventory -> line: the
             // canonical order in WalkUpRowLocks. Iterating in load order let two cancels
             // sharing two plants lock their inventory rows in opposite orders.
@@ -499,6 +587,8 @@ public class WalkUpRegisterService : IWalkUpRegisterService
 
                 line.DeletedAt = DateTimeOffset.UtcNow;
             }
+
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
 
             draft.Status = OrderStatus.Cancelled;
             draft.DeletedAt = DateTimeOffset.UtcNow;

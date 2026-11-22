@@ -223,6 +223,15 @@ public class OrderService : IOrderService
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id && o.DeletedAt == null);
         if (order == null) return false;
 
+        // An open register sale took its units off the shelf at scan time. Deleting
+        // it here restored nothing, so those units vanished; Cancel Sale restores them.
+        if (order.IsWalkUp && order.Status == OrderStatus.Draft
+            && await _db.OrderLines.AnyAsync(l => l.OrderId == id && l.DeletedAt == null && l.QtyFulfilled > 0))
+        {
+            throw new ValidationException(
+                "This is an open register sale holding stock. Cancel it from the register (Cancel Sale) so its plants go back into inventory.");
+        }
+
         order.DeletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return true;

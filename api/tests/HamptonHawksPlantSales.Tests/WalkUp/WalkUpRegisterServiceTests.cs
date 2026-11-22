@@ -444,8 +444,61 @@ public class WalkUpRegisterServiceTests
         });
 
         result.Status.Should().Be(OrderStatus.Complete);
-        result.PaymentMethod.Should().Be("cash");
+        // Known methods are stored in one spelling so the payment report does not split.
+        result.PaymentMethod.Should().Be("Cash");
         result.AmountTendered.Should().Be(20.00m);
+    }
+
+    private static async Task<(WalkUpRegisterService Service, Guid DraftId)> DraftWithThreeAtFourFiftyAsync(AppDbContext db)
+    {
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-PAY", sku: "PAY-1");
+        plant.Price = 4.50m;
+        db.PlantCatalogs.Add(plant);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, onHandQty: 5));
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateService(db);
+        var draft = await service.CreateDraftAsync(new CreateDraftRequest());
+        await service.ScanIntoDraftAsync(draft.Id, new ScanIntoDraftRequest { PlantBarcode = "BC-PAY", ScanId = "p1", Quantity = 3 });
+        return (service, draft.Id);
+    }
+
+    [Fact]
+    public async Task CloseDraft_CashShortOfTheTotal_IsRefusedAndTheDraftStaysOpen()
+    {
+        using var db = CreateDb();
+        var (service, draftId) = await DraftWithThreeAtFourFiftyAsync(db);
+
+        var act = () => service.CloseDraftAsync(draftId, new CloseDraftRequest { PaymentMethod = "Cash", AmountTendered = 5m });
+
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*less than the total ($13.50)*");
+        (await db.Orders.SingleAsync(o => o.Id == draftId)).Status.Should().Be(OrderStatus.Draft);
+    }
+
+    [Theory]
+    [InlineData("Cash", 13.50)]
+    [InlineData("Card", 0)]
+    public async Task CloseDraft_ExactCashOrAnyCardAmount_Closes(string method, double tendered)
+    {
+        using var db = CreateDb();
+        var (service, draftId) = await DraftWithThreeAtFourFiftyAsync(db);
+
+        var result = await service.CloseDraftAsync(draftId, new CloseDraftRequest { PaymentMethod = method, AmountTendered = (decimal)tendered });
+
+        result.Status.Should().Be(OrderStatus.Complete);
+    }
+
+    [Theory]
+    [InlineData(-10)]
+    [InlineData(10_000_000_000)]
+    public async Task CloseDraft_NegativeOrOverflowingTender_IsA400NotAStoredValue(double tendered)
+    {
+        using var db = CreateDb();
+        var (service, draftId) = await DraftWithThreeAtFourFiftyAsync(db);
+
+        var act = () => service.CloseDraftAsync(draftId, new CloseDraftRequest { PaymentMethod = "Card", AmountTendered = (decimal)tendered });
+
+        await act.Should().ThrowAsync<ValidationException>();
+        (await db.Orders.SingleAsync(o => o.Id == draftId)).AmountTendered.Should().BeNull();
     }
 
     [Fact]

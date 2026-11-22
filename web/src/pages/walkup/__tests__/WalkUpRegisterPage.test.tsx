@@ -10,6 +10,7 @@ const mockCreateDraft = vi.fn();
 const mockGetOpenDrafts = vi.fn();
 const mockGetPlant = vi.fn();
 const mockOpenPinModal = vi.fn();
+const mockClose = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -23,7 +24,7 @@ vi.mock('@/api/walkupRegister.js', () => ({
     getOpenDrafts: (...args: unknown[]) => mockGetOpenDrafts(...args),
     adjustLine: vi.fn(),
     voidLine: vi.fn(),
-    close: vi.fn(),
+    close: (...args: unknown[]) => mockClose(...args),
     cancel: vi.fn(),
   },
 }));
@@ -263,5 +264,55 @@ describe('WalkUpRegisterPage scanning', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Manager Override' }));
     await waitFor(() => expect(mockOpenPinModal).toHaveBeenCalledTimes(1));
     expect(mockScan).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Close Sale dialog', () => {
+    const lineDraft = () =>
+      makeDraft({
+        lines: [
+          {
+            id: 'l-1', orderId: 'd-1', plantCatalogId: 'p-47', plantName: 'Fern', plantSku: '47',
+            qtyOrdered: 3, qtyFulfilled: 3, notes: null, lastScanIdempotencyKey: null,
+            createdAt: '2026-05-07T00:00:00Z', updatedAt: '2026-05-07T00:00:00Z', deletedAt: null,
+          } as unknown as DraftOrder['lines'][number],
+        ],
+      });
+
+    async function openClose() {
+      mockGetOpenDrafts.mockResolvedValue([lineDraft()]);
+      renderPage();
+      await scanInput();
+      await screen.findByText('$13.50', undefined, { timeout: 3000 }).catch(() => undefined);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Close Sale' })[0]);
+      return screen.findByRole('dialog');
+    }
+
+    it('does not take barcode reads into the sale while the dialog is open', async () => {
+      await openClose();
+      const input = screen.getByPlaceholderText('Scan barcode or type SKU...') as HTMLInputElement;
+      expect(input).toBeDisabled();
+      submitScan(input, '47');
+      fireEvent.keyDown(document.body, { key: '4' });
+      fireEvent.keyDown(document.body, { key: '7' });
+      fireEvent.keyDown(document.body, { key: 'Enter' });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(mockScan).not.toHaveBeenCalled();
+    });
+
+    it('will not close a cash sale for less than the total', async () => {
+      const dialog = await openClose();
+      await waitFor(() => expect(dialog.textContent).toContain('$13.50'));
+      const amount = dialog.querySelector('input[type="number"]') as HTMLInputElement;
+      fireEvent.change(amount, { target: { value: '5' } });
+
+      expect(await screen.findByText(/short by/i)).toBeInTheDocument();
+      const confirm = screen.getByRole('button', { name: 'Confirm Close' });
+      expect(confirm).toBeDisabled();
+      fireEvent.click(confirm);
+      expect(mockClose).not.toHaveBeenCalled();
+
+      fireEvent.change(amount, { target: { value: '20' } });
+      expect(screen.getByRole('button', { name: 'Confirm Close' })).not.toBeDisabled();
+    });
   });
 });
