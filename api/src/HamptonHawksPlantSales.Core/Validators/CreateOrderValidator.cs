@@ -16,6 +16,8 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderRequest>
         {
             line.RuleFor(l => l.PlantCatalogId).NotEmpty().WithMessage("Plant is required for each line.");
             line.RuleFor(l => l.QtyOrdered).GreaterThan(0).WithMessage("Quantity ordered must be greater than zero.");
+            line.RuleFor(l => l.QtyOrdered).LessThanOrEqualTo(LineQuantity.Max)
+                .WithMessage($"Quantity ordered cannot be more than {LineQuantity.Max:N0}.");
         });
     }
 }

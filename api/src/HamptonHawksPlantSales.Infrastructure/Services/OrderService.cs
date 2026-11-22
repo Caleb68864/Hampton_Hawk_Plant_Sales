@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Core.Validators;
 using System.Text.RegularExpressions;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
@@ -239,6 +240,7 @@ public class OrderService : IOrderService
 
     public async Task<OrderLineResponse> AddLineAsync(Guid orderId, CreateOrderLineRequest request, string? adminPin = null, string? adminReason = null)
     {
+        LineQuantity.EnsureValid(request.QtyOrdered);
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order not found.");
 
@@ -343,8 +345,8 @@ public class OrderService : IOrderService
         var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId && o.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order not found.");
 
-        if (request.QtyOrdered.HasValue && request.QtyOrdered.Value <= 0)
-            throw new ValidationException("QtyOrdered must be greater than 0.");
+        if (request.QtyOrdered.HasValue)
+            LineQuantity.EnsureValid(request.QtyOrdered.Value);
 
         // Walk-up lines are subject to the availability invariant, so raising the
         // quantity or moving the line to another plant must validate under the same

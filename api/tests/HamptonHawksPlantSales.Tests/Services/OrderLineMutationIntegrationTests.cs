@@ -39,7 +39,7 @@ public class OrderLineMutationIntegrationTests
         Assert.NotNull(envelope);
         Assert.False(envelope!.Success);
         Assert.Null(envelope.Data);
-        Assert.Contains("QtyOrdered must be greater than 0.", envelope.Errors);
+        Assert.Contains("Quantity ordered must be greater than zero.", envelope.Errors);
     }
 
     [Fact]
