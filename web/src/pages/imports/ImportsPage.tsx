@@ -12,6 +12,8 @@ import type { ImportBatch, ImportIssue, ImportResult } from '@/types/import.js';
 
 type Tab = 'import' | 'history';
 
+const HISTORY_PAGE_SIZE = 50;
+
 interface ImportSectionProps {
   title: string;
   hint: string;
@@ -85,8 +87,7 @@ function ImportSection({ title, hint, type, accept, allowedExtensions, promptTex
       if (uploadResult.skippedCount > 0 && uploadResult.batchId) {
         setLoadingIssues(true);
         try {
-          const issueResult = await importsApi.getIssues(uploadResult.batchId, { page: 1, pageSize: 200 });
-          setIssues(issueResult.items);
+          setIssues(await importsApi.getAllIssues(uploadResult.batchId));
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Import completed, but issue details could not be loaded.');
         } finally {
@@ -155,6 +156,10 @@ export function ImportsPage() {
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  // History used to stop at the newest 100 batches with no way to see older ones.
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<ImportBatch | null>(null);
   const [selectedBatchIssues, setSelectedBatchIssues] = useState<ImportIssue[]>([]);
   const [loadingBatchIssues, setLoadingBatchIssues] = useState(false);
@@ -169,8 +174,12 @@ export function ImportsPage() {
     setSelectedBatch(null);
     setSelectedBatchIssues([]);
 
-    importsApi.list({ page: 1, pageSize: 100 })
-      .then((response) => setBatches(response.items))
+    importsApi.list({ page: 1, pageSize: HISTORY_PAGE_SIZE })
+      .then((response) => {
+        setBatches(response.items);
+        setHistoryTotal(response.totalCount);
+        setHistoryPage(1);
+      })
       .catch((e) => setHistoryError(e instanceof Error ? e.message : 'Failed to load import history'))
       .finally(() => setLoadingHistory(false));
   }, [tab]);
@@ -199,6 +208,21 @@ export function ImportsPage() {
     }
   }
 
+  async function loadMoreHistory() {
+    setLoadingMoreHistory(true);
+    try {
+      const next = historyPage + 1;
+      const response = await importsApi.list({ page: next, pageSize: HISTORY_PAGE_SIZE });
+      setBatches((current) => [...current, ...response.items.filter((b) => !current.some((c) => c.id === b.id))]);
+      setHistoryTotal(response.totalCount);
+      setHistoryPage(next);
+    } catch (e) {
+      setHistoryError(e instanceof Error ? e.message : 'Failed to load more import history');
+    } finally {
+      setLoadingMoreHistory(false);
+    }
+  }
+
   async function openBatchIssues(batch: ImportBatch) {
     setSelectedBatch(batch);
     setSelectedBatchIssues([]);
@@ -206,8 +230,7 @@ export function ImportsPage() {
     setHistoryError(null);
 
     try {
-      const response = await importsApi.getIssues(batch.id, { page: 1, pageSize: 200 });
-      setSelectedBatchIssues(response.items);
+      setSelectedBatchIssues(await importsApi.getAllIssues(batch.id));
     } catch (e) {
       setHistoryError(e instanceof Error ? e.message : 'Failed to load import issues');
     } finally {
@@ -327,6 +350,14 @@ export function ImportsPage() {
                   ))}
                 </tbody>
               </table>
+              {batches.length < historyTotal && (
+                <div className="flex items-center justify-center gap-3 py-3 text-sm text-gray-600">
+                  <span>Showing {batches.length} of {historyTotal}</span>
+                  <TouchButton variant="ghost" disabled={loadingMoreHistory} onClick={() => void loadMoreHistory()}>
+                    {loadingMoreHistory ? 'Loading...' : 'Load older imports'}
+                  </TouchButton>
+                </div>
+              )}
             </div>
           )}
 
