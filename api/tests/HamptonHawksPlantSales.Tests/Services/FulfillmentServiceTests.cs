@@ -13,6 +13,55 @@ namespace HamptonHawksPlantSales.Tests.Services;
 
 public class FulfillmentServiceTests
 {
+    // Scans write a FulfillmentEvent whose FK needs a real order (Postgres
+    // enforces it; InMemory does not), so scan tests start from one.
+    private static async Task<Guid> SeedOpenOrderAsync(AppDbContext db, OrderStatus status = OrderStatus.Open)
+    {
+        var customer = TestDataBuilder.CreateCustomer("Scan Customer");
+        var order = TestDataBuilder.CreateOrder(customer.Id, status);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        return order.Id;
+    }
+
+    [Fact]
+    public async Task Scan_UnknownOrder_ThrowsNotFoundAndWritesNoEvent()
+    {
+        using var db = CreateDb();
+        var (service, _) = CreateService(db);
+
+        var act = () => service.ScanAsync(Guid.NewGuid(), "ANY");
+
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+        db.FulfillmentEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Scan_DeletedOrder_IsRefusedAndTakesNoStock()
+    {
+        using var db = CreateDb();
+        var (service, _) = CreateService(db);
+        var customer = TestDataBuilder.CreateCustomer("Deleted Order Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "DEL-1", barcode: "BC-DEL-1");
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        db.Orders.Add(order);
+        db.Inventories.Add(new Inventory { PlantCatalogId = plant.Id, OnHandQty = 5 });
+        db.OrderLines.Add(TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 2));
+        await db.SaveChangesAsync();
+        // OrderService.DeleteAsync soft-deletes the order only, not its lines.
+        order.DeletedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        var act = () => service.ScanAsync(order.Id, "BC-DEL-1");
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>().WithMessage("*deleted*");
+        (await db.Inventories.SingleAsync()).OnHandQty.Should().Be(5);
+        (await db.OrderLines.IgnoreQueryFilters().SingleAsync()).QtyFulfilled.Should().Be(0);
+    }
+
     private AppDbContext CreateDb() => MockDbContextFactory.Create();
 
     private (FulfillmentService Service, Mock<IAdminService> AdminMock) CreateService(AppDbContext db, bool saleClosed = false)
@@ -35,7 +84,7 @@ public class FulfillmentServiceTests
         // Arrange
         using var db = CreateDb();
         var (service, _) = CreateService(db, saleClosed: true);
-        var orderId = Guid.NewGuid();
+        var orderId = await SeedOpenOrderAsync(db);
 
         // Act
         var result = await service.ScanAsync(orderId, "SOME-BARCODE");
@@ -253,7 +302,7 @@ public class FulfillmentServiceTests
         // Arrange
         using var db = CreateDb();
         var (service, _) = CreateService(db);
-        var orderId = Guid.NewGuid();
+        var orderId = await SeedOpenOrderAsync(db);
 
         // Act
         var result = await service.ScanAsync(orderId, "NONEXISTENT-BARCODE");
@@ -504,7 +553,7 @@ public class FulfillmentServiceTests
         // Arrange
         using var db = CreateDb();
         var (service, _) = CreateService(db, saleClosed: true);
-        var orderId = Guid.NewGuid();
+        var orderId = await SeedOpenOrderAsync(db);
 
         // Act
         await service.ScanAsync(orderId, "ANY-BARCODE");

@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Core.Validators;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Enums;
@@ -83,6 +84,7 @@ public class WalkUpService : IWalkUpService
 
     public async Task<OrderLineResponse> AddWalkUpLineAsync(Guid orderId, AddWalkUpLineRequest request, string? adminPin = null, string? adminReason = null)
     {
+        LineQuantity.EnsureValid(request.QtyOrdered);
         var isOverride = TryAdminOverride(adminPin, adminReason);
 
         // Serializable + FOR UPDATE aborts with 40001/40P01 whenever another register
@@ -158,6 +160,7 @@ public class WalkUpService : IWalkUpService
 
     public async Task<OrderLineResponse> UpdateWalkUpLineAsync(Guid orderId, Guid lineId, UpdateWalkUpLineRequest request, string? adminPin = null, string? adminReason = null)
     {
+        LineQuantity.EnsureValid(request.QtyOrdered);
         var isOverride = TryAdminOverride(adminPin, adminReason);
 
         return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>

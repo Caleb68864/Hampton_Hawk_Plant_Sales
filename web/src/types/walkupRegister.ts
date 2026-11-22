@@ -115,3 +115,16 @@ export function unpricedLineCount(draft: DraftOrder | null, prices: PlantPriceMa
   if (!draft) return 0;
   return draft.lines.filter((line) => prices[line.plantCatalogId] == null).length;
 }
+
+/**
+ * How much cash tendered falls short of the total, in dollars (0 when it covers
+ * it, when the method is not Cash, or when nothing was entered). Compared in
+ * whole cents so float sums such as 0.1 + 0.2 do not read as a shortfall.
+ */
+export function cashShortfall(paymentMethod: string, amountTendered: string, total: number): number {
+  if (paymentMethod !== 'Cash' || !amountTendered.trim()) return 0;
+  const tendered = Number.parseFloat(amountTendered);
+  if (Number.isNaN(tendered)) return 0;
+  const shortCents = Math.round(total * 100) - Math.round(tendered * 100);
+  return shortCents > 0 ? shortCents / 100 : 0;
+}

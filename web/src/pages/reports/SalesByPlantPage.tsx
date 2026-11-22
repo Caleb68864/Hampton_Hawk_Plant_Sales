@@ -9,6 +9,7 @@ import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { SalesByPlantRow } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+import { localDateString } from '@/utils/reportDateRange.js';
 
 type SortKey = keyof SalesByPlantRow;
 type SortDir = 'asc' | 'desc';
@@ -45,7 +46,7 @@ export function SalesByPlantPage() {
   function handleDownloadCsv() {
     const headers = COLUMNS.map((c) => c.label);
     const keys = COLUMNS.map((c) => c.key as string);
-    const filename = `sales-by-plant-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `sales-by-plant-${localDateString()}.csv`;
     exportToCsv(filename, sortedRows as unknown as Array<Record<string, unknown>>, headers, keys);
   }
 

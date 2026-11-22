@@ -151,4 +151,45 @@ public class RequestValidatorTests
         Assert.Contains(result.Errors, e => e.ErrorMessage == "Reason is required.");
         Assert.Contains(result.Errors, e => e.ErrorMessage == "Delta quantity must not be zero.");
     }
+
+    [Theory]
+    [InlineData("100000000")]  // overflows numeric(10,2)
+    [InlineData("2.675")]      // a third decimal was silently rounded
+    public void PlantValidators_RejectAPriceTheColumnCannotHold(string price)
+    {
+        var value = decimal.Parse(price, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.False(new CreatePlantValidator().Validate(new CreatePlantRequest { Sku = "S", Barcode = "B", Name = "N", Price = value }).IsValid);
+        Assert.False(new UpdatePlantValidator().Validate(new UpdatePlantRequest { Sku = "S", Barcode = "B", Name = "N", Price = value }).IsValid);
+    }
+
+    [Theory]
+    [InlineData("99999999.99")]
+    [InlineData("12.5")]
+    [InlineData("0")]
+    public void PlantValidators_AcceptAPriceTheColumnCanHold(string price)
+    {
+        var value = decimal.Parse(price, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(new CreatePlantValidator().Validate(new CreatePlantRequest { Sku = "S", Barcode = "B", Name = "N", Price = value }).IsValid);
+    }
+
+    [Fact]
+    public void CreateOrderValidator_RejectsAQuantityThatCouldOverflowASum()
+    {
+        var result = new CreateOrderValidator().Validate(new CreateOrderRequest
+        {
+            CustomerId = Guid.NewGuid(),
+            Lines = new List<CreateOrderLineRequest> { new() { PlantCatalogId = Guid.NewGuid(), QtyOrdered = 1_500_000_000 } }
+        });
+
+        Assert.False(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(LineQuantity.Max + 1)]
+    public void LineQuantity_RejectsZeroNegativeAndHuge(int qty)
+    {
+        Assert.Throws<FluentValidation.ValidationException>(() => LineQuantity.EnsureValid(qty));
+    }
 }

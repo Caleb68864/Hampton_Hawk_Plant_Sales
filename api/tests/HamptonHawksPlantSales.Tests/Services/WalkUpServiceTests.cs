@@ -161,6 +161,30 @@ public class WalkUpServiceTests
 
     // --- EP-13: Add Line to Walk-Up Order Tests ---
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task AddWalkUpLine_ZeroOrNegativeQuantity_IsRefusedAndSavesNothing(int qty)
+    {
+        // Only POST /orders validated line quantities: 0 saved an empty line, and a
+        // negative passed the availability check and hit a check constraint (500).
+        using var db = CreateDb();
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-QTY", sku: "QTY-1");
+        var customer = TestDataBuilder.CreateCustomer();
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open, isWalkUp: true);
+        db.PlantCatalogs.Add(plant);
+        db.Customers.Add(customer);
+        db.Orders.Add(order);
+        db.Inventories.Add(TestDataBuilder.CreateInventory(plant.Id, 10));
+        await db.SaveChangesAsync();
+        var (service, _, _) = CreateService(db);
+
+        var act = () => service.AddWalkUpLineAsync(order.Id, new AddWalkUpLineRequest { PlantCatalogId = plant.Id, QtyOrdered = qty });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        (await db.OrderLines.CountAsync(l => l.OrderId == order.Id)).Should().Be(0);
+    }
+
     [Fact]
     public async Task AddWalkUpLine_ValidRequest_CreatesLineSuccessfully()
     {

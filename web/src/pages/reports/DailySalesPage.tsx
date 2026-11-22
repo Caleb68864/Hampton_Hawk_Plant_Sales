@@ -11,6 +11,7 @@ import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { DailySalesDay } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+import { formatCalendarDate, localDateDaysAgo, localDateString } from '@/utils/reportDateRange.js';
 
 type SortKey = keyof DailySalesDay;
 type SortDir = 'asc' | 'desc';
@@ -25,13 +26,8 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: 'left' | 'right' }> 
 ];
 
 function defaultDateRange(): { from: string; to: string } {
-  const today = new Date();
-  const past = new Date();
-  past.setDate(today.getDate() - 30);
-  return {
-    from: past.toISOString().slice(0, 10),
-    to: today.toISOString().slice(0, 10),
-  };
+  // Local dates: toISOString() gave tomorrow's date after ~6pm in US timezones.
+  return { from: localDateDaysAgo(30), to: localDateString() };
 }
 
 export function DailySalesPage() {
@@ -249,8 +245,5 @@ function formatCurrency(value: number): string {
 }
 
 function formatDate(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatCalendarDate(iso);
 }

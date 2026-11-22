@@ -116,11 +116,12 @@ public class ReportsController : ControllerBase
     /// </summary>
     /// <param name="from">Optional inclusive lower bound on order CreatedAt (UTC).</param>
     /// <param name="to">Optional exclusive upper bound on order CreatedAt (UTC).</param>
+    /// <param name="timeZone">Optional timezone id (e.g. America/Chicago) to bucket days in; default UTC.</param>
     [HttpGet("daily-sales")]
     [ProducesResponseType(typeof(ApiResponse<DailySalesResponse>), 200)]
-    public async Task<IActionResult> GetDailySales([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    public async Task<IActionResult> GetDailySales([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] string? timeZone = null)
     {
-        var result = await _reportService.GetDailySalesAsync(from, to);
+        var result = await _reportService.GetDailySalesAsync(from, to, timeZone);
         return Ok(ApiResponse<DailySalesResponse>.Ok(result));
     }
 
@@ -188,9 +189,9 @@ public class ReportsController : ControllerBase
     [HttpGet("live-sale-kpi")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<LiveSaleKpiResponse>), 200)]
-    public async Task<IActionResult> GetLiveSaleKpi()
+    public async Task<IActionResult> GetLiveSaleKpi([FromQuery] string? timeZone = null)
     {
-        var result = await _reportService.GetLiveSaleKpiAsync();
+        var result = await _reportService.GetLiveSaleKpiAsync(timeZone);
         return Ok(ApiResponse<LiveSaleKpiResponse>.Ok(result));
     }
 }

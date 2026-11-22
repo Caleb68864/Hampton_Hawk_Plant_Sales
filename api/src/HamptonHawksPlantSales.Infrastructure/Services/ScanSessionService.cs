@@ -136,10 +136,12 @@ public class ScanSessionService : IScanSessionService
         return await BuildResponseAsync(sessionId, session);
     }
 
-    public async Task<ScanSessionScanResponse> ScanInSessionAsync(Guid sessionId, string plantBarcode, int quantity = 1)
+    public async Task<ScanSessionScanResponse> ScanInSessionAsync(Guid sessionId, string plantBarcode, int quantity = 1, string? scanId = null)
     {
         if (string.IsNullOrWhiteSpace(plantBarcode))
             throw new ValidationException("Plant barcode is required.");
+
+        var normalizedScanId = string.IsNullOrWhiteSpace(scanId) ? null : scanId.Trim();
 
         plantBarcode = plantBarcode.Trim();
 
@@ -196,6 +198,7 @@ public class ScanSessionService : IScanSessionService
             .Select(m => m.OrderId)
             .ToListAsync();
 
+
         if (memberOrderIds.Count == 0)
         {
             return new ScanSessionScanResponse
@@ -211,7 +214,7 @@ public class ScanSessionService : IScanSessionService
         // failure (two scanners on the same plant) can be retried from a clean slate
         // instead of surfacing a database abort to the volunteer.
         return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () =>
-            ScanInSessionLockedAsync(sessionId, sessionExisting, plant, plantBarcode, memberOrderIds, quantity));
+            ScanInSessionLockedAsync(sessionId, sessionExisting, plant, plantBarcode, memberOrderIds, quantity, normalizedScanId));
     }
 
     private async Task<ScanSessionScanResponse> ScanInSessionLockedAsync(
@@ -220,7 +223,8 @@ public class ScanSessionService : IScanSessionService
         PlantCatalog plant,
         string plantBarcode,
         List<Guid> memberOrderIds,
-        int quantity)
+        int quantity,
+        string? scanId)
     {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
@@ -252,6 +256,32 @@ public class ScanSessionService : IScanSessionService
                 };
             }
 
+            // Replay: a resent request (timeout after commit, proxy retry) with a scan
+            // id already applied in this session returns the session as it stands
+            // instead of fulfilling another unit, possibly on another member order.
+            // Checked under the session lock, so a duplicate sent concurrently
+            // waits for the first and then sees its event.
+            if (scanId != null && memberOrderIds.Count > 0)
+            {
+                var applied = await _db.FulfillmentEvents
+                    .AsNoTracking()
+                    .AnyAsync(e => memberOrderIds.Contains(e.OrderId)
+                                   && e.IdempotencyKey == scanId
+                                   && e.Source == FulfillmentEventSource.SessionScan
+                                   && e.DeletedAt == null);
+                if (applied)
+                {
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    return new ScanSessionScanResponse
+                    {
+                        Result = ScanSessionResult.Accepted,
+                        Message = $"Already scanned '{plant.Name}' (repeated request).",
+                        Plant = new ScanPlantInfo { Sku = plant.Sku, Name = plant.Name },
+                        Session = await BuildResponseAsync(sessionId, lockedSession)
+                    };
+                }
+            }
+
             // Canonical lock order (WalkUpRowLocks): session, then plant and inventory,
             // then the plant's lines. Taking the plant here, before choosing lines, also
             // means the candidate set below cannot be changed by another station.
@@ -271,7 +301,9 @@ public class ScanSessionService : IScanSessionService
                       && ol.QtyFulfilled < ol.QtyOrdered
                       && ol.DeletedAt == null
                       && o.DeletedAt == null
-                      && o.Status != OrderStatus.Draft
+                      // Same rule as the per-order pickup scan: a Cancelled or
+                      // Complete member order must not take stock.
+                      && (o.Status == OrderStatus.Open || o.Status == OrderStatus.InProgress)
                 orderby o.CreatedAt, ol.CreatedAt
                 select ol.Id
             ).ToListAsync();
@@ -289,6 +321,7 @@ public class ScanSessionService : IScanSessionService
                           && ol.DeletedAt == null
                           && o.DeletedAt == null
                           && o.Status != OrderStatus.Draft
+                          && o.Status != OrderStatus.Cancelled
                     select ol.Id
                 ).AnyAsync();
 
@@ -382,6 +415,9 @@ public class ScanSessionService : IScanSessionService
                     Barcode = plantBarcode,
                     Result = FulfillmentResult.Accepted,
                     Quantity = applyHere,
+                    // Only the first event carries the scan id: (OrderId, IdempotencyKey)
+                    // is unique, and one scan can touch two lines of the same order.
+                    IdempotencyKey = totalApplied == applyHere ? scanId : null,
                     Message = $"Session scan: {applyHere}x '{plant.Name}'. Fulfilled {lockedLine.QtyFulfilled}/{lockedLine.QtyOrdered}."
                 };
                 _db.FulfillmentEvents.Add(evt);
@@ -478,7 +514,7 @@ public class ScanSessionService : IScanSessionService
             .Select(m => m.OrderId)
             .ToListAsync();
 
-        // Aggregate lines across member orders, excluding Draft orders.
+        // Aggregate lines across member orders, excluding Draft and Cancelled orders.
         var aggregated = await (
             from ol in _db.OrderLines.AsNoTracking()
             join o in _db.Orders.AsNoTracking() on ol.OrderId equals o.Id
@@ -487,6 +523,9 @@ public class ScanSessionService : IScanSessionService
                   && ol.DeletedAt == null
                   && o.DeletedAt == null
                   && o.Status != OrderStatus.Draft
+                  // A cancelled member's lines will never be picked; counting
+                  // them kept the session from ever reaching 0 remaining.
+                  && o.Status != OrderStatus.Cancelled
             group new { ol, p } by new { ol.PlantCatalogId, p.Sku, p.Name } into g
             select new ScanSessionAggregatedLine
             {

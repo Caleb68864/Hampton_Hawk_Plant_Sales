@@ -436,23 +436,53 @@ describe('MobilePickupScanPage', () => {
     expect(lastScannerPaused).toBe(true);
   });
 
-  it('shows wrong code type when an order-shaped barcode is scanned on the scan page', async () => {
+  it('shows wrong code type when an order-shaped barcode matches no plant on this order', async () => {
     const initial = makeOrder({ id: 'o-1001' });
     mockGetById.mockResolvedValue(initial);
+    mockScan.mockResolvedValue({ result: 'NotFound', orderId: 'o-1001', plant: null, line: null, orderRemainingItems: 2 } as unknown as ScanResponse);
 
     renderPage();
     await screen.findByText('#100123');
 
-    capturedScanOnScan!({
-      code: '100199',
-      source: 'mobile-camera',
-      scannedAtUtc: '2026-05-07T20:00:00Z',
+    await act(async () => {
+      capturedScanOnScan!({
+        code: '100199',
+        source: 'mobile-camera',
+        scannedAtUtc: '2026-05-07T20:00:00Z',
+      });
     });
 
     await waitFor(() => {
       expect(screen.getByText(/Wrong code type/i)).toBeInTheDocument();
     });
-    expect(mockScan).not.toHaveBeenCalled();
+    expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: '100199', quantity: 1, scanId: expect.any(String) });
+  });
+
+  it('sends a printed plant label (zero-padded numeric SKU) from the camera to the server', async () => {
+    // Labels encode the SKU padded to 12 digits (buildPlantBarcode). That is
+    // 6+ characters with a digit, so the page used to call it an order number
+    // and refuse it with "Wrong code type" without asking the server.
+    const initial = makeOrder({ id: 'o-1001' });
+    mockGetById.mockResolvedValue(initial);
+    mockScan.mockResolvedValue({
+      result: 'Accepted',
+      orderId: 'o-1001',
+      plant: { sku: '1234', name: 'Hydrangea' },
+      line: { qtyOrdered: 2, qtyFulfilled: 1, qtyRemaining: 1 },
+      orderRemainingItems: 1,
+    } as ScanResponse);
+
+    renderPage();
+    await screen.findByText('#100123');
+
+    await act(async () => {
+      capturedScanOnScan!({ code: '000000001234', source: 'mobile-camera', scannedAtUtc: '2026-05-07T20:00:00Z' });
+    });
+
+    await waitFor(() => {
+      expect(mockScan).toHaveBeenCalledWith('o-1001', { barcode: '1234', quantity: 1, scanId: expect.any(String) });
+    });
+    expect(screen.queryByText(/Wrong code type/i)).not.toBeInTheDocument();
   });
 
   it('renders danger retry scene on SaleClosedBlocked for a non-admin user', async () => {

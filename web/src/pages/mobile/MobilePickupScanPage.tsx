@@ -22,12 +22,15 @@ import type { ScanResponse } from '../../types/fulfillment.js';
 import type { NormalizedScanResult, ScanSource } from '../../types/scanner.js';
 import { classifyMobileScanInput } from './pickupScanLogic.js';
 import { isExactOrderNumberMatch } from '../../utils/orderLookup.js';
+import { toScanLookupValue } from '../../utils/barcode.js';
 
 const ACCEPTED_SCENE_DURATION_MS = 900;
 
 interface PendingScan {
   barcode: string;
   source: ScanSource;
+  /** Looked like an order number other than this order's (camera reads only). */
+  orderShaped?: boolean;
   /**
    * Identifies this physical scan. Retry re-submits the same PendingScan, so the
    * id survives the retry and the server recognises the second request as a replay
@@ -155,6 +158,10 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
     }
   }, [orderId]);
 
+  // Shown when an order-shaped code (e.g. another order's sheet) matched no
+  // plant on this order. Decided from the server's answer: printed plant
+  // labels are digit strings too, so the shape alone cannot tell them apart.
+  const [wrongCodeType, setWrongCodeType] = useState(false);
   const submitScan = useCallback(
     async (pending: PendingScan) => {
       if (!orderId) return;
@@ -169,7 +176,9 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
       setScene({ kind: 'in-flight' });
       try {
         const response = await fulfillmentApi.scan(orderId, {
-          barcode: pending.barcode,
+          // Same lookup value as every other scan surface: labels carry the SKU
+          // zero-padded to 12 digits, which the server would not match.
+          barcode: toScanLookupValue(pending.barcode) || pending.barcode,
           quantity: 1,
           scanId: pending.scanId,
         });
@@ -192,6 +201,7 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
           result === 'NotFound' ||
           result === 'OutOfStock'
         ) {
+          setWrongCodeType(result === 'NotFound' && pending.orderShaped === true);
           setScene({ kind: 'recoverable', response });
           announce(getScanResultMessage(response), { politeness: 'assertive' });
           return;
@@ -242,7 +252,6 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
     void submitScan({ barcode: trimmed, source: 'manual-entry', scanId: crypto.randomUUID() });
   };
 
-  const [wrongCodeType, setWrongCodeType] = useState(false);
   const handleCameraScan = useCallback(
     (result: NormalizedScanResult) => {
       console.debug('mobile-pickup-scan', {
@@ -251,19 +260,15 @@ function MobilePickupScanPageInner({ orderId }: { orderId: string }) {
         source: result.source,
         scannedAtUtc: result.scannedAtUtc,
       });
-      const classification = classifyMobileScanInput(result.code);
-      // If it's clearly order-shaped AND not the current order, treat as wrong code type.
-      // Otherwise, defer to the backend (WrongOrder result handles cross-order rejection).
-      if (
-        classification === 'order-number' &&
-        order &&
-        !isExactOrderNumberMatch(order.orderNumber, result.code)
-      ) {
-        setWrongCodeType(true);
-        return;
-      }
+      // Every read goes to the server. Blocking order-shaped codes here also
+      // blocked real plant labels (12-digit zero-padded SKUs look like order
+      // numbers); the hint is shown if the server finds no plant for it.
+      const orderShaped =
+        classifyMobileScanInput(result.code) === 'order-number' &&
+        !!order &&
+        !isExactOrderNumberMatch(order.orderNumber, result.code);
       setWrongCodeType(false);
-      void submitScan({ barcode: result.code, source: result.source, scanId: crypto.randomUUID() });
+      void submitScan({ barcode: result.code, source: result.source, scanId: crypto.randomUUID(), orderShaped });
     },
     [order, orderId, submitScan],
   );

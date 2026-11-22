@@ -19,6 +19,12 @@ public class ScanInSessionRequest
     /// the matching lines greedily (oldest order, then oldest line first).
     /// </summary>
     public int Quantity { get; set; } = 1;
+
+    /// <summary>
+    /// Client id for this physical scan, reused on retry. A request whose id was
+    /// already applied in this session is answered without fulfilling again.
+    /// </summary>
+    public string? ScanId { get; set; }
 }
 
 public class ScanSessionResponse

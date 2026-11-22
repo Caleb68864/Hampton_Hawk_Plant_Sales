@@ -6,6 +6,7 @@ import {
   type DraftOrderLine,
   type PlantPriceMap,
   unpricedLineCount,
+  cashShortfall,
   grandTotal,
   lineSubtotal,
 } from '@/types/walkupRegister.js';
@@ -368,10 +369,14 @@ export function WalkUpRegisterPage() {
   }, [refocusScan]);
 
   const submitClose = useCallback(async () => {
-    if (!draft) return;
+    if (!draft || closing) return;
     const tenderedNum = closeModal.amountTendered ? Number.parseFloat(closeModal.amountTendered) : null;
-    if (closeModal.amountTendered && (tenderedNum == null || Number.isNaN(tenderedNum))) {
-      setError('Amount tendered must be a number');
+    if (closeModal.amountTendered && (tenderedNum == null || Number.isNaN(tenderedNum) || tenderedNum < 0)) {
+      setError('Amount tendered must be a number of zero or more');
+      return;
+    }
+    if (cashShortfall(closeModal.paymentMethod, closeModal.amountTendered, total) > 0) {
+      setError('Cash tendered is less than the total due.');
       return;
     }
     setClosing(true);
@@ -393,7 +398,7 @@ export function WalkUpRegisterPage() {
     } finally {
       setClosing(false);
     }
-  }, [draft, closeModal, clearWalkUpDraftId, workstationName]);
+  }, [draft, closing, closeModal, total, clearWalkUpDraftId, workstationName]);
 
   const handleCelebrationComplete = useCallback(() => {
     setShowCelebration(false);
@@ -408,6 +413,8 @@ export function WalkUpRegisterPage() {
     closeModal.amountTendered && total >= 0
       ? Math.max(0, Number.parseFloat(closeModal.amountTendered) - total)
       : 0;
+  // Cash short of the total used to close as paid, showing "Change due $0.00".
+  const cashShortBy = cashShortfall(closeModal.paymentMethod, closeModal.amountTendered, total);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -469,7 +476,10 @@ export function WalkUpRegisterPage() {
                 onChange={handleScanQuantityChange}
                 disabled={scanning || !draft}
               />
-              <ScanInput onScan={handleScan} disabled={scanning || !draft} ref={scanRef} />
+              {/* Off while the Close Sale dialog is open or closing: a barcode read
+                  there was added to the sale behind the dialog, after the total
+                  and change had been shown. */}
+              <ScanInput onScan={handleScan} disabled={scanning || !draft || closeModal.open || closing} ref={scanRef} />
               <p className="text-xs text-gray-500">
                 Set qty then scan once to add multiple. Idempotent on retry. Use the right-rail buttons to close or cancel.
               </p>
@@ -598,7 +608,12 @@ export function WalkUpRegisterPage() {
                   value={closeModal.amountTendered}
                   onChange={(e) => setCloseModal((prev) => ({ ...prev, amountTendered: e.target.value }))}
                 />
-                {closeModal.amountTendered && (
+                {closeModal.amountTendered && cashShortBy > 0 && (
+                  <p role="alert" className="text-xs text-red-600 mt-1">
+                    Cash tendered is short by <span className="font-semibold tabular-nums">{formatMoney(cashShortBy)}</span>.
+                  </p>
+                )}
+                {closeModal.amountTendered && cashShortBy === 0 && (
                   <p className="text-xs text-gray-500 mt-1">
                     Change due: <span className="font-semibold tabular-nums">{formatMoney(change)}</span>
                   </p>
@@ -614,7 +629,7 @@ export function WalkUpRegisterPage() {
               >
                 Back
               </button>
-              <TouchButton variant="primary" disabled={closing} onClick={() => void submitClose()}>
+              <TouchButton variant="primary" disabled={closing || cashShortBy > 0} onClick={() => void submitClose()}>
                 {closing ? 'Closing...' : 'Confirm Close'}
               </TouchButton>
             </div>

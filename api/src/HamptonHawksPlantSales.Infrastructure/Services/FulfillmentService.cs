@@ -103,6 +103,9 @@ public class FulfillmentService : IFulfillmentService
 
     private async Task<ScanResponse> ScanInternalAsync(Guid orderId, string barcode, int quantity, string? scanId = null)
     {
+        // 0. The order must exist, not be deleted, and be Open/InProgress.
+        await EnsureOrderAcceptsFulfillmentAsync(orderId);
+
         // 1. Check SaleClosed
         if (await _adminService.IsSaleClosedAsync())
         {
@@ -134,9 +137,6 @@ public class FulfillmentService : IFulfillmentService
                 OrderRemainingItems = 0
             };
         }
-
-        // 3b. Refuse to take stock for an order that is no longer being picked up.
-        await EnsureOrderAcceptsFulfillmentAsync(orderId);
 
         // 4. Find OrderLine for orderId + PlantCatalogId — AsNoTracking for the same reason.
         var orderLineCheck = await _db.OrderLines
@@ -620,18 +620,25 @@ public class FulfillmentService : IFulfillmentService
     /// </summary>
     private async Task EnsureOrderAcceptsFulfillmentAsync(Guid orderId)
     {
-        var status = await _db.Orders
+        var order = await _db.Orders
+            .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(o => o.Id == orderId && o.DeletedAt == null)
-            .Select(o => (OrderStatus?)o.Status)
+            .Where(o => o.Id == orderId)
+            .Select(o => new { o.Status, o.DeletedAt })
             .FirstOrDefaultAsync();
 
-        // An unknown order falls through to the existing WrongOrder / not-found
-        // handling so the volunteer-facing result strings are unchanged.
-        if (status == null) return;
+        // Checked before any event is written: an event for an order id that
+        // does not exist fails its FK and used to surface as a 500.
+        if (order == null)
+            throw new KeyNotFoundException("Order not found.");
 
-        if (status != OrderStatus.Open && status != OrderStatus.InProgress)
-            throw new ValidationException($"Order is {status} and cannot be fulfilled.");
+        // A deleted order's lines are not soft-deleted with it, so without this
+        // a station still showing the order could scan it and take stock.
+        if (order.DeletedAt != null)
+            throw new ValidationException("This order was deleted and cannot be fulfilled. Reload the order list.");
+
+        if (order.Status != OrderStatus.Open && order.Status != OrderStatus.InProgress)
+            throw new ValidationException($"Order is {order.Status} and cannot be fulfilled.");
     }
 
     private async Task<FulfillmentEvent> CreateEvent(FulfillmentEventSource source, Guid orderId, Guid? plantCatalogId, string barcode,

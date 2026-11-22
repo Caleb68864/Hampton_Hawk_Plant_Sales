@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Infrastructure.Data;
 using FluentAssertions;
 using HamptonHawksPlantSales.Core.Enums;
 using HamptonHawksPlantSales.Core.Models;
@@ -392,6 +393,85 @@ public class ReportServiceTests
         var day25 = result.Days.First(d => d.Date == new DateOnly(2026, 4, 25));
         day25.OrderCount.Should().Be(1);
         day25.Revenue.Should().Be(40m);
+    }
+
+    private static async Task<(Order Evening, Order Morning)> SeedEveningAndMorningSales(AppDbContext db)
+    {
+        var customer = TestDataBuilder.CreateCustomer("TZ Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "TZ", barcode: "BC-TZ");
+        plant.Price = 5m;
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        var evening = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete, isWalkUp: true);
+        var morning = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete, isWalkUp: true);
+        db.Orders.AddRange(evening, morning);
+        db.OrderLines.AddRange(
+            TestDataBuilder.CreateOrderLine(evening.Id, plant.Id, qtyOrdered: 1),
+            TestDataBuilder.CreateOrderLine(morning.Id, plant.Id, qtyOrdered: 2));
+        await db.SaveChangesAsync();
+        // 7:30pm CDT on Sat May 9 is 00:30 UTC on May 10; 9am CDT is 14:00 UTC.
+        evening.CreatedAt = new DateTimeOffset(2026, 5, 10, 0, 30, 0, TimeSpan.Zero);
+        morning.CreatedAt = new DateTimeOffset(2026, 5, 9, 14, 0, 0, TimeSpan.Zero);
+        await db.SaveChangesAsync();
+        return (evening, morning);
+    }
+
+    [Fact]
+    public async Task GetDailySales_WithTimeZone_KeepsAnEveningSaleOnItsLocalDay()
+    {
+        using var db = MockDbContextFactory.Create();
+        await SeedEveningAndMorningSales(db);
+
+        var result = await new ReportService(db).GetDailySalesAsync(null, null, "America/Chicago");
+
+        var day = result.Days.Should().ContainSingle().Subject;
+        day.Date.Should().Be(new DateOnly(2026, 5, 9));
+        day.OrderCount.Should().Be(2);
+        day.Revenue.Should().Be(15m);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("Not/AZone")]
+    public async Task GetDailySales_WithoutAKnownTimeZone_BucketsByUtcDate(string? timeZone)
+    {
+        using var db = MockDbContextFactory.Create();
+        await SeedEveningAndMorningSales(db);
+
+        var result = await new ReportService(db).GetDailySalesAsync(null, null, timeZone);
+
+        result.Days.Select(d => d.Date).Should().Equal(new DateOnly(2026, 5, 9), new DateOnly(2026, 5, 10));
+    }
+
+    [Fact]
+    public async Task ReportRange_ALocalKindBound_IsConvertedToUtcNotRelabelled()
+    {
+        // ASP.NET can bind "2026-05-10T05:00:00Z" as a Local DateTime. The old
+        // code relabelled its clock time as UTC, shifting the bound by the
+        // server's offset (no-op on a UTC server, e.g. the container or CI).
+        using var db = MockDbContextFactory.Create();
+        await SeedEveningAndMorningSales(db);
+        var from = new DateTime(2026, 5, 9, 5, 0, 0, DateTimeKind.Utc).ToLocalTime();
+        var to = new DateTime(2026, 5, 10, 5, 0, 0, DateTimeKind.Utc).ToLocalTime();
+
+        var result = await new ReportService(db).GetDailySalesAsync(from, to, "America/Chicago");
+
+        result.Days.Should().ContainSingle().Which.OrderCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task LiveSaleKpi_WithTimeZone_CountsTodayByTheVenueDay()
+    {
+        using var db = MockDbContextFactory.Create();
+        await SeedEveningAndMorningSales(db);
+        // 8pm CDT on May 9 (01:00 UTC May 10): both sales were "today" locally.
+        var now = new DateTimeOffset(2026, 5, 10, 1, 0, 0, TimeSpan.Zero);
+        var service = new ReportService(db);
+
+        (await service.GetLiveSaleKpiAsync("America/Chicago", now)).TotalOrdersToday.Should().Be(2);
+        // By UTC date only the 00:30Z sale is on May 10.
+        (await service.GetLiveSaleKpiAsync(null, now)).TotalOrdersToday.Should().Be(1);
     }
 
     // ── SS-02 (Wave 2): Payment breakdown ──

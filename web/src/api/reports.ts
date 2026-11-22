@@ -1,4 +1,5 @@
 import { get } from './client.js';
+import { browserTimeZone, reportRangeParams } from '@/utils/reportDateRange.js';
 import type {
   DailySalesResponse,
   DashboardMetrics,
@@ -329,24 +330,22 @@ export const reportsApi = {
   salesByPlant: async () => normalizeSalesByPlant(await get<unknown>('/reports/sales-by-plant')),
 
   // SS-03 (Wave 3): six new aggregations from Wave 2.
+  // `from`/`to` are local calendar dates, both inclusive (see reportDateRange).
   getDailySales: async (from?: string, to?: string) => {
-    const params: Record<string, string> = {};
-    if (from) params.from = from;
-    if (to) params.to = to;
+    const params = reportRangeParams(from, to);
+    // Days are bucketed in this timezone, not UTC, so an evening sale stays on its day.
+    const timeZone = browserTimeZone();
+    if (timeZone) params.timeZone = timeZone;
     return normalizeDailySales(await get<unknown>('/reports/daily-sales', params));
   },
 
   getPaymentBreakdown: async (from?: string, to?: string) => {
-    const params: Record<string, string> = {};
-    if (from) params.from = from;
-    if (to) params.to = to;
+    const params = reportRangeParams(from, to);
     return normalizePaymentBreakdown(await get<unknown>('/reports/payment-breakdown', params));
   },
 
   getWalkupVsPreorder: async (from?: string, to?: string) => {
-    const params: Record<string, string> = {};
-    if (from) params.from = from;
-    if (to) params.to = to;
+    const params = reportRangeParams(from, to);
     return normalizeWalkupVsPreorder(await get<unknown>('/reports/walkup-vs-preorder', params));
   },
 
@@ -362,6 +361,9 @@ export const reportsApi = {
   getOutstandingAging: async () =>
     normalizeOutstandingAging(await get<unknown>('/reports/outstanding-aging')),
 
-  getLiveSaleKpi: async () =>
-    normalizeLiveSaleKpi(await get<unknown>('/reports/live-sale-kpi')),
+  // The timezone makes "today" the venue's day rather than the UTC one.
+  getLiveSaleKpi: async () => {
+    const timeZone = browserTimeZone();
+    return normalizeLiveSaleKpi(await get<unknown>('/reports/live-sale-kpi', timeZone ? { timeZone } : undefined));
+  },
 };

@@ -179,4 +179,34 @@ describe('useScanWorkflow stale-response ordering', () => {
     });
     expect(result.current.currentSession?.remainingTotal).toBe(2);
   });
+
+  it('reuses the scan id when a failed session scan is retried, and not after a success', async () => {
+    let n = 0;
+    vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: () => `uuid-${++n}` });
+    mockSessionGet.mockResolvedValue(makeSession(3));
+    const { result } = renderHook(() => useScanWorkflow({ mode: 'session', id: 's-1' }));
+    await act(async () => {});
+
+    mockSessionScan.mockRejectedValueOnce(new Error('timeout'));
+    await act(async () => {
+      await result.current.scanInSession('PL-HYD', 1);
+    });
+    mockSessionScan.mockResolvedValueOnce({
+      result: 'Accepted', message: null, plant: { sku: 'PL-HYD', name: 'Hydrangea' }, session: makeSession(2),
+    } satisfies ScanSessionScanResponse);
+    await act(async () => {
+      await result.current.scanInSession('PL-HYD', 1);
+    });
+    mockSessionScan.mockResolvedValueOnce({
+      result: 'Accepted', message: null, plant: { sku: 'PL-HYD', name: 'Hydrangea' }, session: makeSession(1),
+    } satisfies ScanSessionScanResponse);
+    await act(async () => {
+      await result.current.scanInSession('PL-HYD', 1);
+    });
+
+    const ids = mockSessionScan.mock.calls.map((c) => (c[1] as { scanId?: string }).scanId);
+    expect(ids[0]).toEqual(expect.any(String));
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
 });

@@ -214,9 +214,18 @@ export function useScanWorkflow(
       // Multi-quantity session scanning: pass the volunteer-set quantity. The
       // backend distributes it across pending lines (oldest order first).
       const qty = quantity > 0 ? quantity : 1;
+      // Same retry-stable id as order scans: a failed request may still have been
+      // applied, and a session scan replayed without one fulfils another unit.
+      const attemptKey = `session|${lookupBarcode}|${qty}`;
+      const scanId =
+        pendingScanRef.current?.key === attemptKey
+          ? pendingScanRef.current.scanId
+          : crypto.randomUUID();
+      pendingScanRef.current = { key: attemptKey, scanId };
       setState((s) => ({ ...s, isScanning: true, networkError: null }));
       try {
-        const result = await scanSessionsApi.scan(id, { plantBarcode: lookupBarcode, quantity: qty });
+        const result = await scanSessionsApi.scan(id, { plantBarcode: lookupBarcode, quantity: qty, scanId });
+        pendingScanRef.current = null;
         const entry: ScanHistoryEntry = {
           barcode,
           // ScanSessionResult shares 'Accepted' | 'AlreadyFulfilled' |

@@ -60,7 +60,14 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
       focus();
     }, [focus]);
 
+    const disabledRef = useRef(disabled);
+    useEffect(() => {
+      disabledRef.current = disabled;
+    }, [disabled]);
+
     const submit = useCallback(() => {
+      // A disabled scanner submits nothing, whichever path the keys came by.
+      if (disabledRef.current) return;
       const barcode = valueRef.current.trim();
       if (!barcode) return;
 
