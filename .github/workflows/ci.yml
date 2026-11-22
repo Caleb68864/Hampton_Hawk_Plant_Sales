@@ -187,7 +187,10 @@ jobs:
           done
 
       # The browser specs in .e2e/, driven in Chromium against this same stack
-      # through the web container on :3000: route-crawl.spec.ts opens every route
+      # through the web container on :3000: imports-reports.spec.ts uploads plants,
+      # inventory and orders on the Imports page, sells some, and reads the
+      # numbers back from the reports (browser in America/Chicago);
+      # route-crawl.spec.ts opens every route
       # in web/src/App.tsx (no crash, no 5xx, no 404 page, no bounce to /login)
       # and fails if App.tsx gains a route it does not list; sale-day.spec.ts
       # covers login, pickup lookup and scan, register scan / Manager Override /
@@ -205,9 +208,9 @@ jobs:
       # Secure cookie, so Session__AllowInsecureCookieOverHttp is not needed.
       #
       # Login limiter: 10/min per client IP (RateLimitPolicies.LoginPermitLimit).
-      # The specs log in 6 times (crawl 1, sale-day 5); with the bootstrap-login
-      # step above and the flag-off step below that is 8 before the next step
-      # recreates the api
+      # The specs log in 7 times (imports 1, crawl 1, sale-day 5); with the
+      # bootstrap-login step above and the flag-off step below that is 9 before
+      # the next step recreates the api
       # (which resets the limiter). Keep the total under 10 if logins are added.
       - name: E2E credentials from the compose stack
         run: |
@@ -239,7 +242,7 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Route crawl + sale-day E2E (Playwright)
+      - name: Imports/reports, route crawl and sale-day E2E (Playwright)
         working-directory: .e2e
         env:
           E2E_BASE_URL: http://localhost:3000

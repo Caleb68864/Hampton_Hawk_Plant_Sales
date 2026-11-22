@@ -348,12 +348,11 @@ public class OrderService : IOrderService
         if (request.QtyOrdered.HasValue)
             LineQuantity.EnsureValid(request.QtyOrdered.Value);
 
-        // Walk-up lines are subject to the availability invariant, so raising the
-        // quantity or moving the line to another plant must validate under the same
-        // locks AddLineAsync takes -- otherwise this route is a bypass around them.
-        if (!order.IsWalkUp)
-            return await UpdateLineUnlockedAsync(orderId, lineId, request);
-
+        // Every line edit runs under the plant and line locks a scan takes. Walk-up
+        // lines also validate availability there (otherwise this route bypasses the
+        // invariant). Preorder lines used to be edited unlocked: the "not below
+        // fulfilled" check read a QtyFulfilled a concurrent scan then raised, and the
+        // save hit the fulfilled <= ordered check constraint as a 500.
         return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
         {
             var target = await _db.OrderLines
@@ -383,7 +382,7 @@ public class OrderService : IOrderService
                 // demand on the new plant.
                 var plantChanged = newPlantCatalogId != line.PlantCatalogId;
                 var addedDemand = plantChanged ? newQtyOrdered : newQtyOrdered - line.QtyOrdered;
-                if (addedDemand > 0)
+                if (order.IsWalkUp && addedDemand > 0)
                 {
                     var (allowed, _, errorMessage) = await _protection.ValidateWalkupLineAsync(newPlantCatalogId, addedDemand);
                     if (!allowed)
@@ -414,30 +413,6 @@ public class OrderService : IOrderService
         });
     }
 
-    private async Task<OrderLineResponse> UpdateLineUnlockedAsync(Guid orderId, Guid lineId, UpdateOrderLineRequest request)
-    {
-        var line = await _db.OrderLines
-            .Include(l => l.PlantCatalog)
-            .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null)
-            ?? throw new KeyNotFoundException("Order line not found.");
-
-        var newQtyOrdered = request.QtyOrdered ?? line.QtyOrdered;
-        var newPlantCatalogId = request.PlantCatalogId ?? line.PlantCatalogId;
-        ValidateLineChange(line, newQtyOrdered, newPlantCatalogId);
-
-        var plantChanged = newPlantCatalogId != line.PlantCatalogId;
-        line.PlantCatalogId = newPlantCatalogId;
-        line.QtyOrdered = newQtyOrdered;
-        line.Notes = request.Notes;
-
-        await _db.SaveChangesAsync();
-
-        if (plantChanged)
-            await _db.Entry(line).Reference(l => l.PlantCatalog).LoadAsync();
-
-        return MapLineToResponse(line);
-    }
-
     private static void ValidateLineChange(OrderLine line, int newQtyOrdered, Guid newPlantCatalogId)
     {
         if (newQtyOrdered < line.QtyFulfilled)
@@ -449,17 +424,47 @@ public class OrderService : IOrderService
 
     public async Task<bool> DeleteLineAsync(Guid orderId, Guid lineId)
     {
-        var line = await _db.OrderLines
-            .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null);
+        // Under the plant and line locks a scan takes: unlocked, the "nothing
+        // fulfilled" check could pass just before a scan fulfilled the line, and the
+        // delete then hid the line holding that stock (Undo could not find it).
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, async () =>
+        {
+            var target = await _db.OrderLines
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null);
+            if (target == null) return false;
 
-        if (line == null) return false;
+            var transaction = await WalkUpRowLocks.BeginAsync(_db);
+            try
+            {
+                await WalkUpRowLocks.AcquireAsync(_db, target.PlantCatalogId, orderId);
 
-        if (line.QtyFulfilled > 0)
-            throw new ValidationException("Cannot delete an order line that has been partially fulfilled.");
+                var line = await _db.OrderLines
+                    .FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId && l.DeletedAt == null);
+                if (line == null)
+                {
+                    await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                    return false;
+                }
 
-        line.DeletedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
-        return true;
+                if (line.QtyFulfilled > 0)
+                    throw new ValidationException("Cannot delete an order line that has been partially fulfilled.");
+
+                line.DeletedAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await WalkUpRowLocks.RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null) await transaction.DisposeAsync();
+            }
+        });
     }
 
     private async Task<string> GenerateOrderNumber()

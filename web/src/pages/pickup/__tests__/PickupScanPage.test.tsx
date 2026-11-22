@@ -10,6 +10,8 @@ const mockGetById = vi.fn();
 const mockUndoWithReason = vi.fn();
 const mockManualFulfill = vi.fn();
 const mockOpenPinModal = vi.fn();
+const mockScanApi = vi.fn();
+const mockPlayError = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -25,7 +27,7 @@ vi.mock('@/api/orders.js', () => ({
 
 vi.mock('@/api/fulfillment.js', () => ({
   fulfillmentApi: {
-    scan: vi.fn(),
+    scan: (...args: unknown[]) => mockScanApi(...args),
     undoLastScan: vi.fn(),
     undoLastScanWithReason: (...args: unknown[]) => mockUndoWithReason(...args),
     manualFulfill: (...args: unknown[]) => mockManualFulfill(...args),
@@ -37,7 +39,7 @@ vi.mock('@/api/fulfillment.js', () => ({
 vi.mock('@/components/shared/audioFeedbackContext.js', () => ({
   useAudio: () => ({
     playSuccess: vi.fn(),
-    playError: vi.fn(),
+    playError: mockPlayError,
     playWarning: vi.fn(),
     setMode: vi.fn(),
   }),
@@ -54,7 +56,10 @@ vi.mock('@/stores/kioskStore.js', () => ({
   useKioskStore: <T,>(selector: (s: { session: null }) => T) => selector({ session: null }),
 }));
 
-vi.mock('@/components/pickup/ScanSuccessFlash.js', () => ({ ScanSuccessFlash: () => null }));
+vi.mock('@/components/pickup/ScanSuccessFlash.js', () => ({
+  ScanSuccessFlash: (props: { visible: boolean; remainingForOrder?: number }) =>
+    props.visible ? <div data-testid="scan-flash">remaining {props.remainingForOrder}</div> : null,
+}));
 vi.mock('@/components/pickup/OrderCompleteCelebration.js', () => ({
   OrderCompleteCelebration: () => null,
 }));
@@ -237,5 +242,82 @@ describe('PickupScanPage manual fulfill', () => {
     resolveFulfill(ACCEPTED);
     await waitFor(() => expect(screen.queryByLabelText('Unfulfilled Line')).not.toBeInTheDocument());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('PickupScanPage scanning', () => {
+  beforeEach(() => {
+    mockGetById.mockReset();
+    mockScanApi.mockReset();
+    mockPlayError.mockReset();
+    mockGetById.mockResolvedValue(makeOrder({
+      lines: [{
+        id: 'l1', orderId: 'o-1', plantCatalogId: 'p1', plantName: 'Hydrangea', plantSku: 'PL-HYD',
+        qtyOrdered: 5, qtyFulfilled: 3, notes: null, createdAt: '2026-05-07T00:00:00Z', updatedAt: '2026-05-07T00:00:00Z',
+      }, {
+        id: 'l2', orderId: 'o-1', plantCatalogId: 'p2', plantName: 'Fern', plantSku: 'PL-FERN',
+        qtyOrdered: 4, qtyFulfilled: 0, notes: null, createdAt: '2026-05-07T00:00:00Z', updatedAt: '2026-05-07T00:00:00Z',
+      }],
+    }));
+  });
+
+  afterEach(() => cleanup());
+
+  async function scan(value: string) {
+    const input = (await screen.findByPlaceholderText('Scan barcode or type SKU...')) as HTMLInputElement;
+    await waitFor(() => expect(input).not.toBeDisabled());
+    fireEvent.change(input, { target: { value } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  }
+
+  it('shows the remaining count the server reports, not total minus the requested quantity', async () => {
+    // Qty 5 on a line with 2 left applies 2: 6 remain, not 6 - 5 = 1.
+    mockScanApi.mockResolvedValue({
+      result: 'Accepted', orderId: 'o-1', plant: { sku: 'PL-HYD', name: 'Hydrangea' },
+      line: { qtyOrdered: 5, qtyFulfilled: 5, qtyRemaining: 0 }, orderRemainingItems: 4,
+    } satisfies ScanResponse);
+    renderPage();
+    await screen.findByText('Order 100123');
+    fireEvent.click(screen.getByRole('button', { name: 'Set scan quantity to 5' }));
+    await scan('PL-HYD');
+
+    expect(await screen.findByTestId('scan-flash')).toHaveTextContent('remaining 4');
+  });
+
+  it('keeps the quantity and sounds an error when a scan gets no answer', async () => {
+    mockScanApi
+      .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+      .mockResolvedValue(ACCEPTED);
+    renderPage();
+    await screen.findByText('Order 100123');
+    fireEvent.click(screen.getByRole('button', { name: 'Set scan quantity to 3' }));
+    await scan('PL-HYD');
+    await waitFor(() => expect(mockScanApi).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockPlayError).toHaveBeenCalled());
+
+    await new Promise((r) => setTimeout(r, 450)); // past ScanInput's double-read window
+    await scan('PL-HYD');
+    await waitFor(() => expect(mockScanApi).toHaveBeenCalledTimes(2));
+    const [first, second] = mockScanApi.mock.calls.map((c) => c[1] as { quantity: number; scanId: string });
+    expect(second.quantity).toBe(3);
+    expect(second.scanId).toBe(first.scanId);
+  });
+});
+
+describe('PickupScanPage when the order cannot be loaded', () => {
+  afterEach(() => cleanup());
+
+  it('says the load failed and retries, instead of "Order not found"', async () => {
+    mockGetById.mockReset();
+    mockGetById
+      .mockRejectedValueOnce(new Error('The request timed out before the server responded.'))
+      .mockResolvedValue(makeOrder());
+
+    renderPage();
+    expect(await screen.findByText(/Could not load this order: The request timed out/)).toBeInTheDocument();
+    expect(screen.queryByText('Order not found')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Order 100123')).toBeInTheDocument();
   });
 });

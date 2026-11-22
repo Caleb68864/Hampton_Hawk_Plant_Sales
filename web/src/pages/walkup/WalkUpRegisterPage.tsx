@@ -140,6 +140,16 @@ export function WalkUpRegisterPage() {
   );
 
   // ---------- Initial draft resolution (resume or create) ----------
+  // Set when the open-drafts lookup could not be made; Retry runs init again.
+  const [resumeFailed, setResumeFailed] = useState(false);
+  const [initAttempt, setInitAttempt] = useState(0);
+  const retryResume = useCallback(() => {
+    initRef.current = false;
+    setResumeFailed(false);
+    setError(null);
+    setInitAttempt((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -155,22 +165,34 @@ export function WalkUpRegisterPage() {
 
         if (targetId) {
           // Try to resume by listing open drafts and matching the cached id.
+          let openDrafts;
           try {
-            const openDrafts = await walkupRegisterApi.getOpenDrafts(workstationName ?? undefined);
-            const match = openDrafts.find((o) => o.id === targetId);
-            if (match) {
-              if (cancelled) return;
-              await updateDraftAndPersist(match);
-              setWalkUpDraftId(workstationName, match.id);
-              if (routeDraftId !== match.id) {
-                navigate(`/walkup/register/${match.id}`, { replace: true });
-              }
-              return;
+            openDrafts = await walkupRegisterApi.getOpenDrafts(workstationName ?? undefined);
+          } catch (lookupError) {
+            // Could not find out whether the sale is still open. Opening a fresh
+            // draft here abandoned the one being rung up, whose units the register
+            // had already taken off the shelf. Keep it and let the cashier retry.
+            if (!cancelled) {
+              setResumeFailed(true);
+              setError(
+                `Could not reach the server to reopen this sale (${
+                  lookupError instanceof Error ? lookupError.message : 'network error'
+                }). Check the connection, then press Retry.`,
+              );
             }
-          } catch {
-            // fall through to creating a new draft
+            return;
           }
-          // Cached draft no longer open -- clear and create a fresh one.
+          const match = openDrafts.find((o) => o.id === targetId);
+          if (match) {
+            if (cancelled) return;
+            await updateDraftAndPersist(match);
+            setWalkUpDraftId(workstationName, match.id);
+            if (routeDraftId !== match.id) {
+              navigate(`/walkup/register/${match.id}`, { replace: true });
+            }
+            return;
+          }
+          // The server says that draft is no longer open -- clear and create a fresh one.
           clearWalkUpDraftId(workstationName);
         }
 
@@ -190,6 +212,7 @@ export function WalkUpRegisterPage() {
       cancelled = true;
     };
   }, [
+    initAttempt,
     routeDraftId,
     workstationName,
     getWalkUpDraftId,
@@ -225,6 +248,7 @@ export function WalkUpRegisterPage() {
           ? pendingScanRef.current.scanId
           : crypto.randomUUID();
       pendingScanRef.current = { key: attemptKey, scanId };
+      let answered = true;
       try {
         const next = await walkupRegisterApi.scan(draft.id, {
           plantBarcode: trimmed,
@@ -251,8 +275,10 @@ export function WalkUpRegisterPage() {
       } catch (e) {
         // The server answered (4xx/5xx): that attempt is settled, so the next
         // scan of this item must not replay its id. No status means the request
-        // never came back -- keep the id for the retry.
-        if ((e as ApiError | null)?.status !== undefined) {
+        // never came back -- keep the id, and the quantity it is keyed on, for
+        // the retry.
+        answered = (e as ApiError | null)?.status !== undefined;
+        if (answered) {
           pendingScanRef.current = null;
         }
         const message = e instanceof Error ? e.message : 'Scan failed';
@@ -262,9 +288,10 @@ export function WalkUpRegisterPage() {
           setOverrideTarget({ plantBarcode: trimmed, quantity: requestedQty });
         }
       } finally {
-        // Reset multi-qty back to 1 so the next scan defaults to single,
-        // matching the pickup-screen pattern.
-        setScanQuantity(1);
+        // Reset multi-qty back to 1 so the next scan defaults to single, unless
+        // the request got no answer: resetting then gave the retry a new scan id
+        // (the id is keyed on barcode + quantity) and the server applied both.
+        if (answered) setScanQuantity(1);
         setScanning(false);
         refocusScan();
       }
@@ -435,6 +462,11 @@ export function WalkUpRegisterPage() {
       </header>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {resumeFailed && (
+        <TouchButton variant="primary" onClick={retryResume}>
+          Retry
+        </TouchButton>
+      )}
 
       {/* Joy Pass: Scan Success Flash (omits remainingForOrder for walkup -- the
           basket grows; there is no preset order qty to count down from). */}
@@ -479,7 +511,7 @@ export function WalkUpRegisterPage() {
               {/* Off while the Close Sale dialog is open or closing: a barcode read
                   there was added to the sale behind the dialog, after the total
                   and change had been shown. */}
-              <ScanInput onScan={handleScan} disabled={scanning || !draft || closeModal.open || closing} ref={scanRef} />
+              <ScanInput onScan={handleScan} busy={scanning} disabled={!draft || closeModal.open || closing} ref={scanRef} />
               <p className="text-xs text-gray-500">
                 Set qty then scan once to add multiple. Idempotent on retry. Use the right-rail buttons to close or cancel.
               </p>

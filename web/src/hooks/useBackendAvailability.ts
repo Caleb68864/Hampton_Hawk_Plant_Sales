@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
+// Same budget as the axios client. Without one, a request lost when the Wi-Fi
+// dropped mid-flight never settled, no next check was scheduled, and the page
+// never showed the backend as unavailable.
+export const HEALTH_CHECK_TIMEOUT_MS = 10_000;
 
 export interface BackendAvailabilityState {
   available: boolean;
@@ -8,12 +12,16 @@ export interface BackendAvailabilityState {
   retry: () => void;
 }
 
-async function checkBackend(): Promise<boolean> {
+export async function checkBackend(timeoutMs: number = HEALTH_CHECK_TIMEOUT_MS): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch('/api/health', { method: 'HEAD', cache: 'no-store' });
+    const res = await fetch('/api/health', { method: 'HEAD', cache: 'no-store', signal: controller.signal });
     return res.ok || res.status < 500;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

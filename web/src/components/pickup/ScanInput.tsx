@@ -6,7 +6,14 @@ export interface ScanInputHandle {
 
 interface ScanInputProps {
   onScan: (barcode: string) => void;
+  /** Off: nothing typed or scanned is taken. */
   disabled?: boolean;
+  /**
+   * A scan is in flight. Reads keep being taken and are queued, then handed to
+   * onScan one at a time once busy clears. Disabling the input for this dropped
+   * every read that arrived meanwhile -- the second of two quick scans.
+   */
+  busy?: boolean;
   /** Called when an identical read inside the bounce window is dropped. */
   onDuplicateIgnored?: (barcode: string) => void;
 }
@@ -30,7 +37,7 @@ function isTextEntryElement(el: Element | null): boolean {
 }
 
 export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
-  function ScanInput({ onScan, disabled, onDuplicateIgnored }, ref) {
+  function ScanInput({ onScan, disabled, busy, onDuplicateIgnored }, ref) {
     const [value, setValue] = useState('');
     const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +71,9 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
     useEffect(() => {
       disabledRef.current = disabled;
     }, [disabled]);
+    const busyRef = useRef(busy);
+    const queueRef = useRef<string[]>([]);
+    const [queued, setQueued] = useState(0);
 
     const submit = useCallback(() => {
       // A disabled scanner submits nothing, whichever path the keys came by.
@@ -86,8 +96,22 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
       lastScanTimeRef.current = now;
       setBuffer('');
       setDuplicateNotice(null);
+      if (busyRef.current) {
+        queueRef.current.push(barcode);
+        setQueued(queueRef.current.length);
+        return;
+      }
       onScanRef.current(barcode);
     }, [setBuffer]);
+
+    // Hand the next queued read over once the previous scan has finished.
+    useEffect(() => {
+      busyRef.current = busy;
+      if (busy || disabled) return;
+      const next = queueRef.current.shift();
+      setQueued(queueRef.current.length);
+      if (next !== undefined) onScanRef.current(next);
+    }, [busy, disabled]);
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
       if (e.key === 'Escape') {
@@ -148,6 +172,11 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(
         disabled={disabled}
         autoComplete="off"
       />
+      {queued > 0 && (
+        <p role="status" className="mt-1 text-sm text-gray-600">
+          {queued} more scan{queued === 1 ? '' : 's'} waiting...
+        </p>
+      )}
       {duplicateNotice && (
         <p role="status" className="mt-1 text-sm text-amber-700">
           {duplicateNotice}
