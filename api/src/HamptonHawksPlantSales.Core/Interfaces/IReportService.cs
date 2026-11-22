@@ -16,7 +16,9 @@ public interface IReportService
     Task<List<SalesByPlantRow>> GetSalesByPlantAsync();
 
     // SS-02 (Wave 2): Operations / money / inventory aggregations
-    Task<DailySalesResponse> GetDailySalesAsync(DateTime? from, DateTime? to);
+    /// <param name="timeZone">IANA or Windows timezone id the days are bucketed in;
+    /// null or unknown buckets by UTC date.</param>
+    Task<DailySalesResponse> GetDailySalesAsync(DateTime? from, DateTime? to, string? timeZone = null);
     Task<PaymentBreakdownResponse> GetPaymentBreakdownAsync(DateTime? from, DateTime? to);
     Task<WalkupVsPreorderResponse> GetWalkupVsPreorderAsync(DateTime? from, DateTime? to);
     Task<StatusFunnelResponse> GetOrderStatusFunnelAsync();
@@ -24,5 +26,5 @@ public interface IReportService
     Task<OutstandingAgingResponse> GetOutstandingAgingAsync();
 
     // Sale-day live KPI dashboard (projector view).
-    Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync();
+    Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync(string? timeZone = null);
 }

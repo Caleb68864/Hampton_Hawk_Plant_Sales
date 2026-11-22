@@ -10,6 +10,7 @@ import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { TopMoverRow } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+import { localDateString } from '@/utils/reportDateRange.js';
 
 type SortKey = keyof TopMoverRow;
 type SortDir = 'asc' | 'desc';
@@ -55,7 +56,7 @@ export function TopMoversPage() {
   function handleDownloadCsv() {
     const headers = COLUMNS.map((c) => c.label);
     const keys = COLUMNS.map((c) => c.key as string);
-    const filename = `top-movers-${limit}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `top-movers-${limit}-${localDateString()}.csv`;
     exportToCsv(filename, sortedRows as unknown as Array<Record<string, unknown>>, headers, keys);
   }
 

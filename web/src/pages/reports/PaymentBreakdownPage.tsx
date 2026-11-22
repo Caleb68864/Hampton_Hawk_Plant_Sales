@@ -11,6 +11,7 @@ import { TouchButton } from '@/components/shared/TouchButton.js';
 import { useAsyncData } from '@/hooks/useAsyncData.js';
 import type { PaymentBreakdownRow } from '@/types/reports.js';
 import { exportToCsv } from '@/utils/csvExport.js';
+import { localDateString } from '@/utils/reportDateRange.js';
 
 // Six-color palette pulled from the existing hawk/gold ranges so the donut
 // stays inside the brand without introducing new tokens.
@@ -67,7 +68,7 @@ export function PaymentBreakdownPage() {
   function handleDownloadCsv() {
     const headers = COLUMNS.map((c) => c.label);
     const keys = COLUMNS.map((c) => c.key as string);
-    const filename = `payment-breakdown-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `payment-breakdown-${localDateString()}.csv`;
     exportToCsv(filename, sortedRows as unknown as Array<Record<string, unknown>>, headers, keys);
   }
 

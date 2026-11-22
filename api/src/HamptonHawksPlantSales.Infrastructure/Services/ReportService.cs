@@ -239,7 +239,7 @@ public class ReportService : IReportService
     // aggregation in memory -- the result set is always small (one row per
     // sale day / per status / per plant top-N).
 
-    public async Task<DailySalesResponse> GetDailySalesAsync(DateTime? from, DateTime? to)
+    public async Task<DailySalesResponse> GetDailySalesAsync(DateTime? from, DateTime? to, string? timeZone = null)
     {
         var orders = ApplyOrderRange(BaseOrders(), from, to);
 
@@ -260,8 +260,11 @@ public class ReportService : IReportService
             })
             .ToListAsync();
 
+        var zone = ResolveTimeZone(timeZone);
         var days = rows
-            .GroupBy(r => DateOnly.FromDateTime(r.CreatedAt.UtcDateTime))
+            // Bucket by the sale's local calendar day: by UTC date, every sale after
+            // ~6pm in a US timezone landed on the next day's row.
+            .GroupBy(r => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(r.CreatedAt, zone).DateTime))
             .OrderBy(g => g.Key)
             .Select(g => new DailySalesDayDto
             {
@@ -446,16 +449,27 @@ public class ReportService : IReportService
     private IQueryable<Order> BaseOrders() =>
         _db.Orders.Where(o => o.Status != OrderStatus.Draft && o.Status != OrderStatus.Cancelled);
 
+    private static TimeZoneInfo ResolveTimeZone(string? timeZone)
+    {
+        if (string.IsNullOrWhiteSpace(timeZone)) return TimeZoneInfo.Utc;
+        return TimeZoneInfo.TryFindSystemTimeZoneById(timeZone.Trim(), out var zone) ? zone : TimeZoneInfo.Utc;
+    }
+
+    // A bound sent with an offset ("...Z" or "-05:00") can bind as a Local
+    // DateTime; convert that to UTC rather than relabelling the local clock time.
+    private static DateTimeOffset AsUtc(DateTime value) =>
+        new(value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
     private static IQueryable<Order> ApplyOrderRange(IQueryable<Order> source, DateTime? from, DateTime? to)
     {
         if (from.HasValue)
         {
-            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(from.Value, DateTimeKind.Utc));
+            var fromOffset = AsUtc(from.Value);
             source = source.Where(o => o.CreatedAt >= fromOffset);
         }
         if (to.HasValue)
         {
-            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(to.Value, DateTimeKind.Utc));
+            var toOffset = AsUtc(to.Value);
             source = source.Where(o => o.CreatedAt < toOffset);
         }
         return source;
@@ -493,11 +507,18 @@ public class ReportService : IReportService
     // null-coalescing guards return 0/null instead of throwing, and the hourly
     // sparkline is always 12 buckets wide so the UI never rejiggers.
 
-    public async Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync()
+    public Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync(string? timeZone = null) =>
+        GetLiveSaleKpiAsync(timeZone, DateTimeOffset.UtcNow);
+
+    /// <summary>As above, at a given instant (for tests).</summary>
+    public async Task<LiveSaleKpiResponse> GetLiveSaleKpiAsync(string? timeZone, DateTimeOffset now)
     {
-        var now = DateTimeOffset.UtcNow;
-        var todayStart = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
-        var tomorrowStart = todayStart.AddDays(1);
+        // "Today" is the venue's calendar day when the projector names its
+        // timezone; by UTC date the today counters reset at ~6pm in the US.
+        var zone = ResolveTimeZone(timeZone);
+        var localToday = TimeZoneInfo.ConvertTime(now, zone).Date;
+        var todayStart = new DateTimeOffset(localToday, zone.GetUtcOffset(localToday)).ToUniversalTime();
+        var tomorrowStart = new DateTimeOffset(localToday.AddDays(1), zone.GetUtcOffset(localToday.AddDays(1))).ToUniversalTime();
         var hourAgo = now.AddHours(-1);
 
         var orders = BaseOrders();
