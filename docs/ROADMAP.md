@@ -5,7 +5,7 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-16 (branch `ci/sale-day-e2e`).
+Last updated: 2026-11-21 (branch `test/e2e-route-crawl`).
 
 ## Open
 
@@ -22,20 +22,17 @@ Last updated: 2026-11-16 (branch `ci/sale-day-e2e`).
   most 4 per-customer requests run at once. The remaining fix is one
   `ordersApi.list({search})` grouped client-side, which needs a product check on the
   phone/name/pickup-code matching rules first.
-- **Wire `.e2e/` into CI.** In progress on `ci/sale-day-e2e` (not yet run in Actions):
-  `.e2e/package.json` + lockfile pin `@playwright/test` 1.59.1, and the `compose` job
-  runs `.e2e/sale-day.spec.ts` in Chromium against `docker compose up` at
-  http://localhost:3000, credentials read from the api service's compose env,
-  `.e2e/test-results/` (screenshots, trace) uploaded on failure. 5/5 green locally
-  2026-11-16 against the compose images (api/web/postgres:16, run with `docker run`
-  since this machine has no Compose plugin), flag `Session__AllowInsecureCookieOverHttp`
-  off. Done once the first Actions run is green. The 08-29 crawl of all 44 routes,
-  imports and reports was not rebuilt.
 - **Login limiter 10/min and PIN lockout 30 failures/min, per client IP**
   (`api/src/HamptonHawksPlantSales.Api/Configuration/RateLimitPolicies.cs`,
   `Filters/AdminPinActionFilter.cs`). Since PR #77 the IP is the real client behind the
   proxy. Confirm before sale day that venue devices do not share one IP (e.g. a
   hotspot NAT between them and the server).
+
+As of 2026-11-21 both items above wait on the owner (the matching-rule product
+check; the venue network), as does everything below. `CLAUDE.md`'s CI paragraph
+still names only `sale-day.spec.ts` and "5 logins"; it should also mention
+`route-crawl.spec.ts` (6 logins), left for the owner since it is the agent
+instruction file.
 
 ### Product / policy calls
 
@@ -82,6 +79,8 @@ Last updated: 2026-11-16 (branch `ci/sale-day-e2e`).
 
 | item | where | commit |
 |---|---|---|
+| Route crawl rebuilt (the 08-29 harness swept all routes but was never tracked). `.e2e/route-crawl.spec.ts` seeds a plant, seller, customer, order, register draft and scan session, then opens all 59 routes in `web/src/App.tsx` (admin, print, mobile) as the admin and fails on an uncaught page error, a 5xx from `/api`, the 404 page, or ending on another path (e.g. bounced to `/login`). A second test parses App.tsx and fails when a route has no crawl entry or an entry has no route. One login, so CI's compose job is at 8 of the limiter's 10/min. Found no bugs: 7/7 green locally against images built from `03f578a` (crawl then sale-day, same DB, as CI orders them). Mutation proof: an injected 500 on `/api/sellers/*`, a thrown error on `/settings`, a bad `/docs` URL and cleared cookies before `/mobile/account` were each reported; deleting the `docs` entry failed the App.tsx check. Not covered: imports and report read-back from the 08-29 run | `.e2e/route-crawl.spec.ts`, `.github/workflows/ci.yml` | `test/e2e-route-crawl` |
+| Wire `.e2e/` into CI. Done in PR #83 (`03f578a`): the `compose` job runs the Playwright specs against `docker compose up`; green on main, run 43922198101 (2026-11-16, "5 passed") | `.github/workflows/ci.yml`, `.e2e/` | PR #83 |
 | Every refused register scan (over walk-up availability, out of stock, unknown barcode) logged an EF Core Error, "An error occurred using a transaction" (found by the browser E2E run). Cause: the refusal branch called `RollbackQuietlyAsync` and threw, then the catch-all called it again on the completed transaction; Npgsql rejects the second rollback, EF logs that at Error under `Microsoft.EntityFrameworkCore.Database.Transaction`, and only the exception was swallowed. `RollbackQuietlyAsync` now skips a transaction that is already complete (`DbTransaction.Connection == null`), so it fixes every caller (register, scan sessions, fulfillment, orders, inventory). Real failures still log: no EF category is filtered. Log-capturing Postgres tests; the refusal test fails on the old code, two controls prove Error logs still surface | `WalkUpRowLocks.RollbackQuietlyAsync`, `PostgresTests/RefusedScanLoggingTests.cs` | `fix/refused-scan-log-noise` |
 | Race tests for the two lock-order changes that had none, in `LockOrderRaceTests`. Walk-up line move: two moves on one walk-up order swapping lines between plants A and B, run through both routes (`WalkUpService.UpdateWalkUpLineAsync`, `OrderService.UpdateLineAsync`; new `[PostgresTheory]`), held before the line write. Cancel-draft: two drafts that rang up A and B in opposite orders, the first cancel held before its second plant lock. Reverting each (lock only the new plant; drop the plant-id sort) gives 40P01 in all three cases (retried, so the callers still succeed), restored code none. Found on the way: `UpdateWalkUpLineAsync` threw `NullReferenceException` after committing whenever the line moved to a plant not tracked by the context (every real request: EF nulls the navigation on save), so `PUT /api/walkup/orders/{id}/lines/{lineId}` with a new plant would return 500 although the move was saved (reasoned from the service; not exercised over HTTP); fixed with a null-safe check, unit test fails without it. Web `FulfillmentEvent` type now declares `userId` and `source` (no UI) | `PostgresTests/LockOrderRaceTests.cs`, `PostgresTests/Infrastructure/Interceptors.cs`, `PostgresTests/Infrastructure/PostgresFactAttribute.cs`, `WalkUpService`, `Tests/Services/WalkUpServiceTests.cs`, `web/src/types/fulfillment.ts` | `test/lock-order-gaps` |
 | Fulfillment events carry `UserId` (signed-in account, from the cookie's NameIdentifier via new `ICurrentUser`/`HttpCurrentUser`) and `Source` (`PickupScan`/`SessionScan`/`ManualFulfill`/`Undo`, set by the server). Nullable columns, migration `AddFulfillmentEventAttribution`, no FK so the row outlives the account. Returned on `GET .../events`. Unit tests fail with the stamping removed (4 of 5; the fifth tests `HttpCurrentUser` alone). Audit guide SQL corrected to the real PascalCase table names. Open questions under "Product / policy calls" | `Core/Models/FulfillmentEvent.cs`, `Core/Interfaces/ICurrentUser.cs`, `Api/Configuration/HttpCurrentUser.cs`, `FulfillmentService`, `ScanSessionService`, `Tests/Services/FulfillmentEventAttributionTests.cs`, `docs/mobile-sale-day-readiness/07-audit-troubleshooting.md` | `fix/canonical-lock-order` |
