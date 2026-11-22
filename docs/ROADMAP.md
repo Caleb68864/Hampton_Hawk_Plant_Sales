@@ -21,15 +21,15 @@ Last updated: 2026-11-22 (branch `feat/pickup-search-and-policy`).
   proxy. Confirm before sale day that venue devices do not share one IP (e.g. a
   hotspot NAT between them and the server).
 
-As of 2026-11-22 the item above waits on the venue network (it needs the real
-network, so it stays open); the policy calls below are being taken under the
-agent decision rule, each recorded in the Done table. `CLAUDE.md`'s CI paragraph
-still names only `sale-day.spec.ts` and "5 logins"; it should also mention
-`route-crawl.spec.ts` (6 logins), left for the owner since it is the agent
-instruction file.
+As of 2026-11-22 the item above is the only open one: it needs the real venue
+network, so it stays open. `CLAUDE.md`'s CI paragraph still names only
+`sale-day.spec.ts` and "5 logins"; the compose job now runs `imports-reports`,
+`route-crawl` and `sale-day` (7 logins in the specs, 9 with the job's own steps).
+Left for the owner, since it is the agent instruction file.
 
 ### Found by the 2026-11-21 audit, not yet fixed
 
+- None open (all fixed, see Done).
 
 ### Product / policy calls
 
@@ -40,7 +40,7 @@ instruction file.
 
 - This machine has only .NET 10 runtimes; the net9.0 test hosts need
   `DOTNET_ROLL_FORWARD=Major dotnet test ...` to run here.
-- Postgres tests run locally as of 2026-11-16 (`HH_POSTGRES_TESTS=1`, Docker reachable): 29 passed, 0 skipped.
+- Postgres tests run locally as of 2026-11-22 (`HH_POSTGRES_TESTS=1`, Docker reachable): 41 passed, 0 skipped.
   CI's `api-postgres` job still runs them on every push.
 - No stale git worktrees for this repo were found on 2026-11-09 (`git worktree list`
   shows only the main checkout).
