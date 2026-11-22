@@ -77,11 +77,13 @@ run one after the other prove nothing about locking.
 `docker-compose.override.yml`) is exercised by CI's `compose` job. It probes
 the API, the web proxy, a real login, and container health, then runs the
 Playwright specs in `.e2e/` (their own `package.json`) in Chromium against that
-stack: `route-crawl.spec.ts` first (opens every route in `web/src/App.tsx` and
-fails if a route is added without a crawl entry), then `sale-day.spec.ts`. The
-specs log in 6 times (crawl 1, sale-day 5); with the job's bootstrap-login and
-flag-off steps that is 8 before the api is recreated, against a login limiter of
-10/min per IP, so count logins before adding any to that job.
+stack: `imports-reports.spec.ts` (uploads plants, inventory and orders, sells
+some, and reads the numbers back from the reports in America/Chicago),
+`route-crawl.spec.ts` (opens every route in `web/src/App.tsx` and fails if a
+route is added without a crawl entry), then `sale-day.spec.ts`. The specs log in
+7 times (imports 1, crawl 1, sale-day 5); with the job's bootstrap-login and
+flag-off steps that is 9 before the api is recreated, against a login limiter of
+10/min per IP, so the job has room for one more login at most.
 `docs/improve/2026-08-29-sweep-report.md` describes the browser E2E harness
 (Postgres in Docker + `dotnet run` + `vite preview` + Playwright); run it before
 a sale-day release.
