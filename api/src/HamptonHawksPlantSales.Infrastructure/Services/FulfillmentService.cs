@@ -171,6 +171,12 @@ public class FulfillmentService : IFulfillmentService
             // event insert below takes FOR KEY SHARE on it, and a register holds it.
             await WalkUpRowLocks.AcquireAsync(_db, plant.Id, orderId);
 
+            // The order row last (canonical order), then its status again: it was
+            // checked before the transaction, and a bulk cancel that committed since
+            // must win over this scan.
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
+            await EnsureOrderAcceptsFulfillmentAsync(orderId);
+
             // Load tracked entities — these will be fresh from DB since no cached version exists.
             var lockedInventory = await _db.Inventories
                 .FirstOrDefaultAsync(i => i.PlantCatalogId == plant.Id && i.DeletedAt == null);
@@ -324,6 +330,13 @@ public class FulfillmentService : IFulfillmentService
             };
         }
 
+        // Serializable conflicts with a scan or a bulk status change are routine;
+        // retry them instead of surfacing the abort (it used to reach the desk as a 500).
+        return await WalkUpRowLocks.ExecuteWithRetryAsync(_db, () => ManualFulfillLockedAsync(orderId, request, requestId));
+    }
+
+    private async Task<ScanResponse> ManualFulfillLockedAsync(Guid orderId, ManualFulfillRequest request, string? requestId)
+    {
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational
             ? await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable)
@@ -354,6 +367,10 @@ public class FulfillmentService : IFulfillmentService
 
             if (line.PlantCatalogId != plantCatalogId)
                 throw new ValidationException("This order line was changed while it was being fulfilled. Refresh the order and try again.");
+
+            // Order row last, then its status again (checked before the transaction).
+            await WalkUpRowLocks.LockOrdersAsync(_db, new[] { orderId });
+            await EnsureOrderAcceptsFulfillmentAsync(orderId);
 
             // Again under the line lock: two copies of one request can both pass the
             // check above, and only one may apply.
