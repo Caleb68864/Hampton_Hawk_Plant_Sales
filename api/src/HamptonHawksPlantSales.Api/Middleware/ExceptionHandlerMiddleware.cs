@@ -2,6 +2,8 @@ using System.Net;
 using System.Text.Json;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
+using HamptonHawksPlantSales.Infrastructure.Data;
+using Npgsql;
 
 namespace HamptonHawksPlantSales.Api.Middleware;
 
@@ -45,7 +47,13 @@ public class ExceptionHandlerMiddleware
             return;
         }
 
-        var statusCode = exception switch
+        // Database refusals a volunteer can act on are not server faults. A
+        // serialization conflict or deadlock that outlived the retries, or a
+        // constraint that refused a write, used to come back as a 500 carrying
+        // raw Postgres text.
+        var (dbStatus, dbMessage) = ClassifyDatabaseRefusal(exception);
+
+        var statusCode = dbStatus ?? exception switch
         {
             ValidationException => (int)HttpStatusCode.BadRequest,
             InvalidOperationException => (int)HttpStatusCode.BadRequest,
@@ -63,7 +71,7 @@ public class ExceptionHandlerMiddleware
         var response = new ApiResponse<object>
         {
             Success = false,
-            Errors = new List<string> { exception.Message }
+            Errors = new List<string> { dbMessage ?? exception.Message }
         };
 
         context.Response.ContentType = "application/json";
@@ -71,5 +79,30 @@ public class ExceptionHandlerMiddleware
 
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+    }
+
+    private static (int? Status, string? Message) ClassifyDatabaseRefusal(Exception exception)
+    {
+        if (WalkUpRowLocks.IsRetryableConcurrencyFailure(exception))
+            return ((int)HttpStatusCode.Conflict,
+                "Another station changed this at the same moment. Wait a second, then try again.");
+
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is not PostgresException pg) continue;
+            return pg.SqlState switch
+            {
+                PostgresErrorCodes.CheckViolation => ((int)HttpStatusCode.BadRequest,
+                    "That change conflicts with what has already been scanned or sold. Refresh and try again."),
+                PostgresErrorCodes.UniqueViolation => ((int)HttpStatusCode.Conflict,
+                    "That value is already in use. Refresh and try again."),
+                PostgresErrorCodes.ForeignKeyViolation => ((int)HttpStatusCode.Conflict,
+                    "That record is linked to something that no longer exists, or is still in use. Refresh and try again."),
+                PostgresErrorCodes.NumericValueOutOfRange => ((int)HttpStatusCode.BadRequest,
+                    "A number in that request is too large."),
+                _ => (null, null)
+            };
+        }
+        return (null, null);
     }
 }
