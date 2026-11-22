@@ -462,6 +462,83 @@ public class ScanSessionServiceTests
         third.Result.Should().Be(ScanSessionResult.AlreadyFulfilled);
     }
 
+    private static async Task<(ScanSessionService Service, Guid SessionId, Order Older, OrderLine OlderLine, OrderLine NewerLine, Inventory Stock)>
+        SeedTwoOrderSessionAsync(AppDbContext db, string picklist)
+    {
+        var customer = SeedCustomer(db, picklist);
+        var plant = TestDataBuilder.CreatePlant(barcode: "BC-S1", sku: "SKU-S1");
+        var older = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        older.CreatedAt = DateTimeOffset.UtcNow.AddDays(-2);
+        var newer = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        newer.CreatedAt = DateTimeOffset.UtcNow.AddDays(-1);
+        var olderLine = TestDataBuilder.CreateOrderLine(older.Id, plant.Id, qtyOrdered: 1);
+        var newerLine = TestDataBuilder.CreateOrderLine(newer.Id, plant.Id, qtyOrdered: 1);
+        var stock = TestDataBuilder.CreateInventory(plant.Id, 5);
+        db.PlantCatalogs.Add(plant);
+        db.Orders.AddRange(older, newer);
+        db.OrderLines.AddRange(olderLine, newerLine);
+        db.Inventories.Add(stock);
+        await db.SaveChangesAsync();
+        var (service, _) = CreateService(db);
+        var session = await service.CreateFromPicklistAsync(picklist, "Pickup-1");
+        return (service, session.Id, older, olderLine, newerLine, stock);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Complete)]
+    public async Task ScanInSession_SkipsAMemberOrderThatIsNoLongerOpen(OrderStatus status)
+    {
+        // The older order is filled first, so on the old code a cancelled (or
+        // force-completed) member took the unit and the stock.
+        using var db = CreateDb();
+        var (service, sessionId, older, olderLine, newerLine, stock) = await SeedTwoOrderSessionAsync(db, "PLB-cccccccc");
+        older.Status = status;
+        await db.SaveChangesAsync();
+
+        var result = await service.ScanInSessionAsync(sessionId, "BC-S1");
+
+        result.Result.Should().Be(ScanSessionResult.Accepted);
+        (await db.OrderLines.FindAsync(olderLine.Id))!.QtyFulfilled.Should().Be(0);
+        (await db.OrderLines.FindAsync(newerLine.Id))!.QtyFulfilled.Should().Be(1);
+        (await db.Inventories.FindAsync(stock.Id))!.OnHandQty.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task ScanInSession_RemainingTotal_LeavesOutCancelledMembers()
+    {
+        using var db = CreateDb();
+        var (service, sessionId, older, _, _, _) = await SeedTwoOrderSessionAsync(db, "PLB-dddddddd");
+        older.Status = OrderStatus.Cancelled;
+        await db.SaveChangesAsync();
+
+        var result = await service.ScanInSessionAsync(sessionId, "BC-S1");
+
+        // Only the newer order's one unit was ever pickable, and it is now scanned.
+        result.Session!.RemainingTotal.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ScanInSession_ARepeatedScanId_IsNotAppliedTwice()
+    {
+        using var db = CreateDb();
+        var (service, sessionId, _, olderLine, newerLine, stock) = await SeedTwoOrderSessionAsync(db, "PLB-eeeeeeee");
+
+        var first = await service.ScanInSessionAsync(sessionId, "BC-S1", 1, "scan-1");
+        var retry = await service.ScanInSessionAsync(sessionId, "BC-S1", 1, "scan-1");
+
+        first.Result.Should().Be(ScanSessionResult.Accepted);
+        retry.Result.Should().Be(ScanSessionResult.Accepted);
+        (await db.OrderLines.FindAsync(olderLine.Id))!.QtyFulfilled.Should().Be(1);
+        (await db.OrderLines.FindAsync(newerLine.Id))!.QtyFulfilled.Should().Be(0);
+        (await db.Inventories.FindAsync(stock.Id))!.OnHandQty.Should().Be(4);
+        retry.Session!.RemainingTotal.Should().Be(1);
+
+        // A new scan id is a new physical scan.
+        await service.ScanInSessionAsync(sessionId, "BC-S1", 1, "scan-2");
+        (await db.OrderLines.FindAsync(newerLine.Id))!.QtyFulfilled.Should().Be(1);
+    }
+
     [Fact]
     public async Task Expand_GatedOff_ThrowsInvalidOperation()
     {

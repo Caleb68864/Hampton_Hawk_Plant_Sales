@@ -28,6 +28,8 @@ export interface ScanInSessionRequest {
    * (oldest order, then oldest line first).
    */
   quantity?: number;
+  /** Retry-stable id for this physical scan; a repeat is not applied twice. */
+  scanId?: string;
 }
 
 export interface ScanSessionAggregatedLine {
