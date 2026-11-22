@@ -548,6 +548,63 @@ public class ReportServiceTests
         line.UnitPrice.Should().Be(7.25m);
     }
 
+    private static async Task<(Customer Customer, Seller Seller, PlantCatalog Plant)> SaleThenSoftDeleteAsync(
+        AppDbContext db, bool deleteCustomer, bool deleteSeller, bool deletePlant)
+    {
+        var customer = TestDataBuilder.CreateCustomer("Gone Customer");
+        var seller = new Seller { DisplayName = "Gone Seller" };
+        var plant = TestDataBuilder.CreatePlant(sku: "GONE", barcode: "BC-GONE");
+        plant.Price = 4m;
+        db.Customers.Add(customer);
+        db.Sellers.Add(seller);
+        db.PlantCatalogs.Add(plant);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete);
+        order.SellerId = seller.Id;
+        order.PaymentMethod = "Cash";
+        db.Orders.Add(order);
+        db.OrderLines.Add(TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 3, qtyFulfilled: 3));
+        await db.SaveChangesAsync();
+        var now = DateTimeOffset.UtcNow;
+        if (deleteCustomer) customer.DeletedAt = now;
+        if (deleteSeller) seller.DeletedAt = now;
+        if (deletePlant) plant.DeletedAt = now;
+        await db.SaveChangesAsync();
+        return (customer, seller, plant);
+    }
+
+    [Fact]
+    public async Task PerEntityReports_KeepTheSalesOfASoftDeletedCustomerAndSeller()
+    {
+        // Deleting a record dropped its orders from the per-entity reports while
+        // the totals kept them, so the two stopped adding up.
+        using var db = MockDbContextFactory.Create();
+        var (customer, seller, _) = await SaleThenSoftDeleteAsync(db, true, true, false);
+        var service = new ReportService(db);
+
+        var byCustomer = (await service.GetSalesByCustomerAsync()).Single(r => r.CustomerId == customer.Id);
+        byCustomer.RevenueOrdered.Should().Be(12m);
+        byCustomer.CustomerDisplayName.Should().Be("Gone Customer (deleted)");
+
+        var bySeller = (await service.GetSalesBySellerAsync()).Single(r => r.SellerId == seller.Id);
+        bySeller.RevenueFulfilled.Should().Be(12m);
+        bySeller.SellerDisplayName.Should().Be("Gone Seller (deleted)");
+
+        var cash = (await service.GetPaymentBreakdownAsync(null, null)).Methods.Single(m => m.Method == "Cash");
+        cash.Revenue.Should().Be(12m, "the totals and the per-entity rows agree");
+    }
+
+    [Fact]
+    public async Task PerEntityReports_LeaveOutADeletedRecordWithNoSales()
+    {
+        using var db = MockDbContextFactory.Create();
+        var idle = TestDataBuilder.CreateCustomer("Idle");
+        idle.DeletedAt = DateTimeOffset.UtcNow;
+        db.Customers.Add(idle);
+        await db.SaveChangesAsync();
+
+        (await new ReportService(db).GetSalesByCustomerAsync()).Should().NotContain(r => r.CustomerId == idle.Id);
+    }
+
     // ── SS-02 (Wave 2): Payment breakdown ──
 
     [Fact]

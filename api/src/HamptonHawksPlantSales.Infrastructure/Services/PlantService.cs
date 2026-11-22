@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Core.Enums;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -140,6 +141,14 @@ public class PlantService : IPlantService
     {
         var plant = await _db.PlantCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.DeletedAt == null);
         if (plant == null) return false;
+
+        // A deleted plant cannot be scanned (open orders for it would be stuck) and
+        // its lines drop out of the revenue figures. A plant that is on any order
+        // is retired instead: mark it inactive.
+        var onOrders = await _db.OrderLines.AnyAsync(l => l.PlantCatalogId == id && l.DeletedAt == null
+            && l.Order.Status != OrderStatus.Cancelled);
+        if (onOrders)
+            throw new ValidationException("This plant is on orders, so it cannot be deleted. Mark it inactive instead.");
 
         plant.DeletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();

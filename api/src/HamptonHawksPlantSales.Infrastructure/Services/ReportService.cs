@@ -149,7 +149,7 @@ public class ReportService : IReportService
 
     public async Task<List<SalesBySellerRow>> GetSalesBySellerAsync()
     {
-        return await _db.Sellers
+        var rows = await _db.Sellers
             .OrderBy(s => s.DisplayName)
             .Select(s => new SalesBySellerRow
             {
@@ -170,11 +170,60 @@ public class ReportService : IReportService
                     .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.UnitPrice ?? ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
+
+        // A soft-deleted seller's orders still count in the totals; list them too
+        // (marked) so the per-seller rows add up to the totals.
+        var deleted = await _db.Sellers.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => x.DeletedAt != null)
+            .Select(x => new { x.Id, x.DisplayName })
+            .ToListAsync();
+        if (deleted.Count > 0)
+        {
+            var sums = await DeletedPartySumsAsync(deleted.Select(d => d.Id).ToList(), forSeller: true);
+            rows.AddRange(deleted.Where(d => sums.ContainsKey(d.Id)).Select(d => new SalesBySellerRow
+            {
+                SellerId = d.Id,
+                SellerDisplayName = $"{d.DisplayName} (deleted)",
+                OrderCount = sums[d.Id].Orders,
+                ItemsOrdered = sums[d.Id].Ordered,
+                ItemsFulfilled = sums[d.Id].Fulfilled,
+                RevenueOrdered = sums[d.Id].RevenueOrdered,
+                RevenueFulfilled = sums[d.Id].RevenueFulfilled
+            }));
+        }
+        return rows;
+    }
+
+    private sealed record PartySums(int Orders, int Ordered, int Fulfilled, decimal RevenueOrdered, decimal RevenueFulfilled);
+
+    /// <summary>Counted sales (not Draft, not Cancelled) of the given customers or sellers.</summary>
+    private async Task<Dictionary<Guid, PartySums>> DeletedPartySumsAsync(List<Guid> ids, bool forSeller)
+    {
+        var lines = await _db.OrderLines.AsNoTracking()
+            .Where(ol => ol.Order.Status != OrderStatus.Draft && ol.Order.Status != OrderStatus.Cancelled
+                         && (forSeller
+                             ? ol.Order.SellerId != null && ids.Contains(ol.Order.SellerId.Value)
+                             : ol.Order.CustomerId != null && ids.Contains(ol.Order.CustomerId.Value)))
+            .Select(ol => new
+            {
+                Key = forSeller ? ol.Order.SellerId!.Value : ol.Order.CustomerId!.Value,
+                ol.OrderId,
+                ol.QtyOrdered,
+                ol.QtyFulfilled,
+                Price = ol.UnitPrice ?? ol.PlantCatalog.Price ?? 0m
+            })
+            .ToListAsync();
+        return lines.GroupBy(l => l.Key).ToDictionary(g => g.Key, g => new PartySums(
+            g.Select(l => l.OrderId).Distinct().Count(),
+            g.Sum(l => l.QtyOrdered),
+            g.Sum(l => l.QtyFulfilled),
+            g.Sum(l => l.QtyOrdered * l.Price),
+            g.Sum(l => l.QtyFulfilled * l.Price)));
     }
 
     public async Task<List<SalesByCustomerRow>> GetSalesByCustomerAsync()
     {
-        return await _db.Customers
+        var rows = await _db.Customers
             .OrderBy(c => c.DisplayName)
             .Select(c => new SalesByCustomerRow
             {
@@ -195,6 +244,28 @@ public class ReportService : IReportService
                     .Sum(ol => (decimal?)(ol.QtyFulfilled * (ol.UnitPrice ?? ol.PlantCatalog.Price ?? 0m))) ?? 0m
             })
             .ToListAsync();
+
+        // As for sellers: a soft-deleted customer's sales stay in the totals, so
+        // they stay in this report too, marked.
+        var deleted = await _db.Customers.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => x.DeletedAt != null)
+            .Select(x => new { x.Id, x.DisplayName })
+            .ToListAsync();
+        if (deleted.Count > 0)
+        {
+            var sums = await DeletedPartySumsAsync(deleted.Select(d => d.Id).ToList(), forSeller: false);
+            rows.AddRange(deleted.Where(d => sums.ContainsKey(d.Id)).Select(d => new SalesByCustomerRow
+            {
+                CustomerId = d.Id,
+                CustomerDisplayName = $"{d.DisplayName} (deleted)",
+                OrderCount = sums[d.Id].Orders,
+                ItemsOrdered = sums[d.Id].Ordered,
+                ItemsFulfilled = sums[d.Id].Fulfilled,
+                RevenueOrdered = sums[d.Id].RevenueOrdered,
+                RevenueFulfilled = sums[d.Id].RevenueFulfilled
+            }));
+        }
+        return rows;
     }
 
     public async Task<List<SalesByPlantRow>> GetSalesByPlantAsync()

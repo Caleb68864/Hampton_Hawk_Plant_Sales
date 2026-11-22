@@ -373,6 +373,28 @@ public class PlantServiceTests
     // ── EP-27: Update Plant ────────────────────────────────────────────
 
     [Fact]
+    public async Task DeleteAsync_APlantOnOrders_IsRefused_AndOneOnNoOrdersIsDeleted()
+    {
+        // A deleted plant cannot be scanned and its old lines lost their revenue
+        // (the price comes through the filtered plant), so retire it instead.
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        var used = TestDataBuilder.CreatePlant(sku: "USED", barcode: "BC-USED");
+        var unused = TestDataBuilder.CreatePlant(sku: "UNUSED", barcode: "BC-UNUSED");
+        db.Customers.Add(customer);
+        db.PlantCatalogs.AddRange(used, unused);
+        var order = TestDataBuilder.CreateOrder(customer.Id, HamptonHawksPlantSales.Core.Enums.OrderStatus.Open);
+        db.Orders.Add(order);
+        db.OrderLines.Add(TestDataBuilder.CreateOrderLine(order.Id, used.Id, qtyOrdered: 1));
+        await db.SaveChangesAsync();
+        var service = new PlantService(db);
+
+        var act = () => service.DeleteAsync(used.Id);
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*inactive*");
+        (await service.DeleteAsync(unused.Id)).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateAsync_ALockedBarcode_CannotChangeWithoutTheAdminRoute()
     {
         // BarcodeLockedAt was set by the first scan and then ignored: an edit could
