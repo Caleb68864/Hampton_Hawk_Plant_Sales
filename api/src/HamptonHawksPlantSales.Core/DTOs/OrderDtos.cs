@@ -65,6 +65,8 @@ public class OrderLineResponse
     public int QtyFulfilled { get; set; }
     public string? Notes { get; set; }
     public string? LastScanIdempotencyKey { get; set; }
+    /// <summary>Price the line was sold at; null on lines from before it was recorded.</summary>
+    public decimal? UnitPrice { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

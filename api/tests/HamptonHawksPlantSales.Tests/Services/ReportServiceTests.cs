@@ -474,6 +474,80 @@ public class ReportServiceTests
         (await service.GetLiveSaleKpiAsync(null, now)).TotalOrdersToday.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Revenue_UsesThePriceTheLineWasSoldAt_NotTheCurrentPrice()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("Price Change Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "PC", barcode: "BC-PC");
+        plant.Price = 5m;
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Complete, isWalkUp: true);
+        order.PaymentMethod = "Cash";
+        db.Orders.Add(order);
+        db.OrderLines.Add(TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 10, qtyFulfilled: 10));
+        await db.SaveChangesAsync();
+
+        // An admin raises the price after the sale ($50 is in the drawer).
+        plant.Price = 6m;
+        await db.SaveChangesAsync();
+
+        var service = new ReportService(db);
+        (await service.GetSalesByPlantAsync()).Single(r => r.PlantCatalogId == plant.Id).RevenueFulfilled.Should().Be(50m);
+        (await service.GetSalesByCustomerAsync()).Single(r => r.CustomerId == customer.Id).RevenueOrdered.Should().Be(50m);
+        (await service.GetPaymentBreakdownAsync(null, null)).Methods.Single(m => m.Method == "Cash").Revenue.Should().Be(50m);
+        (await service.GetDailySalesAsync(null, null)).Days.Single().Revenue.Should().Be(50m);
+    }
+
+    [Fact]
+    public async Task Revenue_ForALineFromBeforePricesWereRecorded_FallsBackToTheCatalogPrice()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("Old Line Customer");
+        var plant = TestDataBuilder.CreatePlant(sku: "OLDP", barcode: "BC-OLDP");
+        plant.Price = 4m;
+        db.Customers.Add(customer);
+        db.PlantCatalogs.Add(plant);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        db.Orders.Add(order);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, plant.Id, qtyOrdered: 3);
+        db.OrderLines.Add(line);
+        await db.SaveChangesAsync();
+        line.UnitPrice = null; // as the migration leaves existing rows
+        await db.SaveChangesAsync();
+
+        (await new ReportService(db).GetSalesByPlantAsync()).Single(r => r.PlantCatalogId == plant.Id).RevenueOrdered.Should().Be(12m);
+    }
+
+    [Fact]
+    public async Task LinePrice_IsStampedOnCreate_AndAgainWhenTheLineMovesPlant()
+    {
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("Stamp Customer");
+        var a = TestDataBuilder.CreatePlant(sku: "STA", barcode: "BC-STA");
+        a.Price = 3m;
+        var b = TestDataBuilder.CreatePlant(sku: "STB", barcode: "BC-STB");
+        b.Price = 7.25m;
+        db.Customers.Add(customer);
+        db.PlantCatalogs.AddRange(a, b);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        db.Orders.Add(order);
+        var line = TestDataBuilder.CreateOrderLine(order.Id, a.Id, qtyOrdered: 1);
+        db.OrderLines.Add(line);
+        await db.SaveChangesAsync();
+        line.UnitPrice.Should().Be(3m);
+
+        a.Price = 9m; // a price change alone does not touch existing lines
+        line.Notes = "edited";
+        await db.SaveChangesAsync();
+        line.UnitPrice.Should().Be(3m);
+
+        line.PlantCatalogId = b.Id;
+        await db.SaveChangesAsync();
+        line.UnitPrice.Should().Be(7.25m);
+    }
+
     // ── SS-02 (Wave 2): Payment breakdown ──
 
     [Fact]

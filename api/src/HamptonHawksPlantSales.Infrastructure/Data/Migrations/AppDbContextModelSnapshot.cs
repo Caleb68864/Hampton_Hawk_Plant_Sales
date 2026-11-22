@@ -516,6 +516,9 @@ namespace HamptonHawksPlantSales.Infrastructure.Data.Migrations
                     b.Property<int>("QtyOrdered")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("UnitPrice")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 

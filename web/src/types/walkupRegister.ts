@@ -30,6 +30,8 @@ export interface DraftOrderLine {
   qtyFulfilled: number;
   notes: string | null;
   lastScanIdempotencyKey: string | null;
+  /** Price this line was sold at (recorded by the server); absent on older lines. */
+  unitPrice?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,7 +95,9 @@ export interface CloseDraftRequest {
  * Compute the line subtotal using a price lookup. Returns 0 when price unknown.
  */
 export function lineSubtotal(line: DraftOrderLine, prices: PlantPriceMap): number {
-  const price = prices[line.plantCatalogId];
+  // The line's recorded sale price, so the register charges what the reports
+  // will count; the catalog price only for lines from before it was recorded.
+  const price = line.unitPrice ?? prices[line.plantCatalogId];
   if (price == null) return 0;
   return price * Math.max(line.qtyOrdered, 0);
 }
@@ -113,7 +117,7 @@ export function grandTotal(draft: DraftOrder | null, prices: PlantPriceMap): num
  */
 export function unpricedLineCount(draft: DraftOrder | null, prices: PlantPriceMap): number {
   if (!draft) return 0;
-  return draft.lines.filter((line) => prices[line.plantCatalogId] == null).length;
+  return draft.lines.filter((line) => line.unitPrice == null && prices[line.plantCatalogId] == null).length;
 }
 
 /**

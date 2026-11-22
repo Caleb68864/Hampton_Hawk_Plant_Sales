@@ -593,6 +593,7 @@ public class OrderService : IOrderService
         QtyFulfilled = l.QtyFulfilled,
         Notes = l.Notes,
         LastScanIdempotencyKey = l.LastScanIdempotencyKey,
+        UnitPrice = l.UnitPrice,
         CreatedAt = l.CreatedAt,
         UpdatedAt = l.UpdatedAt
     };
