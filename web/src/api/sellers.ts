@@ -1,4 +1,5 @@
-import { get, post, put, del } from './client.js';
+import { buildAdminHeaders } from './adminHeaders.js';
+import { delWithHeaders, get, post, put } from './client.js';
 import type { Seller, CreateSellerRequest } from '@/types/seller.js';
 import type { PagedResult, PaginationParams } from '@/types/api.js';
 
@@ -12,5 +13,6 @@ export const sellersApi = {
 
   update: (id: string, data: CreateSellerRequest) => put<Seller>(`/sellers/${id}`, data),
 
-  delete: (id: string) => del(`/sellers/${id}`),
+  delete: (id: string, adminPin: string, adminReason: string) =>
+    delWithHeaders(`/sellers/${id}`, buildAdminHeaders(adminPin, adminReason)),
 };

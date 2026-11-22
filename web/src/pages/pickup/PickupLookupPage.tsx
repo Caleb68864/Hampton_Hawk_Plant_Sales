@@ -9,7 +9,6 @@ import { StatusChip } from '@/components/shared/StatusChip.js';
 import { BackToStationHomeButton } from '@/components/shared/BackToStationHomeButton.js';
 import { SectionHeading } from '@/components/shared/SectionHeading.js';
 import { TouchButton } from '@/components/shared/TouchButton.js';
-import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
 import { scanSessionsApi } from '@/api/scanSessions.js';
 import { useAppStore } from '@/stores/appStore.js';
@@ -22,43 +21,12 @@ import {
   looksLikeStudentPicklist,
   normalizeOrderLookupValue,
 } from '@/utils/orderLookup.js';
-import type { Customer } from '@/types/customer.js';
 import type { Order } from '@/types/order.js';
+import { groupOrdersByCustomer, type CustomerWithOrders } from '@/utils/pickupLookup.js';
 import type { ScanSessionResponse } from '@/types/scanSession.js';
 
-interface CustomerWithOrders {
-  customer: Customer;
-  orders: Order[];
-}
-
-// The lookup still issues one orders request per matching customer (a single
-// grouped search needs a product check on the matching rules -- see
-// docs/ROADMAP.md). Cap how many run at once so a broad search cannot open ~50
-// sockets against the API from one kiosk.
-const PER_CUSTOMER_ORDER_CONCURRENCY = 4;
-
-// Runs `fn` over `items` with at most `limit` in flight, preserving order.
-// Once `isCancelled()` is true no further item is started; items not started
-// are left out of the result (the caller discards a cancelled result anyway).
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  isCancelled: () => boolean,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  const done: boolean[] = new Array(items.length).fill(false);
-  let next = 0;
-  async function worker() {
-    while (next < items.length && !isCancelled()) {
-      const index = next++;
-      results[index] = await fn(items[index]);
-      done[index] = true;
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
-  return results.filter((_, i) => done[i]);
-}
+const ORDER_PAGE_SIZE = 200; // the API's maximum
+const MAX_AZ_PAGES = 10;
 
 const NO_MATCH_MESSAGE = 'What happened: No order found for scanned barcode/order number.\nWhat to do next: Clear the field, rescan the sheet, or type the order number again.';
 
@@ -71,6 +39,8 @@ export function PickupLookupPage() {
   const [azFilter, setAzFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<CustomerWithOrders[]>([]);
+  // The search matched more orders than one page holds.
+  const [truncated, setTruncated] = useState(false);
   const [exactOrderMatches, setExactOrderMatches] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,78 +131,35 @@ export function PickupLookupPage() {
       setError(null);
 
       try {
-        const params: Record<string, unknown> = { pageSize: 50 };
+        // One orders search, grouped by customer here (groupOrdersByCustomer).
+        // It used to be a customer search and then one orders request per
+        // matching customer -- up to ~50 per settled search.
         const trimmedSearch = search.trim();
-        if (trimmedSearch) {
-          params.search = trimmedSearch;
-        }
-        if (azFilter) {
-          params.sortBy = 'lastName';
-        }
-
-        const customerResult = await customersApi.list(params);
-        let customers = customerResult.items;
-
-        if (azFilter) {
-          if (azFilter === '#') {
-            customers = customers.filter((c) => c.lastName && !/^[A-Za-z]/.test(c.lastName));
-          } else {
-            customers = customers.filter((c) => c.lastName && c.lastName.toUpperCase().startsWith(azFilter));
-          }
-        }
-
-        // A newer search (or unmount) supersedes this one: stop before the
-        // per-customer fan-out instead of firing up to 50 requests whose
-        // results will be thrown away.
-        if (cancelled) return;
-
-        const withOrders: CustomerWithOrders[] = await mapWithConcurrency(
-          customers,
-          PER_CUSTOMER_ORDER_CONCURRENCY,
-          () => cancelled,
-          async (customer) => {
-            try {
-              const orderResult = await ordersApi.list({
-                customerId: customer.id,
-                pageSize: 50,
-              });
-              return { customer, orders: orderResult.items };
-            } catch {
-              return { customer, orders: [] };
-            }
-          },
-        );
-        if (cancelled) return;
-
         let directOrderMatches: Order[] = [];
-        if (trimmedSearch.length >= 2) {
-          try {
-            const orderResult = await ordersApi.list({ search: trimmedSearch, pageSize: 50 });
-            directOrderMatches = orderResult.items;
-
-            for (const order of orderResult.items) {
-              if (cancelled) return;
-              const existingCustomer = withOrders.find((row) => row.customer.id === order.customerId);
-              if (existingCustomer) {
-                if (!existingCustomer.orders.some((existingOrder) => existingOrder.id === order.id)) {
-                  existingCustomer.orders.push(order);
-                }
-                continue;
-              }
-
-              // Walk-up register sales have no customer record to look up.
-              if (!order.customerId) continue;
-              try {
-                const customer = await customersApi.getById(order.customerId);
-                withOrders.push({ customer, orders: [order] });
-              } catch {
-                // Ignore customer fetch failures so the lookup table can still render other rows.
-              }
-            }
-          } catch {
-            // Direct order search is a convenience only; customer-based results may still render.
+        let orders: Order[];
+        if (trimmedSearch) {
+          const orderResult = await ordersApi.list({ search: trimmedSearch, pageSize: ORDER_PAGE_SIZE });
+          orders = orderResult.items;
+          directOrderMatches = orderResult.items;
+          setTruncated(orderResult.totalCount > orderResult.items.length);
+        } else if (azFilter) {
+          // The A-Z tab needs every order to group by last name; page through
+          // them (a few requests for a whole sale), not one per customer.
+          orders = [];
+          for (let page = 1; page <= MAX_AZ_PAGES; page++) {
+            const orderResult = await ordersApi.list({ page, pageSize: ORDER_PAGE_SIZE, sortBy: 'customer', sortDir: 'asc' });
+            if (cancelled) return;
+            orders.push(...orderResult.items);
+            if (orders.length >= orderResult.totalCount || orderResult.items.length === 0) break;
           }
+          setTruncated(false);
+        } else {
+          const orderResult = await ordersApi.list({ pageSize: ORDER_PAGE_SIZE, sortBy: 'customer', sortDir: 'asc' });
+          orders = orderResult.items;
+          setTruncated(false);
         }
+        if (cancelled) return;
+        const withOrders = groupOrdersByCustomer(orders, trimmedSearch ? null : azFilter);
 
         const nextExactMatches = orderLookupActive
           ? findExactOrderNumberMatches(normalizedSearch, directOrderMatches)
@@ -459,6 +386,11 @@ export function PickupLookupPage() {
         />
       ) : (
         <div className="overflow-x-auto">
+          {truncated && (
+            <p role="status" className="px-4 py-2 text-sm text-amber-800">
+              Showing the first {ORDER_PAGE_SIZE} matching orders. Type more of the name, phone or code to narrow it down.
+            </p>
+          )}
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

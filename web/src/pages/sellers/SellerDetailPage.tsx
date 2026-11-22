@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { sellersApi } from '@/api/sellers.js';
 import { ordersApi } from '@/api/orders.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
@@ -16,6 +17,7 @@ import type { Order } from '@/types/order.js';
 export function SellerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const openPinModal = useAuthStore((st) => st.openPinModal);
   const isNew = id === 'new';
 
   const [seller, setSeller] = useState<Seller | null>(null);
@@ -90,9 +92,16 @@ export function SellerDetailPage() {
 
   async function handleDelete() {
     setShowDelete(false);
+    // Deleting needs the admin PIN and a reason, as the bulk deletes do.
+    const auth = await openPinModal({
+      title: 'Delete seller',
+      description: 'An admin must approve deleting this seller.',
+      reasonLabel: 'Delete reason',
+    });
+    if (!auth) return;
     setSaving(true);
     try {
-      await sellersApi.delete(id!);
+      await sellersApi.delete(id!, auth.pin, auth.reason);
       navigate('/sellers', { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete seller');

@@ -62,6 +62,8 @@ export interface FulfillmentEvent {
    * attribution landed or without a signed-in user.
    */
   userId: string | null;
+  /** That account's username, when it can be resolved. */
+  userName?: string | null;
   /** Write path that produced the event, set by the server. Null on older rows. */
   source: FulfillmentEventSource | null;
   createdAt: string;

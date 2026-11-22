@@ -62,8 +62,16 @@ public class ExceptionHandlerMiddleware
             _ => (int)HttpStatusCode.InternalServerError
         };
 
+        // A 500's own text (stack-adjacent detail: SQL, type names, file paths) is
+        // logged, not sent: the client gets a reference to find it by. 4xx messages
+        // are written for volunteers and still go out as they are.
+        string? serverErrorMessage = null;
         if (statusCode == (int)HttpStatusCode.InternalServerError)
-            _logger.LogError(exception, "Unhandled exception");
+        {
+            var reference = context.TraceIdentifier;
+            _logger.LogError(exception, "Unhandled exception (reference {Reference})", reference);
+            serverErrorMessage = $"Unexpected server error (reference {reference}). Try again; if it keeps happening, give this reference to an admin.";
+        }
         else
             _logger.LogWarning("{ExceptionType} mapped to {StatusCode} for {Method} {Path}: {Message}",
                 exception.GetType().Name, statusCode, context.Request.Method, context.Request.Path, exception.Message);
@@ -71,7 +79,7 @@ public class ExceptionHandlerMiddleware
         var response = new ApiResponse<object>
         {
             Success = false,
-            Errors = new List<string> { dbMessage ?? exception.Message }
+            Errors = new List<string> { serverErrorMessage ?? dbMessage ?? exception.Message }
         };
 
         context.Response.ContentType = "application/json";

@@ -67,6 +67,8 @@ public class FulfillmentEventResponse
     public FulfillmentResult Result { get; set; }
     public string? Message { get; set; }
     public Guid? UserId { get; set; }
+    /// <summary>Username of <see cref="UserId"/> (a station login on sale day), if it still exists.</summary>
+    public string? UserName { get; set; }
     public FulfillmentEventSource? Source { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

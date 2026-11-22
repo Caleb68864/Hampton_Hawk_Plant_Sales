@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Core.Enums;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -101,10 +102,20 @@ public class PlantService : IPlantService
         return MapToResponse(plant);
     }
 
-    public async Task<PlantResponse> UpdateAsync(Guid id, UpdatePlantRequest request)
+    public async Task<PlantResponse> UpdateAsync(Guid id, UpdatePlantRequest request, bool allowLockedBarcodeChange = false)
     {
         var plant = await _db.PlantCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.DeletedAt == null)
             ?? throw new KeyNotFoundException("Plant not found.");
+
+        // BarcodeLockedAt is set by the first scan: its labels are printed and on
+        // plants. Changing the barcode then makes every one of them unscannable, so
+        // it needs the admin PIN (PUT /api/plants/{id}/locked-barcode).
+        if (plant.BarcodeLockedAt != null && !allowLockedBarcodeChange
+            && !string.Equals(plant.Barcode, request.Barcode?.Trim(), StringComparison.Ordinal))
+        {
+            throw new ValidationException(
+                "This plant has already been scanned, so its printed labels are in use. Changing its barcode needs the admin PIN.");
+        }
 
         var existingSku = await _db.PlantCatalogs.AnyAsync(p => p.Sku == request.Sku && p.Id != id && p.DeletedAt == null);
         if (existingSku)
@@ -130,6 +141,14 @@ public class PlantService : IPlantService
     {
         var plant = await _db.PlantCatalogs.FirstOrDefaultAsync(p => p.Id == id && p.DeletedAt == null);
         if (plant == null) return false;
+
+        // A deleted plant cannot be scanned (open orders for it would be stuck) and
+        // its lines drop out of the revenue figures. A plant that is on any order
+        // is retired instead: mark it inactive.
+        var onOrders = await _db.OrderLines.AnyAsync(l => l.PlantCatalogId == id && l.DeletedAt == null
+            && l.Order.Status != OrderStatus.Cancelled);
+        if (onOrders)
+            throw new ValidationException("This plant is on orders, so it cannot be deleted. Mark it inactive instead.");
 
         plant.DeletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();

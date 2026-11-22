@@ -5,7 +5,7 @@ Single list of open and done follow-ups. Sources: `docs/improve/2026-08-16-sweep
 `docs/mobile-sale-day-readiness/`, `docs/findings/`. Keep this file current when an
 item is started, finished, or dropped. Ordered by sale-day impact.
 
-Last updated: 2026-11-21 (branch `fix/audit-tail-and-sale-price`).
+Last updated: 2026-11-22 (branch `feat/pickup-search-and-policy`).
 
 ## Open
 
@@ -15,65 +15,32 @@ Last updated: 2026-11-21 (branch `fix/audit-tail-and-sale-price`).
 
 ### Sale-day impact: medium
 
-- **Pickup lookup still issues one orders request per matching customer**
-  (`web/src/pages/pickup/PickupLookupPage.tsx`). Partly fixed in dc2e9f6: the input was
-  already debounced (`SearchBar`, `pickupSearchDebounceMs`), so the cost was per
-  settled search, not per keystroke. Superseded searches now stop fanning out, and at
-  most 4 per-customer requests run at once. The remaining fix is one
-  `ordersApi.list({search})` grouped client-side, which needs a product check on the
-  phone/name/pickup-code matching rules first.
 - **Login limiter 10/min and PIN lockout 30 failures/min, per client IP**
   (`api/src/HamptonHawksPlantSales.Api/Configuration/RateLimitPolicies.cs`,
   `Filters/AdminPinActionFilter.cs`). Since PR #77 the IP is the real client behind the
   proxy. Confirm before sale day that venue devices do not share one IP (e.g. a
   hotspot NAT between them and the server).
 
-As of 2026-11-21 both items above wait on the owner (the matching-rule product
-check; the venue network), as does everything below. `CLAUDE.md`'s CI paragraph
-still names only `sale-day.spec.ts` and "5 logins"; it should also mention
-`route-crawl.spec.ts` (6 logins), left for the owner since it is the agent
-instruction file.
+As of 2026-11-22 the item above is the only open one: it needs the real venue
+network, so it stays open. `CLAUDE.md`'s CI paragraph still names only
+`sale-day.spec.ts` and "5 logins"; the compose job now runs `imports-reports`,
+`route-crawl` and `sale-day` (7 logins in the specs, 9 with the job's own steps).
+Left for the owner, since it is the agent instruction file.
 
 ### Found by the 2026-11-21 audit, not yet fixed
 
+- None open (all fixed, see Done).
 
 ### Product / policy calls
 
-- Fulfillment event attribution: open questions left after `UserId`/`Source` landed.
-  (1) Input method (camera vs. keyboard-wedge vs. typed SKU) would have to come from
-  the client, and every scan page would need to send it; worth it only if the audit
-  needs it, and it is client-asserted, not proof. (2) Sale-day accounts are per
-  station, so `UserId` names the station login, not the volunteer; per-person
-  attribution needs per-person logins or a "who is scanning" prompt. (3) Walk-up
-  register sales (`WalkUpRegisterScans`), `InventoryAdjustments` and `AdminActions`
-  carry no user either; extend the same `ICurrentUser` to them? (4) Show user/source
-  in the order history UI (`FulfillmentEventResponse` returns them and the web
-  `FulfillmentEvent` type declares them since `test/lock-order-gaps`; nothing renders
-  them yet).
-
-- Customer/seller mutation is open to every LookupCapable role; single deletes need no
-  PIN while bulk deletes do.
-- Order status hygiene: `UpdateAsync`/`BulkSetStatus` accept any target status incl.
-  Draft; `ResetOrderAsync` only flips Complete->InProgress; `BarcodeLockedAt` unenforced
-  in `PlantService.UpdateAsync`.
-- `ExceptionHandlerMiddleware` echoes raw exception text on 500s (kept for
-  `errorMessaging.ts` volunteer guidance).
-- `live-sale-kpi` is `[AllowAnonymous]` (projector) and publishes totals.
-- Import history / issue lists capped at 100 / 200 with no paging; imports buffer the
-  whole upload.
-- Soft-deleting a customer/seller/plant drops its orders from per-entity reports but not
-  from totals.
-
-### Cosmetic
-
-- REQ-021 demo page role gate is Admin-only vs spec's Pickup+Admin
-  (`docs/findings/verification-2026-05-12-camera-scanner-foundation.md`); accept or change.
+- None open: each call above has been taken under the agent decision rule and is
+  recorded in the Done table as "Decided by agent".
 
 ### Environment notes (not code)
 
 - This machine has only .NET 10 runtimes; the net9.0 test hosts need
   `DOTNET_ROLL_FORWARD=Major dotnet test ...` to run here.
-- Postgres tests run locally as of 2026-11-16 (`HH_POSTGRES_TESTS=1`, Docker reachable): 29 passed, 0 skipped.
+- Postgres tests run locally as of 2026-11-22 (`HH_POSTGRES_TESTS=1`, Docker reachable): 41 passed, 0 skipped.
   CI's `api-postgres` job still runs them on every push.
 - No stale git worktrees for this repo were found on 2026-11-09 (`git worktree list`
   shows only the main checkout).
@@ -82,6 +49,15 @@ instruction file.
 
 | item | where | commit |
 |---|---|---|
+| Fulfillment attribution follow-ups. **Decided by agent 2026-11-22 (owner may revisit):** (1) input method (camera / wedge / typed) is not recorded: it would be client-asserted, not proof, and nothing in the audit needs it. (2) Attribution stays per station login; no per-person logins or "who is scanning" prompt (sale-day friction). (3) Register scans, inventory adjustments, admin actions and import batches now carry `UserId` too: new `IUserAttributed`, stamped by `AppDbContext` on insert from `ICurrentUser` when the caller has not set it (nullable, no FK, migration `AddEventUserAttribution`, existing rows untouched). (4) The order page now shows a scan history (when, result, how, station login), with `GET .../events` returning the account's username. Unit tests: stamping (fails with it disabled), explicit/null user, the API's DI picking the context constructor that takes the user, username resolution; a component test for the history | `Core/Models/IUserAttributed.cs`, `AppDbContext`, `FulfillmentService.GetEventsAsync`, `components/orders/OrderScanHistory.tsx`, `OrderDetailPage` | `feat/pickup-search-and-policy` |
+| Soft-deleting a customer, seller or plant dropped its orders from the per-entity reports while the totals kept them. **Decided by agent 2026-11-22 (owner may revisit):** sales by customer and by seller now also list soft-deleted customers/sellers that have counted sales, marked "(deleted)", so the rows add up to the totals; ones with no sales stay hidden. Plants are different: a deleted plant cannot be scanned (open orders for it would be stuck), and the line's fallback price comes through the soft-delete filter, so its older lines read $0 in every report, totals included. So a plant on any non-cancelled order can no longer be deleted ("mark it inactive instead"); unused plants still delete. Not changed: plants already deleted before this keep reading $0 for lines from before `UnitPrice` was recorded (fixing that means a data change, left to the owner). Unit tests fail on the old code; a Postgres test reads a deleted customer's row | `ReportService.GetSalesByCustomerAsync` / `GetSalesBySellerAsync`, `PlantService.DeleteAsync`, `PostgresTests/SalePriceTests.cs` | `feat/pickup-search-and-policy` |
+| Import history and issue lists stopped at 100 batches / 200 issues with no way to see the rest; uploads had no server-side cap but Kestrel's 30 MB. **Decided by agent 2026-11-22 (owner may revisit):** history shows 50 at a time with "Load older imports"; an issue list loads every page (bounded by the file); the three import endpoints take at most 10 MB (`[RequestSizeLimit]`), the cap the Imports page already enforced, so a bigger request is a 413 before it is read. Imports still read the whole (capped) file, which the parsers need. Vitest for the page and the issue helper (fail on the old code), attribute test for the cap | `ImportsPage`, `web/src/api/imports.ts`, `ImportController` | `feat/pickup-search-and-policy` |
+| `live-sale-kpi` is anonymous (projector) and publishes sale totals. **Decided by agent 2026-11-22 (owner may revisit):** keep it anonymous by default, so the projector works as it does today, and add `Reports__LiveSaleKpiAnonymous` (README, API environment variables): `false` makes it require a signed-in browser. Controller tests: default and `true` allow anonymous, `false` refuses anonymous (401) and still serves a signed-in user; the refusal test fails with the setting ignored | `ReportsController.GetLiveSaleKpi`, `README.md` | `feat/pickup-search-and-policy` |
+| 500s echoed the raw exception text (SQL, type names, file paths) to the client. **Decided by agent 2026-11-22 (owner may revisit):** a 500 now sends "Unexpected server error (reference <trace id>)..." and logs the exception under that reference; 4xx messages, which are the ones written for volunteers and which `errorMessaging.ts` maps, still go out unchanged. `errorMessaging.ts` maps the reference message and the new 409 collision message to their guidance. The patterns that matched raw 500 text (deadlock, serialize access) now arrive as the 409 from the previous commit. Middleware test (fails with the old body), node tests (fail on the old patterns) | `ExceptionHandlerMiddleware`, `web/src/utils/errorMessaging.ts` | `feat/pickup-search-and-policy` |
+| Order status hygiene. **Decided by agent 2026-11-22 (owner may revisit):** (1) `UpdateAsync` and bulk status refuse Draft as a target (Draft is the register's open-sale state and hides an order from every list and report); every other status change stays allowed, as before. (2) Reset keeps its behaviour (Complete -> InProgress, fulfilled quantities and stock untouched, the non-destructive reading); its API doc, which said it cleared progress, now says what it does. (3) `BarcodeLockedAt` (set by a plant's first scan) is now enforced: a plain edit cannot change a scanned plant's barcode (its labels are on plants); the new `PUT /api/plants/{id}/locked-barcode` with the admin PIN can, and the plant page prompts for it. A plant import upsert keeps a locked barcode, updates the other fields and records a `BarcodeLocked` issue. Unit tests fail with each check disabled; page test fails on the old page | `OrderService`, `FulfillmentController` doc, `PlantService.UpdateAsync`, `PlantsController.UpdateLockedBarcode`, `PlantImportHandler`, `PlantDetailPage` | `feat/pickup-search-and-policy` |
+| Customer/seller deletes. **Decided by agent 2026-11-22 (owner may revisit):** single deletes now need the admin PIN and a reason, the same bar as the bulk deletes (a delete drops the record's orders out of lookups and per-entity reports). Creating and editing customers and sellers stays open to every LookupCapable role, so volunteers can still add a walk-in or fix a phone number. The detail pages prompt for the PIN; cancelling the prompt deletes nothing. Attribute test and page tests fail on the old code | `CustomersController.Delete`, `SellersController.Delete`, `web/src/api/customers.ts`, `sellers.ts`, `CustomerDetailPage`, `SellerDetailPage` | `feat/pickup-search-and-policy` |
+| REQ-021 scanner demo page role gate (Admin-only, spec said Pickup + Admin). **Decided by agent 2026-11-22 (owner may revisit):** keep Admin-only, the verification report's recommendation and the stricter option; `docs/sale-day/device-checklist.md` already tells volunteers a supervisor opens it. No code change | `web/src/routes/mobileRouteConfig.ts` | (decision only) |
+| Pickup lookup: one grouped search instead of a customer search plus one orders request per matching customer (up to ~50 per settled search). **Decided by agent 2026-11-22 (owner may revisit):** the matching rule is the union of both old searches, so nothing the volunteer could find before is lost: `GET /api/orders?search=` matches order number, order barcode, and the customer's display name, last name, phone and pickup code, each as a case-insensitive substring (phone as typed, as the customer search did); walk-up register sales with no customer are not listed, as before. The order search previously lacked last name and phone. The page groups the one response by customer (`utils/pickupLookup.ts`), sorted by name; the A-Z tab pages through all orders (at most 10 x 200) instead of per-customer calls; more than 200 matches shows "Showing the first 200". Exact order-number auto-jump is unchanged. API test (last name and phone fail on the old search), node tests for the grouping, page test (one request; fails on the old page) | `OrderService.GetAllAsync`, `PickupLookupPage`, `utils/pickupLookup.ts` | `feat/pickup-search-and-policy` |
 | Revenue used quantity x the current catalog price, so raising a price after the sale rewrote past revenue in every report and the live KPI (10 x $5 taken, $60 reported). **Decided by agent 2026-11-21 (owner may revisit):** record the price on the line, never rewrite history. New nullable `OrderLines.UnitPrice` (numeric(10,2), migration `AddOrderLineUnitPrice`, no backfill), stamped by `AppDbContext` on save when a line is created by any path (orders, walk-up, register, imports) and again when a line moves to another plant; a price edit alone leaves existing lines alone. Reports, the live KPI, the close-sale cash check and the register's on-screen total use `UnitPrice ?? current catalog price ?? 0`, so lines from before the migration read as they did. "Price at sale" is the price when the line was created (for a preorder, when it was ordered, not when it was picked up). Unit tests fail with the old report math or without the stamping; a Postgres test runs a register sale, raises the price and reads $50 back | `OrderLine.UnitPrice`, `AppDbContext.StampLinePricesAsync`, `ReportService`, `WalkUpRegisterService`, `web/src/types/walkupRegister.ts`, `PostgresTests/SalePriceTests.cs` | `fix/audit-tail-and-sale-price` |
 | Database refusals came back as 500s with raw Postgres text: a serialization conflict or deadlock that outlived the retries (session and register scans), and constraint violations (check 23514, unique 23505, FK 23503, numeric overflow 22003). `ExceptionHandlerMiddleware` now answers 409 "Another station changed this at the same moment..." for 40001/40P01/transient, 400 or 409 with a plain message for the constraint codes, and still 500 for anything else (control test). Middleware tests fail on the old code. The audit's other 500, `ExpandAsync`'s `NotImplementedException`, was already a 400 (the controller catches it); nothing to change | `Api/Middleware/ExceptionHandlerMiddleware.cs` | `fix/audit-tail-and-sale-price` |
 | Pickup scan and manual fulfil checked the order's status only before their transaction: a bulk cancel committing in between let the scan take stock on the Cancelled order. Both now lock the order row last (canonical order) and recheck it. Manual fulfil also ran its transaction without the retry wrapper, so a serialization conflict reached the desk as a 400 reading "An exception has been raised that is likely due to a transient failure" (EF's `InvalidOperationException`); it now retries. `ScanStatusRaceTests` holds each before its first lock and commits the cancel in between: on the old code the scan succeeds and stock drops, and the manual fulfil fails with that transient-failure error; now both are refused with stock untouched | `FulfillmentService`, `PostgresTests/ScanStatusRaceTests.cs` | `fix/audit-tail-and-sale-price` |

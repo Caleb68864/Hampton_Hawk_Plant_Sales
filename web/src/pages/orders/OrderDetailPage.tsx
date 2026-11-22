@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.js';
 import { fulfillmentApi } from '@/api/fulfillment.js';
 import { OrderLinesTable } from '@/components/OrderLinesTable.js';
+import { OrderScanHistory } from '@/components/orders/OrderScanHistory.js';
 import { StatusChip } from '@/components/shared/StatusChip.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
@@ -228,6 +229,8 @@ export function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      <OrderScanHistory orderId={order.id} />
 
       <ConfirmModal
         isOpen={showDelete}

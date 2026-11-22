@@ -28,3 +28,14 @@ test('toBannerMessage includes technical details when available', () => {
   assert.match(banner, /What to do next:/);
   assert.match(banner, /Technical details: Inventory check failed for SKU-42/);
 });
+
+test('the API 409 for a station collision maps to the concurrency guidance', () => {
+  const mapped = mapToActionableError('Another station changed this at the same moment. Wait a second, then try again.');
+  assert.equal(mapped.whatHappened, 'Another station updated this order at the same time.');
+});
+
+test('a 500 reference maps to its own guidance and keeps the reference in the details', () => {
+  const mapped = mapToActionableError('Unexpected server error (reference 0HN7:00000003). Try again; if it keeps happening, give this reference to an admin.');
+  assert.equal(mapped.whatHappened, 'The server hit an unexpected error.');
+  assert.match(mapped.details ?? '', /0HN7:00000003/);
+});

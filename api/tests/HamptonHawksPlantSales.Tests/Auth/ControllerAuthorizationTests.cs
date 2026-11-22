@@ -183,4 +183,24 @@ public class ControllerAuthorizationTests
         var method = typeof(UsersController).GetMethod("AssignRoles");
         Assert.NotNull(method);
     }
+
+    [Fact]
+    public void SingleCustomerAndSellerDeletes_RequireTheAdminPin()
+    {
+        // Bulk deletes needed the PIN; deleting one record needed nothing.
+        Assert.True(ActionHasAttribute<HamptonHawksPlantSales.Api.Filters.RequiresAdminPinAttribute>(typeof(CustomersController), "Delete"));
+        Assert.True(ActionHasAttribute<HamptonHawksPlantSales.Api.Filters.RequiresAdminPinAttribute>(typeof(SellersController), "Delete"));
+    }
+
+    [Theory]
+    [InlineData("ImportPlants")]
+    [InlineData("ImportInventory")]
+    [InlineData("ImportOrders")]
+    public void ImportUploads_AreCappedAtTheSizeTheImportsPageEnforces(string action)
+    {
+        var method = typeof(ImportController).GetMethod(action)!;
+        var limit = method.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute), false);
+        Assert.Single(limit);
+        Assert.Equal(10L * 1024 * 1024, ImportController.MaxUploadBytes);
+    }
 }

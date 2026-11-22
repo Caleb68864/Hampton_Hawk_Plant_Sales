@@ -334,6 +334,7 @@ Generated output goes to:
 | `Session__AllowInsecureCookieOverHttp` | Issue session cookies without `Secure` on plain-http requests, so phones on the LAN can stay logged in. See [Phones on the LAN](#phones-on-the-lan-plain-http). | off |
 | `ForwardedHeaders__KnownProxies` | Comma-separated addresses of proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` the API will believe. See [Behind a reverse proxy](#behind-a-reverse-proxy). | empty — no proxy trusted |
 | `ForwardedHeaders__KnownNetworks` | The same, given as comma-separated CIDR ranges (`172.16.0.0/12`). | empty — no proxy trusted |
+| `Reports__LiveSaleKpiAnonymous` | Let `/api/reports/live-sale-kpi` (the projector page) be read without signing in. Set `false` when the API is reachable from the internet and the sale totals should not be public; the projector then needs a signed-in browser. | `true` |
 
 ### Phones on the LAN (plain http)
 

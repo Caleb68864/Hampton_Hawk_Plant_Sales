@@ -128,4 +128,22 @@ public class ExceptionHandlerMiddlewareTests
 
         context.Response.StatusCode.Should().Be(500);
     }
+
+    [Fact]
+    public async Task A500_SendsAReference_NotTheExceptionText()
+    {
+        var middleware = new ExceptionHandlerMiddleware(
+            _ => throw new NullReferenceException("Object reference not set at OrderService.cs:412 SELECT * FROM secret"),
+            new Mock<ILogger<ExceptionHandlerMiddleware>>().Object);
+        var (context, body) = NewContext();
+        context.TraceIdentifier = "trace-42";
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(500);
+        body.Position = 0;
+        var text = await new StreamReader(body).ReadToEndAsync();
+        text.Should().NotContain("SELECT").And.NotContain("OrderService.cs");
+        text.Should().Contain("reference trace-42");
+    }
 }

@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Api.Filters;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -106,6 +107,25 @@ public class PlantsController : ControllerBase
                 validation.Errors.Select(e => e.ErrorMessage).ToList()));
 
         var result = await _plantService.UpdateAsync(id, request);
+        return Ok(ApiResponse<PlantResponse>.Ok(result));
+    }
+
+    /// <summary>
+    /// Updates a plant whose barcode is locked (it has been scanned), allowing the
+    /// barcode itself to change. Requires the admin PIN and a reason.
+    /// </summary>
+    [HttpPut("{id:guid}/locked-barcode")]
+    [RequiresAdminPin]
+    [ProducesResponseType(typeof(ApiResponse<PlantResponse>), 200)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> UpdateLockedBarcode(Guid id, [FromBody] UpdatePlantRequest request)
+    {
+        var validation = await _updateValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+            return BadRequest(ApiResponse<PlantResponse>.Fail(
+                validation.Errors.Select(e => e.ErrorMessage).ToList()));
+
+        var result = await _plantService.UpdateAsync(id, request, allowLockedBarcodeChange: true);
         return Ok(ApiResponse<PlantResponse>.Ok(result));
     }
 

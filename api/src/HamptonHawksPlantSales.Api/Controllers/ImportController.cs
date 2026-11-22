@@ -14,6 +14,13 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 [Authorize(Policy = "AdminOnly")]
 public class ImportController : ControllerBase
 {
+    /// <summary>
+    /// Largest import file accepted, the same 10 MB the Imports page enforces
+    /// (web/src/components/imports/fileRejection.ts). Without it Kestrel's 30 MB
+    /// default was the only bound on what an import would buffer and parse.
+    /// </summary>
+    public const long MaxUploadBytes = 10 * 1024 * 1024;
+
     private readonly IImportService _importService;
 
     public ImportController(IImportService importService)
@@ -30,6 +37,8 @@ public class ImportController : ControllerBase
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("plants")]
+    [RequestSizeLimit(MaxUploadBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> ImportPlants(IFormFile file, [FromQuery] bool dryRun = false, [FromQuery] bool upsertBySku = true)
@@ -51,6 +60,8 @@ public class ImportController : ControllerBase
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("inventory")]
+    [RequestSizeLimit(MaxUploadBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> ImportInventory(IFormFile file, [FromQuery] bool dryRun = false)
@@ -73,6 +84,8 @@ public class ImportController : ControllerBase
     /// <response code="200">Import result with row counts and any issues.</response>
     /// <response code="400">File is missing or empty.</response>
     [HttpPost("orders")]
+    [RequestSizeLimit(MaxUploadBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     [ProducesResponseType(typeof(ApiResponse<ImportResultResponse>), 200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> ImportOrders(IFormFile file, [FromQuery] bool dryRun = false, [FromQuery] bool resolveDuplicateOrderNumbers = false)

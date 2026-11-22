@@ -110,6 +110,38 @@ public class OrderServiceTests
 
     // ===== EP-16: List orders with filters and pagination =====
 
+    [Theory]
+    [InlineData("Jane Q")]     // display name
+    [InlineData("quigley")]    // last name only (display name is a nickname)
+    [InlineData("555-0142")]   // phone
+    [InlineData("k7qx")]       // pickup code, any case
+    [InlineData("A-1042")]     // order number
+    public async Task GetAllAsync_Search_MatchesEverythingTheCustomerSearchDoes(string term)
+    {
+        // The pickup lookup now issues this one search instead of a customer search
+        // followed by one orders request per customer, so it must find an order by
+        // each field the customer search matched on.
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer("Jane Q");
+        customer.LastName = "Quigley";
+        customer.Phone = "555-0142";
+        customer.PickupCode = "K7QX2M";
+        var other = TestDataBuilder.CreateCustomer("Someone Else");
+        db.Customers.AddRange(customer, other);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        order.OrderNumber = "A-1042";
+        var otherOrder = TestDataBuilder.CreateOrder(other.Id, OrderStatus.Open);
+        otherOrder.OrderNumber = "B-2000";
+        db.Orders.AddRange(order, otherOrder);
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db).GetAllAsync(
+            search: term, status: null, isWalkUp: null, sellerId: null, customerId: null,
+            includeDeleted: false, new PaginationParams { Page = 1, PageSize = 25 });
+
+        result.Items.Select(o => o.Id).Should().Equal(order.Id);
+    }
+
     [Fact]
     public async Task GetAllAsync_FilterByStatus_ReturnsOnlyMatchingOrders()
     {
@@ -734,6 +766,26 @@ public class OrderServiceTests
     }
 
     // ===== EP-20: Soft-delete an order =====
+
+    [Fact]
+    public async Task UpdateAndBulkStatus_RefuseToMoveAnOrderIntoDraft()
+    {
+        // Draft hides an order from every list and report; only the register uses it.
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        db.Customers.Add(customer);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var update = () => service.UpdateAsync(order.Id, new UpdateOrderRequest { CustomerId = customer.Id, Status = OrderStatus.Draft });
+        await update.Should().ThrowAsync<FluentValidation.ValidationException>();
+        var bulk = () => service.BulkSetStatusAsync(new BulkSetOrderStatusRequest { OrderIds = new() { order.Id }, TargetStatus = OrderStatus.Draft });
+        await bulk.Should().ThrowAsync<FluentValidation.ValidationException>();
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatus.Open);
+    }
 
     [Fact]
     public async Task DeleteAsync_ARegisterDraftHoldingStock_IsRefused()

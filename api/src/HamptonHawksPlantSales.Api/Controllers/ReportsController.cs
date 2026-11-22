@@ -14,11 +14,20 @@ namespace HamptonHawksPlantSales.Api.Controllers;
 [Authorize(Policy = "ReportsCapable")]
 public class ReportsController : ControllerBase
 {
-    private readonly IReportService _reportService;
+    /// <summary>
+    /// Whether the live KPI may be read without signing in (the projector). On by
+    /// default, as before; set Reports__LiveSaleKpiAnonymous=false when the API is
+    /// reachable from the internet and the totals should not be public.
+    /// </summary>
+    public const string LiveSaleKpiAnonymousSetting = "Reports:LiveSaleKpiAnonymous";
 
-    public ReportsController(IReportService reportService)
+    private readonly IReportService _reportService;
+    private readonly IConfiguration? _configuration;
+
+    public ReportsController(IReportService reportService, IConfiguration? configuration = null)
     {
         _reportService = reportService;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -191,6 +200,10 @@ public class ReportsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<LiveSaleKpiResponse>), 200)]
     public async Task<IActionResult> GetLiveSaleKpi([FromQuery] string? timeZone = null)
     {
+        var anonymousAllowed = _configuration?.GetValue<bool?>(LiveSaleKpiAnonymousSetting) ?? true;
+        if (!anonymousAllowed && User.Identity?.IsAuthenticated != true)
+            return Unauthorized(ApiResponse<LiveSaleKpiResponse>.Fail("Sign in to view the live sale numbers."));
+
         var result = await _reportService.GetLiveSaleKpiAsync(timeZone);
         return Ok(ApiResponse<LiveSaleKpiResponse>.Ok(result));
     }

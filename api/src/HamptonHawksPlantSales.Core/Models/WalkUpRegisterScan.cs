@@ -7,8 +7,10 @@ namespace HamptonHawksPlantSales.Core.Models;
 /// last-scan-id column on the line cannot recognise. Rows are never deleted: a scan
 /// whose line was later voided is still a replay.
 /// </summary>
-public class WalkUpRegisterScan : EventEntity
+public class WalkUpRegisterScan : EventEntity, IUserAttributed
 {
+    /// <summary>Signed-in account that caused this row (stamped on insert).</summary>
+    public Guid? UserId { get; set; }
     public Guid OrderId { get; set; }
     public string ScanId { get; set; } = string.Empty;
     public Guid PlantCatalogId { get; set; }

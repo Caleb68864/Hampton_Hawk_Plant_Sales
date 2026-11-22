@@ -2,7 +2,7 @@ using HamptonHawksPlantSales.Core.Enums;
 
 namespace HamptonHawksPlantSales.Core.Models;
 
-public class FulfillmentEvent : EventEntity
+public class FulfillmentEvent : EventEntity, IUserAttributed
 {
     public Guid OrderId { get; set; }
     public Guid? PlantCatalogId { get; set; }

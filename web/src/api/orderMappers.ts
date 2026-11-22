@@ -1,11 +1,11 @@
-import type { Order } from '../types/order.ts';
+import type { Order, OrderCustomerSummary } from '../types/order.ts';
 
 interface ApiOrderParty {
   displayName: string;
 }
 
-export interface ApiOrder extends Omit<Order, 'customerDisplayName' | 'sellerDisplayName'> {
-  customer: ApiOrderParty | null;
+export interface ApiOrder extends Omit<Order, 'customerDisplayName' | 'sellerDisplayName' | 'customer'> {
+  customer: OrderCustomerSummary | null;
   seller: ApiOrderParty | null;
 }
 
