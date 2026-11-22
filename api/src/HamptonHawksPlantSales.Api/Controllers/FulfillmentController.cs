@@ -107,7 +107,8 @@ public class FulfillmentController : ControllerBase
     }
 
     /// <summary>
-    /// Resets an order back to Open status, clearing all fulfillment progress. Requires admin PIN.
+    /// Re-opens a completed order (Complete -> InProgress) so scanning can continue.
+    /// Fulfilled quantities and stock are left as they are. Requires admin PIN.
     /// </summary>
     /// <param name="id">Order ID.</param>
     /// <response code="200">Order reset to Open.</response>

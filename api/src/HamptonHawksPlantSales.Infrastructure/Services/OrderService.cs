@@ -215,6 +215,11 @@ public class OrderService : IOrderService
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id && o.DeletedAt == null)
             ?? throw new KeyNotFoundException("Order not found.");
 
+        // Draft belongs to the register: it hides an order from every list and
+        // report. Nothing else may put an order into it.
+        if (request.Status == OrderStatus.Draft && order.Status != OrderStatus.Draft)
+            throw new ValidationException("Draft is only for open register sales; choose another status.");
+
         order.CustomerId = request.CustomerId;
         order.SellerId = request.SellerId;
         order.Status = request.Status;
@@ -683,6 +688,9 @@ public class OrderService : IOrderService
 
     public async Task<BulkOperationResult> BulkSetStatusAsync(BulkSetOrderStatusRequest request, string? adminReason = null)
     {
+        if (request.TargetStatus == OrderStatus.Draft)
+            throw new ValidationException("Draft is only for open register sales; choose another status.");
+
         var outcomes = new List<BulkOrderOutcome>();
         var isRelational = _db.Database.IsRelational();
         var transaction = isRelational ? await _db.Database.BeginTransactionAsync() : null;

@@ -40,6 +40,27 @@ public class ImportServiceTests
     }
 
     [Fact]
+    public async Task PlantImport_Upsert_KeepsTheBarcodeOfAScannedPlant_AndUpdatesTheRest()
+    {
+        using var db = MockDbContextFactory.Create();
+        var seed = TestDataBuilder.CreatePlant(sku: "SKU-L", barcode: "OLD-BC", name: "Old Name");
+        seed.BarcodeLockedAt = DateTimeOffset.UtcNow;
+        db.PlantCatalogs.Add(seed);
+        await db.SaveChangesAsync();
+
+        var csv = "Sku,Name,Variant,Price,Barcode\nSKU-L,New Name,,9.50,NEW-BC\n";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+        var result = await new ImportService(db).ImportAsync(ImportType.Plants, "plants.csv", stream, new ImportOptions { UpsertPlantsBySku = true });
+
+        var saved = db.PlantCatalogs.Single(x => x.Sku == "SKU-L");
+        Assert.Equal("OLD-BC", saved.Barcode);
+        Assert.Equal("New Name", saved.Name);
+        Assert.Equal(9.50m, saved.Price);
+        Assert.Equal(1, result.IssueCount);
+        Assert.Contains(db.ImportIssues, i => i.IssueType == "BarcodeLocked");
+    }
+
+    [Fact]
     public async Task PlantImport_DryRun_DoesNotPersistRowsOrBatch()
     {
         using var db = MockDbContextFactory.Create();

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { plantsApi } from '@/api/plants.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
@@ -11,6 +12,7 @@ import type { Plant, CreatePlantRequest, UpdatePlantRequest } from '@/types/plan
 export function PlantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const openPinModal = useAuthStore((st) => st.openPinModal);
   const isNew = id === 'new';
 
   const [plant, setPlant] = useState<Plant | null>(null);
@@ -80,7 +82,19 @@ export function PlantDetailPage() {
           price,
           isActive: form.isActive,
         };
-        await plantsApi.update(id!, data);
+        // A scanned plant's labels are in use; changing its barcode needs the
+        // admin PIN (the server refuses it otherwise).
+        if (plant?.barcodeLockedAt && data.barcode !== plant.barcode) {
+          const auth = await openPinModal({
+            title: 'Change a locked barcode',
+            description: 'This plant has been scanned, so its printed labels will stop scanning. An admin must approve.',
+            reasonLabel: 'Why change the barcode?',
+          });
+          if (!auth) return;
+          await plantsApi.updateLockedBarcode(id!, data, auth.pin, auth.reason);
+        } else {
+          await plantsApi.update(id!, data);
+        }
         navigate('/plants', { replace: true });
       }
     } catch (e) {
@@ -130,7 +144,7 @@ export function PlantDetailPage() {
 
       {plant?.barcodeLockedAt && (
         <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700">
-          Barcode locked at {new Date(plant.barcodeLockedAt).toLocaleString()}. Changing the barcode may affect existing orders.
+          Barcode locked at {new Date(plant.barcodeLockedAt).toLocaleString()}. Changing the barcode needs the admin PIN: labels already printed will stop scanning.
         </div>
       )}
 

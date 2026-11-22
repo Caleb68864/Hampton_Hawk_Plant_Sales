@@ -166,6 +166,23 @@ public class PlantImportHandler
                 existingPlant.Variant = string.IsNullOrWhiteSpace(variant) ? null : variant;
                 // A blank price on an upsert row means "not provided", not "clear it".
                 existingPlant.Price = price ?? existingPlant.Price;
+                // A scanned plant's labels are in use: keep its barcode and say so
+                // (the PIN-gated edit can still change it), but update the rest.
+                if (existingPlant.BarcodeLockedAt != null
+                    && !string.Equals(previousBarcode, barcode, StringComparison.OrdinalIgnoreCase))
+                {
+                    issues.Add(new ImportIssue
+                    {
+                        ImportBatchId = batchId,
+                        RowNumber = rowNumber,
+                        IssueType = "BarcodeLocked",
+                        Sku = sku,
+                        Barcode = barcode,
+                        Message = $"Sku '{sku}' has already been scanned; its barcode stays '{previousBarcode}'. Other fields were updated.",
+                        RawData = rawData
+                    });
+                    barcode = previousBarcode;
+                }
                 existingPlant.Barcode = barcode;
                 existingPlant.IsActive = isActive;
                 if (!string.IsNullOrWhiteSpace(previousBarcode) && !string.Equals(previousBarcode, barcode, StringComparison.OrdinalIgnoreCase))

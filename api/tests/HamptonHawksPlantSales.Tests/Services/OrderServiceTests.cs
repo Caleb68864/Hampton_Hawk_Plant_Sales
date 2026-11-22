@@ -768,6 +768,26 @@ public class OrderServiceTests
     // ===== EP-20: Soft-delete an order =====
 
     [Fact]
+    public async Task UpdateAndBulkStatus_RefuseToMoveAnOrderIntoDraft()
+    {
+        // Draft hides an order from every list and report; only the register uses it.
+        using var db = MockDbContextFactory.Create();
+        var customer = TestDataBuilder.CreateCustomer();
+        db.Customers.Add(customer);
+        var order = TestDataBuilder.CreateOrder(customer.Id, OrderStatus.Open);
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var update = () => service.UpdateAsync(order.Id, new UpdateOrderRequest { CustomerId = customer.Id, Status = OrderStatus.Draft });
+        await update.Should().ThrowAsync<FluentValidation.ValidationException>();
+        var bulk = () => service.BulkSetStatusAsync(new BulkSetOrderStatusRequest { OrderIds = new() { order.Id }, TargetStatus = OrderStatus.Draft });
+        await bulk.Should().ThrowAsync<FluentValidation.ValidationException>();
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatus.Open);
+    }
+
+    [Fact]
     public async Task DeleteAsync_ARegisterDraftHoldingStock_IsRefused()
     {
         // The register takes stock at scan time; deleting the draft here used to

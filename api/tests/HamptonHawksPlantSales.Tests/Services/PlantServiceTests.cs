@@ -373,6 +373,32 @@ public class PlantServiceTests
     // ── EP-27: Update Plant ────────────────────────────────────────────
 
     [Fact]
+    public async Task UpdateAsync_ALockedBarcode_CannotChangeWithoutTheAdminRoute()
+    {
+        // BarcodeLockedAt was set by the first scan and then ignored: an edit could
+        // change the barcode under labels already stuck on plants.
+        using var db = MockDbContextFactory.Create();
+        var plant = TestDataBuilder.CreatePlant(sku: "LOCK-1", barcode: "000000001001");
+        plant.BarcodeLockedAt = DateTimeOffset.UtcNow;
+        db.PlantCatalogs.Add(plant);
+        await db.SaveChangesAsync();
+        var service = new PlantService(db);
+        var request = new UpdatePlantRequest { Sku = "LOCK-1", Name = "Renamed", Barcode = "000000009999", IsActive = true };
+
+        var act = () => service.UpdateAsync(plant.Id, request);
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>().WithMessage("*admin PIN*");
+        (await db.PlantCatalogs.SingleAsync()).Barcode.Should().Be("000000001001");
+
+        // Same barcode: other fields still edit freely.
+        var rename = await service.UpdateAsync(plant.Id, new UpdatePlantRequest { Sku = "LOCK-1", Name = "Renamed", Barcode = "000000001001", IsActive = true });
+        rename.Name.Should().Be("Renamed");
+
+        // The PIN-gated route may change it.
+        var moved = await service.UpdateAsync(plant.Id, request, allowLockedBarcodeChange: true);
+        moved.Barcode.Should().Be("000000009999");
+    }
+
+    [Fact]
     public async Task UpdateAsync_WithValidRequest_UpdatesNameAndPrice()
     {
         // Arrange
