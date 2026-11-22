@@ -45,8 +45,6 @@ instruction file.
   `FulfillmentEvent` type declares them since `test/lock-order-gaps`; nothing renders
   them yet).
 
-- Customer/seller mutation is open to every LookupCapable role; single deletes need no
-  PIN while bulk deletes do.
 - Order status hygiene: `UpdateAsync`/`BulkSetStatus` accept any target status incl.
   Draft; `ResetOrderAsync` only flips Complete->InProgress; `BarcodeLockedAt` unenforced
   in `PlantService.UpdateAsync`.
@@ -57,11 +55,6 @@ instruction file.
   whole upload.
 - Soft-deleting a customer/seller/plant drops its orders from per-entity reports but not
   from totals.
-
-### Cosmetic
-
-- REQ-021 demo page role gate is Admin-only vs spec's Pickup+Admin
-  (`docs/findings/verification-2026-05-12-camera-scanner-foundation.md`); accept or change.
 
 ### Environment notes (not code)
 
@@ -76,6 +69,8 @@ instruction file.
 
 | item | where | commit |
 |---|---|---|
+| Customer/seller deletes. **Decided by agent 2026-11-22 (owner may revisit):** single deletes now need the admin PIN and a reason, the same bar as the bulk deletes (a delete drops the record's orders out of lookups and per-entity reports). Creating and editing customers and sellers stays open to every LookupCapable role, so volunteers can still add a walk-in or fix a phone number. The detail pages prompt for the PIN; cancelling the prompt deletes nothing. Attribute test and page tests fail on the old code | `CustomersController.Delete`, `SellersController.Delete`, `web/src/api/customers.ts`, `sellers.ts`, `CustomerDetailPage`, `SellerDetailPage` | `feat/pickup-search-and-policy` |
+| REQ-021 scanner demo page role gate (Admin-only, spec said Pickup + Admin). **Decided by agent 2026-11-22 (owner may revisit):** keep Admin-only, the verification report's recommendation and the stricter option; `docs/sale-day/device-checklist.md` already tells volunteers a supervisor opens it. No code change | `web/src/routes/mobileRouteConfig.ts` | (decision only) |
 | Pickup lookup: one grouped search instead of a customer search plus one orders request per matching customer (up to ~50 per settled search). **Decided by agent 2026-11-22 (owner may revisit):** the matching rule is the union of both old searches, so nothing the volunteer could find before is lost: `GET /api/orders?search=` matches order number, order barcode, and the customer's display name, last name, phone and pickup code, each as a case-insensitive substring (phone as typed, as the customer search did); walk-up register sales with no customer are not listed, as before. The order search previously lacked last name and phone. The page groups the one response by customer (`utils/pickupLookup.ts`), sorted by name; the A-Z tab pages through all orders (at most 10 x 200) instead of per-customer calls; more than 200 matches shows "Showing the first 200". Exact order-number auto-jump is unchanged. API test (last name and phone fail on the old search), node tests for the grouping, page test (one request; fails on the old page) | `OrderService.GetAllAsync`, `PickupLookupPage`, `utils/pickupLookup.ts` | `feat/pickup-search-and-policy` |
 | Revenue used quantity x the current catalog price, so raising a price after the sale rewrote past revenue in every report and the live KPI (10 x $5 taken, $60 reported). **Decided by agent 2026-11-21 (owner may revisit):** record the price on the line, never rewrite history. New nullable `OrderLines.UnitPrice` (numeric(10,2), migration `AddOrderLineUnitPrice`, no backfill), stamped by `AppDbContext` on save when a line is created by any path (orders, walk-up, register, imports) and again when a line moves to another plant; a price edit alone leaves existing lines alone. Reports, the live KPI, the close-sale cash check and the register's on-screen total use `UnitPrice ?? current catalog price ?? 0`, so lines from before the migration read as they did. "Price at sale" is the price when the line was created (for a preorder, when it was ordered, not when it was picked up). Unit tests fail with the old report math or without the stamping; a Postgres test runs a register sale, raises the price and reads $50 back | `OrderLine.UnitPrice`, `AppDbContext.StampLinePricesAsync`, `ReportService`, `WalkUpRegisterService`, `web/src/types/walkupRegister.ts`, `PostgresTests/SalePriceTests.cs` | `fix/audit-tail-and-sale-price` |
 | Database refusals came back as 500s with raw Postgres text: a serialization conflict or deadlock that outlived the retries (session and register scans), and constraint violations (check 23514, unique 23505, FK 23503, numeric overflow 22003). `ExceptionHandlerMiddleware` now answers 409 "Another station changed this at the same moment..." for 40001/40P01/transient, 400 or 409 with a plain message for the constraint codes, and still 500 for anything else (control test). Middleware tests fail on the old code. The audit's other 500, `ExpandAsync`'s `NotImplementedException`, was already a 400 (the controller catches it); nothing to change | `Api/Middleware/ExceptionHandlerMiddleware.cs` | `fix/audit-tail-and-sale-price` |

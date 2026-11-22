@@ -1,3 +1,4 @@
+using HamptonHawksPlantSales.Api.Filters;
 using FluentValidation;
 using HamptonHawksPlantSales.Core.DTOs;
 using HamptonHawksPlantSales.Core.Interfaces;
@@ -112,6 +113,9 @@ public class SellersController : ControllerBase
     /// <response code="200">Deletion succeeded.</response>
     /// <response code="404">Seller not found.</response>
     [HttpDelete("{id:guid}")]
+    // Same bar as the bulk deletes: a delete drops the record's orders out of
+    // lookups and per-entity reports, so it needs the admin PIN and a reason.
+    [RequiresAdminPin]
     [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)

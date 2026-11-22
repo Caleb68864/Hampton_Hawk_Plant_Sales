@@ -183,4 +183,12 @@ public class ControllerAuthorizationTests
         var method = typeof(UsersController).GetMethod("AssignRoles");
         Assert.NotNull(method);
     }
+
+    [Fact]
+    public void SingleCustomerAndSellerDeletes_RequireTheAdminPin()
+    {
+        // Bulk deletes needed the PIN; deleting one record needed nothing.
+        Assert.True(ActionHasAttribute<HamptonHawksPlantSales.Api.Filters.RequiresAdminPinAttribute>(typeof(CustomersController), "Delete"));
+        Assert.True(ActionHasAttribute<HamptonHawksPlantSales.Api.Filters.RequiresAdminPinAttribute>(typeof(SellersController), "Delete"));
+    }
 }

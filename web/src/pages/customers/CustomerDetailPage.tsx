@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { customersApi } from '@/api/customers.js';
 import { ordersApi } from '@/api/orders.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner.js';
 import { ErrorBanner } from '@/components/shared/ErrorBanner.js';
 import { ConfirmModal } from '@/components/shared/ConfirmModal.js';
@@ -16,6 +17,7 @@ import type { Order } from '@/types/order.js';
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const openPinModal = useAuthStore((st) => st.openPinModal);
   const isNew = id === 'new';
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -90,9 +92,16 @@ export function CustomerDetailPage() {
 
   async function handleDelete() {
     setShowDelete(false);
+    // Deleting needs the admin PIN and a reason, as the bulk deletes do.
+    const auth = await openPinModal({
+      title: 'Delete customer',
+      description: 'An admin must approve deleting this customer.',
+      reasonLabel: 'Delete reason',
+    });
+    if (!auth) return;
     setSaving(true);
     try {
-      await customersApi.delete(id!);
+      await customersApi.delete(id!, auth.pin, auth.reason);
       navigate('/customers', { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete customer');
